@@ -134,28 +134,6 @@ class HyperParameterSearcher:
                  training_times=str(grid.best_params_) + "\n" +
                  str(grid.cv_results_) + "\n" + str(grid.best_score_))
 
-    def classify(self):
-        clf_params = functions.get_best_hyper_params('RF')
-
-        clf = RandomForestClassifier(**clf_params)
-
-        clf.fit(self.X,
-                self.Y,
-                sample_weight=compute_sample_weight('balanced', self.Y))
-
-        yPredicted = cross_val_predict(clf, self.X, self.Y, cv=5)
-
-        pprint(self.labelBinarizer.classes_)
-        #
-        #  get labels from labelbinarizer!!
-        confusionMatrix = confusion_matrix(self.Y, yPredicted)
-
-        classificationReport = classification_report(
-            self.Y, yPredicted, target_names=self.labelBinarizer.classes_)
-
-        print(classificationReport)
-        print(confusionMatrix)
-
 
 hyperParameterSearcher = HyperParameterSearcher(config)
 hyperParameterSearcher.loadDataset()
