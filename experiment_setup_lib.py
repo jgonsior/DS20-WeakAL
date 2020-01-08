@@ -40,7 +40,6 @@ def evaluate(clf,
              label_encoder,
              store=False,
              training_times=""):
-    Y_test = Y_test.tolist()
 
     Y_pred = clf.predict(X_test)
     clf_report = classification_report(Y_test,

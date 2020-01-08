@@ -1,7 +1,7 @@
 import argparse
 import random
 import sys
-
+from sklearn.model_selection import train_test_split
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ from sklearn.preprocessing import (LabelEncoder, MaxAbsScaler, MinMaxScaler,
                                    QuantileTransformer, RobustScaler,
                                    StandardScaler, minmax_scale)
 from sklearn.tree import DecisionTreeClassifier
-
+from sklearn.feature_selection import SelectKBest, chi2
 from experiment_setup_lib import train_and_evaluate
 
 parser = argparse.ArgumentParser()
@@ -22,11 +22,11 @@ parser.add_argument('--random_data', action='store_true')
 parser.add_argument('--dataset_path')
 parser.add_argument('--classifier',
                     required=True,
-                    help="Supported types: RF, DTree, NB, SVM, Linear, Norm")
+                    help="Supported types: RF, DTree, NB, SVM, Linear")
 parser.add_argument('--cores', type=int, default=-1)
 parser.add_argument('--output_dir', default='tmp/')
 parser.add_argument('--random_seed', type=int, default=42)
-parser.add_argument('--train_fraction', type=float, default=0.5)
+parser.add_argument('--test_fraction', type=float, default=0.5)
 
 config = parser.parse_args()
 
@@ -43,31 +43,29 @@ df = pd.read_csv(config.dataset_path, index_col="id")
 # shuffle df
 df = df.sample(frac=1, random_state=config.random_seed).reset_index(drop=True)
 
-# feature normalization
-print(df)
-
-scaler = RobustScaler()
-feature_col_names = list(filter(lambda c: c != 'CLASS', df.columns))
-df[feature_col_names] = scaler.fit_transform(df[feature_col_names])
-
-print(df)
-
-# feature selection
-
-# train/test split
-X_train = df.sample(frac=config.train_fraction,
-                    random_state=config.random_seed)
-X_test = df.drop(X_train.index)
-
-Y_train = X_train.pop('CLASS')
-Y_test = X_test.pop('CLASS')
+# create numpy data
+Y = df.pop('CLASS').to_numpy()
 
 label_encoder = LabelEncoder()
-label_encoder.fit(Y_train)
-label_encoder.fit(Y_test)
+Y = label_encoder.fit_transform(Y)
 
-Y_train = label_encoder.transform(Y_train)
-Y_test = label_encoder.transform(Y_test)
+X = df.to_numpy()
+
+# feature normalization
+scaler = RobustScaler()
+X = scaler.fit_transform(X)
+
+# scale again to [0,1]
+#  scaler = MinMaxScaler()
+#  X = scaler.fit_transform(X)
+
+# feature selection
+#  selector = SelectKBest(chi2, k=200)
+#  X = selector.fit_transform(X, Y)
+
+# train/test split
+X_train, X_test, Y_train, Y_test = train_test_split(
+    X, Y, test_size=config.test_fraction, random_state=config.random_seed)
 
 #  print(X_train)
 #  print(Y_train)
