@@ -1,14 +1,102 @@
 import contextlib
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 import io
-import os
 import json
+import os
+import pickle
+import argparse
+import random
+import sys
+
 import numpy as np
 import pandas as pd
 import sklearn.metrics
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 
-from sklearn.metrics import confusion_matrix
-import pickle
+
+def standard_config(additional_parameters=None):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dataset_path', required=True)
+    parser.add_argument('--classifier',
+                        required=True,
+                        help="Supported types: RF, DTree, NB, SVM, Linear")
+    parser.add_argument('--cores', type=int, default=-1)
+    parser.add_argument('--output_dir', default='tmp/')
+    parser.add_argument('--random_seed', type=int, default=42)
+    parser.add_argument('--test_fraction', type=float, default=0.5)
+
+    if additional_parameters is not None:
+        for additional_parameter in additional_parameters:
+            parser.add_argument(*additional_parameter[0],
+                                **additional_parameter[1])
+
+    config = parser.parse_args()
+
+    if len(sys.argv[:-1]) == 0:
+        parser.print_help()
+        parser.exit()
+
+    np.random.seed(config.random_seed)
+    random.seed(config.random_seed)
+
+    return config
+
+
+def get_best_hyper_params(clf):
+    if clf == "RF":
+        best_hyper_params = {
+            'criterion': 'gini',
+            'max_depth': 46,
+            'max_features': 'sqrt',
+            'max_leaf_nodes': 47,
+            'min_samples_leaf': 16,
+            'min_samples_split': 6,
+            'n_estimators': 77
+        }
+    elif clf == "NB":
+        best_hyper_params = {'alpha': 0.7982572902331797}
+    elif clf == "SVMPoly":
+        best_hyper_params = {}
+    elif clf == "SVMRbf":
+        best_hyper_params = {
+            'C': 1000,
+            'cache_size': 10000,
+            'gamma': 0.1,
+            'kernel': 'rbf'
+        }
+
+    return best_hyper_params
+
+
+def load_and_prepare_X_and_Y(config):
+    # Read in dataset into pandas dataframe
+    df = pd.read_csv(config.dataset_path, index_col="id")
+
+    # shuffle df
+    df = df.sample(frac=1,
+                   random_state=config.random_seed).reset_index(drop=True)
+
+    # create numpy data
+    Y = df.pop('CLASS').to_numpy()
+
+    label_encoder = LabelEncoder()
+    Y = label_encoder.fit_transform(Y)
+
+    X = df.to_numpy()
+
+    # feature normalization
+    scaler = RobustScaler()
+    X = scaler.fit_transform(X)
+
+    # scale again to [0,1]
+    #  scaler = MinMaxScaler()
+    #  X = scaler.fit_transform(X)
+
+    # feature selection
+    #  selector = SelectKBest(chi2, k=200)
+    #  X = selector.fit_transform(X, Y)
+
+    return X, Y, label_encoder
 
 
 def train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, config,

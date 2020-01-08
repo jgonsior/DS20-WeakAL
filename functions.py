@@ -13,32 +13,6 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
 
 
-def get_best_hyper_params(clf):
-    if clf == "RF":
-        best_hyper_params = {
-            'criterion': 'gini',
-            'max_depth': 46,
-            'max_features': 'sqrt',
-            'max_leaf_nodes': 47,
-            'min_samples_leaf': 16,
-            'min_samples_split': 6,
-            'n_estimators': 77
-        }
-    elif clf == "NB":
-        best_hyper_params = {'alpha': 0.7982572902331797}
-    elif clf == "SVMPoly":
-        best_hyper_params = {}
-    elif clf == "SVMRbf":
-        best_hyper_params = {
-            'C': 1000,
-            'cache_size': 10000,
-            'gamma': 0.1,
-            'kernel': 'rbf'
-        }
-
-    return best_hyper_params
-
-
 def print_data_segmentation(X_train, X_query, X_test, len_queries):
     len_trainset = len(X_train)
     len_queryset = len(X_query)

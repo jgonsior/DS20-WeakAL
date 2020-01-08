@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
 
-import functions
+import experiment_setup_lib
 
 
 class ActiveLearner:
