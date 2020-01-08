@@ -5,7 +5,7 @@ import sys
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
+from experiment_setup_lib import train_and_evaluate
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--random_data', action='store_true')
@@ -13,7 +13,7 @@ parser.add_argument('--dataset_path')
 parser.add_argument('--classifier',
                     required=True,
                     help="Supported types: RF, DTree, LR, SVM")
-parser.add_argument('--cores', type=int, default=2)
+parser.add_argument('--cores', type=int, default=-1)
 parser.add_argument('--output_dir', default='tmp/')
 parser.add_argument('--random_seed', type=int, default=42)
 parser.add_argument('--train_fraction', type=float, default=0.5)
@@ -48,10 +48,9 @@ Y_test = X_test.pop('CLASS')
 # 4. train baseline models
 
 if config.classifier == "RF":
-    clf = RandomForestClassifier(random_state=config.random_seed)
+    clf = RandomForestClassifier(random_state=config.random_seed,
+                                 n_jobs=config.cores,
+                                 verbose=100)
 
-clf.fit(X_train, Y_train)
-Y_pred = clf.predict(X_test)
-print(classification_report(Y_test, Y_pred))
-
+train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, config)
 # 5. print out stats
