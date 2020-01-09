@@ -6,15 +6,16 @@ import sys
 from collections import defaultdict
 from pprint import pprint
 
+import numpy as np
+
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+from experiment_setup_lib import (classification_report_and_confusion_matrix,
+                                  print_data_segmentation)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.utils.class_weight import compute_sample_weight
-
-from experiment_setup_lib import print_data_segmentation, classification_report_and_confusion_matrix
 
 
 class ActiveLearner:
@@ -39,7 +40,8 @@ class ActiveLearner:
             'test_data_metrics': [[] for clf in self.clf_list],
             'train_labeled_data_metrics': [[] for clf in self.clf_list],
             'train_unlabeled_data_metrics': [[] for clf in self.clf_list],
-            'train_unlabeled_class_distribution': [[] for clf in self.clf_list],
+            'train_unlabeled_class_distribution':
+            [[] for clf in self.clf_list],
             'stop_certainty_list': [],
             'stop_stddev_list': [],
             'stop_accuracy_list': [],
@@ -112,8 +114,8 @@ class ActiveLearner:
 
     def calculate_current_metrics(self, X_query, Y_query):
         # calculate for stopping criteria the accuracy of the prediction for the selected queries
-        self.query_accuracy_list.append(accuracy_score(Y_query, self.clf_list[0].predict(X_query)))
-
+        self.query_accuracy_list.append(
+            accuracy_score(Y_query, self.clf_list[0].predict(X_query)))
 
         for i, clf in enumerate(self.clf_list):
             metrics = classification_report_and_confusion_matrix(
@@ -145,33 +147,34 @@ class ActiveLearner:
                 self.label_encoder,
                 output_dict=True)
 
-            self.metrics_per_al_cycle['train_unlabeled_data_metrics'][i].append(
-                metrics)
+            self.metrics_per_al_cycle['train_unlabeled_data_metrics'][
+                i].append(metrics)
 
             train_unlabeled_class_distribution = defaultdict(int)
 
             for label in self.label_encoder.inverse_transform(Y_query):
                 train_unlabeled_class_distribution[label] += 1
 
-            self.metrics_per_al_cycle['train_unlabeled_class_distribution'][i].append(train_unlabeled_class_distribution)
+            self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
+                i].append(train_unlabeled_class_distribution)
 
     def increase_labeled_dataset(self):
 
         # ask strategy for new datapoint
         query_indices = self.calculate_next_query_indices()
-
-        X_query = self.X_train_unlabeled.iloc()[query_indices]
+        X_query = self.X_train_unlabeled[query_indices]
 
         # ask oracle for new query
         Y_query = self.Y_train_unlabeled[query_indices]
 
         # move new queries from unlabeled to labeled dataset
-        self.X_train_labeled = self.X_train_labeled.append(X_query, ignore_index=True)
-        self.X_train_unlabeled.drop(X_query.index, inplace=True)
+        self.X_train_labeled = np.append(self.X_train_labeled, X_query, 0)
+        self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
+                                           query_indices, 0)
 
         self.Y_train_labeled = np.append(self.Y_train_labeled, Y_query)
-        self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled, query_indices, 0)
-
+        self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
+                                           query_indices, 0)
 
         return X_query, Y_query
 
@@ -179,18 +182,33 @@ class ActiveLearner:
         print_data_segmentation(self.X_train_labeled, self.X_train_unlabeled,
                                 self.X_test, self.len_queries)
 
+        print(
+            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}"
+            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA"))
+
+        print("Iteration:  -1 {0:6,d} {1:6,d}".format(
+            self.X_train_labeled.shape[0], self.X_train_unlabeled.shape[0]))
+
         for i in range(0, self.nr_learning_iterations):
             if self.X_train_unlabeled.shape[0] < self.nr_queries_per_iteration:
+                print(self.X_train_unlabeled.shape)
                 break
-
-            print("Iteration: %d" % i)
-            print(self.X_train_unlabeled.shape[0])
 
             # retrain classifier
             self.fit_clf()
 
             X_query, Y_query = self.increase_labeled_dataset()
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
+
+            #  print("Y_train_labeled", self.Y_train_labeled.shape)
+            #  print("Y_train_unlabeled", self.Y_train_unlabeled.shape)
+            #  print("Y_test", self.Y_test.shape)
+            #  print("Y_query", Y_query.shape)
+
+            #  print("X_train_labeled", self.X_train_labeled.shape)
+            #  print("X_train_unlabeled", self.X_train_unlabeled.shape)
+            #  print("X_test", self.X_test.shape)
+            #  print("X_query", X_query.shape)
 
             # calculate new metrics
             self.calculate_current_metrics(X_query, Y_query)
@@ -199,23 +217,28 @@ class ActiveLearner:
             self.calculate_stopping_criteria_stddev()
             self.calculate_stopping_criteria_certainty()
 
-
+            print(
+                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:5.1%} {:5.1%} {:5.1%} {:5.1%} {:5.1%} {:5.1%}"
+                .format(
+                    i,
+                    self.X_train_labeled.shape[0],
+                    self.X_train_unlabeled.shape[0],
+                    self.metrics_per_al_cycle['query_length'][-1],
+                    self.metrics_per_al_cycle['test_data_metrics'][0][-1][0]
+                    ['accuracy'],
+                    self.metrics_per_al_cycle['train_labeled_data_metrics'][0]
+                    [-1][0]['accuracy'],
+                    self.metrics_per_al_cycle['train_unlabeled_data_metrics']
+                    [0][-1][0]['accuracy'],
+                    self.metrics_per_al_cycle['stop_certainty_list'][-1],
+                    self.metrics_per_al_cycle['stop_stddev_list'][-1],
+                    self.metrics_per_al_cycle['stop_accuracy_list'][-1],
+                ))
 
         # in case we specified more queries than we have data
         self.nr_learning_iterations = i
         self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
 
-        pprint(self.metrics_per_al_cycle)
-        with open(
-                self.config.output + '/' + self.config.strategy + '_' +
-                str(self.config.start_size) + '_' +
-                str(self.config.nQueriesPerIteration) + '.pickle', 'wb') as f:
-            pickle.dump(self.metrics_per_al_cycle, f, pickle.HIGHEST_PROTOCOL)
-
-        clf_active = self.clf_list[0]
-
-        clf_passive_full = RandomForestClassifier(**self.best_hyper_parameters)
-        clf_passive_starter = RandomForestClassifier(
-            **self.best_hyper_parameters)
+        #  print(self.metrics_per_al_cycle)
 
         return self.clf_list, self.metrics_per_al_cycle

@@ -122,26 +122,25 @@ def train(clf, X_train, Y_train):
 
 
 def classification_report_and_confusion_matrix(clf,
-                                               X_test,
-                                               Y_test,
+                                               X,
+                                               Y,
                                                config,
                                                label_encoder,
                                                output_dict=True,
                                                store=False,
                                                training_times=""):
 
-    Y_pred = clf.predict(X_test)
-    clf_report = classification_report(Y_test,
+    Y_pred = clf.predict(X)
+    clf_report = classification_report(Y,
                                        Y_pred,
-
                                        output_dict=True,
                                        target_names=label_encoder.classes_)
 
-    conf_matrix = confusion_matrix(Y_test, Y_pred)
+    conf_matrix = confusion_matrix(Y, Y_pred)
 
     if not output_dict:
         clf_report_string = classification_report(
-            Y_test, Y_pred, target_names=label_encoder.classes_)
+            Y, Y_pred, target_names=label_encoder.classes_)
 
         print(clf_report_string)
         print(conf_matrix)
@@ -180,19 +179,16 @@ def classification_report_and_confusion_matrix(clf,
             pickle.dump(clf, f)
 
 
-
 def print_data_segmentation(X_train_labeled, X_train_unlabeled, X_test,
                             len_queries):
     len_train_labeled = len(X_train_labeled)
     len_train_unlabeled = len(X_train_unlabeled)
     len_test = len(X_test)
 
-    len_total = len_train_unlabeled + len_train_labeled + len_trains
+    len_total = len_train_unlabeled + len_train_labeled + len_test
 
-    print("size of train set: %i = %1.2f" %
+    print("size of train  labeled set: %i = %1.2f" %
           (len_train_labeled, len_train_labeled / len_total))
-    print("size of query set: %i = %1.2f" %
+    print("size of train unlabeled set: %i = %1.2f" %
           (len_train_unlabeled, len_train_unlabeled / len_total))
-    print("learned %i queries of query set" % (len_train_unlabeled))
-    print("size of test set: %i = %1.2f" %
-          (len_testset, len_testset / len_total))
+    print("size of test set: %i = %1.2f" % (len_test, len_test / len_total))

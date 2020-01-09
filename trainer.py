@@ -21,7 +21,7 @@ config = standard_config([
         'type': int,
         'default': 150
     }),
-    (['--start_size'], {
+    (['--query_set_size'], {
         'type': float,
         'default': 0.1
     }),
@@ -40,7 +40,7 @@ X_train, X_test, Y_train, Y_test = train_test_split(
 X_train_labeled, X_train_unlabeled, Y_train_labeled, Y_train_unlabeled = train_test_split(
     X_train,
     Y_train,
-    test_size=config.start_size,
+    test_size=1 - config.query_set_size,
     random_state=config.random_seed)
 
 if config.strategy == 'random':
@@ -64,7 +64,10 @@ else:
 
 active_learner.set_data(X_train_labeled, Y_train_labeled, X_train_unlabeled,
                         Y_train_unlabeled, X_test, Y_test, label_encoder)
-trained_active_clf, log = active_learner.learn()
+trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
 
-Y_train_unlabeled_predicted = trained_active_clf.predict(X_train_unlabeled)
-Y_test_predicted = trained_active_clf.predict(X_test)
+#  with open(
+#  self.config.output + '/' + self.config.strategy + '_' +
+#  str(self.config.query_set_size) + '_' +
+#  str(self.config.nQueriesPerIteration) + '.pickle', 'wb') as f:
+#  pickle.dump(self.metrics_per_al_cycle, f, pickle.HIGHEST_PROTOCOL)
