@@ -24,7 +24,7 @@ config = standard_config([
         'type': int,
         'default': 150
     }),
-    (['--query_set_size'], {
+    (['--start_set_size'], {
         'type': float,
         'default': 0.1
     }),
@@ -43,7 +43,7 @@ X_train, X_test, Y_train, Y_test = train_test_split(
 X_train_labeled, X_train_unlabeled, Y_train_labeled, Y_train_unlabeled = train_test_split(
     X_train,
     Y_train,
-    test_size=1 - config.query_set_size,
+    test_size=1 - config.start_set_size,
     random_state=config.random_seed)
 
 if config.strategy == 'random':
@@ -67,15 +67,17 @@ else:
 
 f = io.StringIO()
 
-with contextlib.redirect_stdout(f):
-    active_learner.set_data(X_train_labeled, Y_train_labeled,
-                            X_train_unlabeled, Y_train_unlabeled, X_test,
-                            Y_test, label_encoder)
-    trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
+#  with contextlib.redirect_stdout(f):
+#  active_learner.set_data(X_train_labeled, Y_train_labeled,
+#  X_train_unlabeled, Y_train_unlabeled, X_test,
+#  Y_test, label_encoder)
+#  trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
 
-log = f.getvalue()
-
-filename = config.strategy + '_' + str(config.query_set_size) + '_' + str(
+#  log = f.getvalue()
+log = "hui"
+trained_active_clf_list = ["ui"]
+metrics_per_al_cycle = "oha"
+filename = config.strategy + '_' + str(config.start_set_size) + '_' + str(
     config.nr_queries_per_iteration)
 
 store_result(filename + ".txt", log, config)
