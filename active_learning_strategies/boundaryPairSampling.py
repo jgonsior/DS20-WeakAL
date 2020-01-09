@@ -14,15 +14,13 @@ class BoundaryPairSampler(ActiveLearner):
         return True
 
     def calculate_next_query_indices(self):
-        self.X_train_unlabeled.index = range(len(self.X_train_unlabeled))
-        self.X_train_labeled.index = range(len(self.X_train_labeled))
-
+        print("BoundaryPairSampler is broken. Please fix or move on.")
+        exit(-2)
         Y_pred = self.clf_list[0].predict(self.X_train_unlabeled)
 
-        Y_joined = np.append(Y_pred, self.Y_train_labeled)
-        X_joined = pd.concat([self.X_train_unlabeled, self.X_train_labeled], axis=0)
-        index_joined = X_joined.index.values
-        X_joined.index = range(X_joined.shape[0])
+        Y_joined = np.append(Y_pred, self.Y_train_labeled0)
+        X_joined = np.append(self.X_train_unlabeled, self.X_train_labeled0)
+        index_joined = np.indices(X_joined)
 
         nbrs = NearestNeighbors(n_neighbors=2,
                                 algorithm='ball_tree',
