@@ -151,16 +151,21 @@ def classification_report_and_confusion_matrix(clf,
                                                training_times=""):
 
     Y_pred = clf.predict(X)
-    clf_report = classification_report(Y,
-                                       Y_pred,
-                                       output_dict=True,
-                                       target_names=label_encoder.classes_)
+    clf_report = classification_report(
+        Y,
+        Y_pred,
+        output_dict=True,
+        labels=[i for i in range(len(label_encoder.classes_))],
+        target_names=label_encoder.classes_)
 
     conf_matrix = confusion_matrix(Y, Y_pred)
 
     if not output_dict:
         clf_report_string = classification_report(
-            Y, Y_pred, target_names=label_encoder.classes_)
+            Y,
+            Y_pred,
+            labels=[i for i in range(len(label_encoder.classes_))],
+            target_names=label_encoder.classes_)
 
         print(clf_report_string)
         print(conf_matrix)
