@@ -7,7 +7,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.utils.class_weight import compute_sample_weight
 
-import functions
 from activeLearner import ActiveLearner
 from active_learning_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 

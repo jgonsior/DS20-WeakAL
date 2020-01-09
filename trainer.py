@@ -1,12 +1,15 @@
 import argparse
-from sklearn.model_selection import train_test_split
 import os
 import random
 import sys
-
+import contextlib
 import numpy as np
-from experiment_setup_lib import load_and_prepare_X_and_Y, standard_config
-from active_learning_strategies import BoundaryPairSampler, CommitteeSampler, RandomSampler, UncertaintySampler
+import io
+from active_learning_strategies import (BoundaryPairSampler, CommitteeSampler,
+                                        RandomSampler, UncertaintySampler)
+from experiment_setup_lib import (load_and_prepare_X_and_Y, standard_config,
+                                  store_pickle, store_result)
+from sklearn.model_selection import train_test_split
 
 config = standard_config([
     (['--strategy'], {
@@ -62,12 +65,20 @@ else:
     print("No Active Learning Strategy specified")
     exit(-4)
 
-active_learner.set_data(X_train_labeled, Y_train_labeled, X_train_unlabeled,
-                        Y_train_unlabeled, X_test, Y_test, label_encoder)
-trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
+f = io.StringIO()
 
-#  with open(
-#  self.config.output + '/' + self.config.strategy + '_' +
-#  str(self.config.query_set_size) + '_' +
-#  str(self.config.nQueriesPerIteration) + '.pickle', 'wb') as f:
-#  pickle.dump(self.metrics_per_al_cycle, f, pickle.HIGHEST_PROTOCOL)
+with contextlib.redirect_stdout(f):
+    active_learner.set_data(X_train_labeled, Y_train_labeled,
+                            X_train_unlabeled, Y_train_unlabeled, X_test,
+                            Y_test, label_encoder)
+    trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
+
+log = f.getvalue()
+
+filename = config.strategy + '_' + str(config.query_set_size) + '_' + str(
+    config.nr_queries_per_iteration)
+
+store_result(filename + ".txt", log, config)
+
+# save output
+store_pickle(filename + '.pickle', metrics_per_al_cycle, config)

@@ -8,6 +8,7 @@ import random
 import sys
 
 import numpy as np
+
 import pandas as pd
 import sklearn.metrics
 from sklearn.metrics import classification_report, confusion_matrix
@@ -21,7 +22,7 @@ def standard_config(additional_parameters=None):
                         default="RF",
                         help="Supported types: RF, DTree, NB, SVM, Linear")
     parser.add_argument('--cores', type=int, default=-1)
-    parser.add_argument('--output_dir', default='tmp/')
+    parser.add_argument('--output_dir', default='tmp')
     parser.add_argument('--random_seed', type=int, default=42)
     parser.add_argument('--test_fraction', type=float, default=0.5)
 
@@ -107,6 +108,7 @@ def train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, config,
                                                Y_test,
                                                config,
                                                label_encoder,
+                                               output_dict=False,
                                                store=True,
                                                training_times=training_times)
 
@@ -119,6 +121,24 @@ def train(clf, X_train, Y_train):
 
     training_times = f.getvalue()
     return training_times
+
+
+def store_result(filename, content, config):
+    # create output folder if not existent
+    if not os.path.exists(config.output_dir):
+        os.makedirs(config.output_dir)
+
+    with open(config.output_dir + '/' + filename, 'w') as f:
+        f.write(content)
+
+
+def store_pickle(filename, content, config):
+    # create output folder if not existent
+    if not os.path.exists(config.output_dir):
+        os.makedirs(config.output_dir)
+
+    with open(config.output_dir + '/' + filename, 'wb') as f:
+        pickle.dump(content, f)
 
 
 def classification_report_and_confusion_matrix(clf,
@@ -148,7 +168,6 @@ def classification_report_and_confusion_matrix(clf,
         return clf_report, conf_matrix
 
     if store:
-
         # create output folder if not existent
         if not os.path.exists(config.output_dir):
             os.makedirs(config.output_dir)
@@ -156,27 +175,24 @@ def classification_report_and_confusion_matrix(clf,
         # save Y_pred
         Y_df = pd.DataFrame(Y_pred)
         Y_df.columns = ['Y_pred']
-        Y_df.insert(1, 'Y_test', Y_test)
+        Y_df.insert(1, 'Y_test', Y)
         Y_df.to_csv(config.output_dir + '/Y_pred.csv', index=None)
 
         # save classification_report
-        with open(config.output_dir + '/results.txt', 'w') as f:
-            f.write(
-                json.dumps(
-                    label_encoder.inverse_transform([
-                        i for i in range(len(label_encoder.classes_))
-                    ]).tolist()))
-            f.write("\n" + "#" * 100 + "\n")
-            f.write(clf_report_string)
-            f.write("\n" + "#" * 100 + "\n")
-            f.write(json.dumps(clf_report))
-            f.write("\n" + "#" * 100 + "\n")
-            f.write(json.dumps(conf_matrix.tolist()))
-            f.write("\n" + "#" * 100 + "\n")
-            f.write(training_times)
+        file_string = json.dumps(
+            label_encoder.inverse_transform(
+                [i for i in range(len(label_encoder.classes_))]).tolist())
+        file_string += "\n" + "#" * 100 + "\n"
+        file_string += clf_report_string
+        file_string += "\n" + "#" * 100 + "\n"
+        file_string += json.dumps(clf_report)
+        file_string += "\n" + "#" * 100 + "\n"
+        file_string += json.dumps(conf_matrix.tolist())
+        file_string += "\n" + "#" * 100 + "\n"
+        file_string += training_times
 
-        with open(config.output_dir + '/clf.pickle', 'wb') as f:
-            pickle.dump(clf, f)
+        store_result("results.txt", file_string, config)
+        store_pickle("clf.pickle", clf, config)
 
 
 def print_data_segmentation(X_train_labeled, X_train_unlabeled, X_test,
