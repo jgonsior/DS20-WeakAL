@@ -68,17 +68,17 @@ class CommitteeSampler(ActiveLearner):
             'queried_length': [],
         }
 
-    def fitClf(self, ):
-        self.committee.fit(self.X_train, self.Y_train)
+    def fit_clf(self, ):
+        self.committee.fit(self.X_train_labeled, self.Y_train_labeled)
 
         current_clf_list = self.committee.get_clf_list()
 
     def setClassifierClasses(self, classes):
         self.classifier_classes = classes
 
-    def retrieve_query_indices(self):
+    def calculate_next_query_indices(self):
 
-        committee_predictions = self.committee.predict(self.X_query)
+        committee_predictions = self.committee.predict(self.X_train_unlabeled)
 
         len_predictions = len(committee_predictions[0])
         count_clf = len(self.clf_list)

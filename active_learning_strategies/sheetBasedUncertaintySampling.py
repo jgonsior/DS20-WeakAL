@@ -12,8 +12,8 @@ class SheetBasedUncertaintySampler(SheetBasedActiveLearner):
     def setClassifierClasses(self, classes):
         self.classifier_classes = classes
 
-    def retrieve_query_indices(self):
-        X_query = self.X_query
+    def calculate_next_query_indices(self):
+        X_query = self.X_train_unlabeled
 
         # recieve predictions and probabilities
         # for all possible classifications of classifier

@@ -13,14 +13,14 @@ class BoundaryPairSampler(ActiveLearner):
             return False  # avoid double point pairs
         return True
 
-    def retrieve_query_indices(self):
-        self.X_query.index = range(len(self.X_query))
-        self.X_train.index = range(len(self.X_train))
+    def calculate_next_query_indices(self):
+        self.X_train_unlabeled.index = range(len(self.X_train_unlabeled))
+        self.X_train_labeled.index = range(len(self.X_train_labeled))
 
-        Y_pred = self.clf_list[0].predict(self.X_query)
+        Y_pred = self.clf_list[0].predict(self.X_train_unlabeled)
 
-        Y_joined = np.append(Y_pred, self.Y_train)
-        X_joined = pd.concat([self.X_query, self.X_train], axis=0)
+        Y_joined = np.append(Y_pred, self.Y_train_labeled)
+        X_joined = pd.concat([self.X_train_unlabeled, self.X_train_labeled], axis=0)
         index_joined = X_joined.index.values
         X_joined.index = range(X_joined.shape[0])
 
@@ -45,11 +45,11 @@ class BoundaryPairSampler(ActiveLearner):
             # somehow distance_dict is empty?!
             index_pair = min(distance_dict, key=distance_dict.get)
 
-            if index_pair[0] < len(self.X_query):
+            if index_pair[0] < len(self.X_train_unlabeled):
                 true_index = index_joined[index_pair[0]]
                 myset.append(true_index)
 
-            if index_pair[1] < len(self.X_query):
+            if index_pair[1] < len(self.X_train_unlabeled):
                 true_index = index_joined[index_pair[1]]
                 myset.append(true_index)
 

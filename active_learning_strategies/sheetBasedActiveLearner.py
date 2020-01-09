@@ -16,7 +16,7 @@ class SheetBasedActiveLearner(ActiveLearner):
 
     def move_new_queries_to_training_data(self, query_indices):
         print("Queried sheet " + self.current_sheet_name)
-        self.metrics_per_time['queried_sheet'].append(self.current_sheet_name)
+        self.metrics_per_al_cycle['queried_sheet'].append(self.current_sheet_name)
         super(SheetBasedActiveLearner,
               self).move_new_queries_to_training_data(query_indices)
         self.X_query_spreadsheets = np.delete(self.X_query_spreadsheets,

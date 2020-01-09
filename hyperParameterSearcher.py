@@ -26,7 +26,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import (compute_class_weight,
                                         compute_sample_weight)
 
-from experiment_setup_lib import load_and_prepare_X_and_Y, standard_config, evaluate
+from experiment_setup_lib import load_and_prepare_X_and_Y, standard_config, classification_report_and_confusion_matrix
 
 config = standard_config([(['--cache_size'], {
     'type': int,
@@ -53,6 +53,8 @@ class HyperParameterSearcher:
 
         self.X = X_train
         self.Y = Y_train
+        self.X_test = X_test
+        self.Y_test = Y_test
         self.label_encoder = label_encoder
 
     def testNaiveBayes(self):
@@ -125,13 +127,13 @@ class HyperParameterSearcher:
 
         clf = grid.best_estimator_
 
-        evaluate(clf,
-                 self.X,
-                 self.Y,
-                 self.config,
-                 self.label_encoder,
-                 store=True,
-                 training_times=str(grid.best_params_) + "\n" +
+        classification_report_and_confusion_matrix(clf,
+                                                   self.X_test,
+                                                   self.Y_test,
+                                                   self.config,
+                                                   self.label_encoder,
+                                                   store=True,
+                                                   training_times=str(grid.best_params_) + "\n" +
                  str(grid.cv_results_) + "\n" + str(grid.best_score_))
 
 

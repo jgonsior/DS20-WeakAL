@@ -13,36 +13,23 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 from sklearn.utils.class_weight import compute_sample_weight
 
 
-def print_data_segmentation(X_train, X_query, X_test, len_queries):
-    len_trainset = len(X_train)
-    len_queryset = len(X_query)
-    len_testset = len(X_test)
-
-    len_total = len_queryset + len_testset + len_trainset
-
-    print("size of train set: %i = %1.2f" %
-          (len_trainset, len_trainset / len_total))
-    print("size of query set: %i = %1.2f" %
-          (len_queryset, len_queryset / len_total))
-    print("learned %i queries of query set" % (len_queries))
-    print("size of test set: %i = %1.2f" %
-          (len_testset, len_testset / len_total))
 
 
 def load_data(path):
     # reading data of files build by Data_Builder
     train_data = pd.read_csv(path + "training_data.csv", index_col=0)
-    X_train = train_data.iloc[:, :-1]
+    X_train_labeled = train_data.iloc[:, :-1]
     Y_train = np.array(train_data.iloc[:, -1])
 
     query_data = pd.read_csv(path + "query_data.csv", index_col=0)
-    X_query = query_data.iloc[:, :-1]
+    X_train_unlabeled = query_data.iloc[:, :-1]
     Y_query = np.array(query_data.iloc[:, -1])
 
     test_data = pd.read_csv(path + "test_data.csv", index_col=0)
     X_test = test_data.iloc[:, :-1]
     Y_test = np.array(test_data.iloc[:, -1])
-    return (X_train, Y_train), (X_query, Y_query), (X_test, Y_test)
+    return (X_train_labeled, Y_train), (X_train_unlabeled, Y_query), (X_test,
+                                                                      Y_test)
 
 
 def calculate_accuracy_per_class(clf, classifier_classes, X_temp, Y_temp_true,
@@ -76,8 +63,8 @@ def print_clf_comparison(
     classifier_classes,
     target_names,
     start_size,
-    X_train_orig,
-    X_query_orig,
+    X_train_labeled_orig,
+    X_train_unlabeled_orig,
     X_test_orig,
     Y_train_orig,
     Y_query_orig,
@@ -90,18 +77,18 @@ def print_clf_comparison(
     random.seed(random_state)
     # instantiate data
 
-    ((X_train, Y_train), (X_query, Y_query), (X_test, Y_test),
-     _), _ = load_query_data(features_path,
-                             meta_path,
-                             start_size,
-                             merged_labels,
-                             random_state=random_state)
+    ((X_train_labeled, Y_train), (X_train_unlabeled, Y_query),
+     (X_test, Y_test), _), _ = load_query_data(features_path,
+                                               meta_path,
+                                               start_size,
+                                               merged_labels,
+                                               random_state=random_state)
 
-    if not X_train.equals(X_train_orig):
-        print("X_train")
+    if not X_train_labeled.equals(X_train_labeled_orig):
+        print("X_train_labeled")
 
-    if not X_query.equals(X_query_orig):
-        print("X_query")
+    if not X_train_unlabeled.equals(X_train_unlabeled_orig):
+        print("X_train_unlabeled")
 
     if not X_test.equals(X_test_orig):
         print("X_test")
@@ -118,8 +105,8 @@ def print_clf_comparison(
                                                        Y_test_orig)) == 0:
         print("Y_test")
 
-    X_train = X_train_orig
-    X_query = X_query_orig
+    X_train_labeled = X_train_labeled_orig
+    X_train_unlabeled = X_train_unlabeled_orig
     X_test = X_test_orig
     Y_train = Y_train_orig
     Y_query = Y_query_orig
@@ -127,34 +114,34 @@ def print_clf_comparison(
 
     # building data for full training set
     Y_train_full = np.append(Y_train, Y_query)
-    X_train_full = X_train.append(X_query)
+    X_train_labeled_full = X_train_labeled.append(X_train_unlabeled)
 
-    # first combine X_train_full and Y_train_full
+    # first combine X_train_labeled_full and Y_train_full
     # then sort it after index
     # then shuffle it so that the ordering is the same for all iterations
-    X_train_full['labels'] = Y_train_full
-    X_train_full.sort_index(inplace=True)
-    X_train_full = sklearn.utils.shuffle(X_train_full,
-                                         random_state=random_state)
-    Y_train_full = X_train_full['labels']
-    del X_train_full['labels']
+    X_train_labeled_full['labels'] = Y_train_full
+    X_train_labeled_full.sort_index(inplace=True)
+    X_train_labeled_full = sklearn.utils.shuffle(X_train_labeled_full,
+                                                 random_state=random_state)
+    Y_train_full = X_train_labeled_full['labels']
+    del X_train_labeled_full['labels']
 
-    print("Länge X_train:" + str(len(X_train)))
-    print("Länge X_query:" + str(len(X_query)))
-    print("Länge X_full:" + str(len(X_train_full)))
+    print("Länge X_train_labeled:" + str(len(X_train_labeled)))
+    print("Länge X_train_unlabeled:" + str(len(X_train_unlabeled)))
+    print("Länge X_full:" + str(len(X_train_labeled_full)))
 
     print("Länge Y_train:" + str(len(Y_train)))
     print("Länge Y_query:" + str(len(Y_query)))
     print("Länge Y_full:" + str(len(Y_train_full)))
-    pprint((X_train_full.index))
+    pprint((X_train_labeled_full.index))
     # calculate sizes
-    len_full = len(X_query) + len(X_train)
-    len_starter = len(X_train)
+    len_full = len(X_train_unlabeled) + len(X_train_labeled)
+    len_starter = len(X_train_labeled)
 
     # testing classifier learning starter training set
     print("number of samples: %i" % len_starter)
 
-    clf_passive_starter.fit(X_train,
+    clf_passive_starter.fit(X_train_labeled,
                             Y_train,
                             sample_weight=compute_sample_weight(
                                 'balanced', Y_train))
@@ -169,7 +156,7 @@ def print_clf_comparison(
     # testing classifier learning full training set
     print("number of samples: %i" % len_full)
 
-    clf_passive_full.fit(X_train_full,
+    clf_passive_full.fit(X_train_labeled_full,
                          Y_train_full,
                          sample_weight=compute_sample_weight(
                              'balanced', Y_train_full))

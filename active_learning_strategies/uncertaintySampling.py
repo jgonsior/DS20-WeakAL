@@ -11,12 +11,11 @@ class UncertaintySampler(ActiveLearner):
     def setClassifierClasses(self, classes):
         self.classifier_classes = classes
 
-    def retrieve_query_indices(self):
-
+    def calculate_next_query_indices(self):
         # recieve predictions and probabilitys
         # for all possible classifications of classifier
-        Y_temp_pred = self.clf_list[0].predict(self.X_query)
-        Y_temp_proba = self.clf_list[0].predict_proba(self.X_query)
+        Y_temp_pred = self.clf_list[0].predict(self.X_train_unlabeled)
+        Y_temp_proba = self.clf_list[0].predict_proba(self.X_train_unlabeled)
 
         if self.strategy == 'least_confident':
             result = 1 - np.amax(Y_temp_proba, axis=1)

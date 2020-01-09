@@ -6,7 +6,7 @@ import numpy as np
 
 
 class SheetBasedRandomSampler(SheetBasedActiveLearner):
-    def retrieve_query_indices(self):
+    def calculate_next_query_indices(self):
         random_sheet_name = random.choice(np.unique(self.X_query_spreadsheets))
         self.current_sheet_name = random_sheet_name
         return np.nonzero(self.X_query_spreadsheets == random_sheet_name)

@@ -1,59 +1,70 @@
 import argparse
+from sklearn.model_selection import train_test_split
 import os
 import random
 import sys
 
 import numpy as np
-from experiment_setup_lib import load_and_prepare_X_and_Y
+from experiment_setup_lib import load_and_prepare_X_and_Y, standard_config
 from active_learning_strategies import BoundaryPairSampler, CommitteeSampler, RandomSampler, UncertaintySampler
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--random_data', action='store_true')
-parser.add_argument('--dataset_path')
-parser.add_argument('--classifier',
-                    help="Supported types: RF, DTree, NB, SVM, Linear",
-                    default="RF")
-parser.add_argument('--cores', type=int, default=-1)
-parser.add_argument('--output_dir', default='tmp/')
-parser.add_argument('--random_seed', type=int, default=42)
-parser.add_argument('--test_fraction', type=float, default=0.5)
-parser.add_argument(
-    '--strategy',
-    required=True,
-    help="Possible Values: uncertainty|random|committee|boundary")
-parser.add_argument('--nLearningIterations', type=int, default=15)
-parser.add_argument('--nQueriesPerIteration', type=int, default=150)
-parser.add_argument('--plot', action='store_true')
-parser.add_argument('--start_size', type=float)
+config = standard_config([
+    (['--strategy'], {
+        'required': True,
+        'help': "Possible values: uncertainty, random, committe, boundary"
+    }),
+    (['--nr_learning_iterations'], {
+        'type': int,
+        'default': 15
+    }),
+    (['--nr_queries_per_iteration'], {
+        'type': int,
+        'default': 150
+    }),
+    (['--start_size'], {
+        'type': float,
+        'default': 0.1
+    }),
+    (['--plot'], {
+        'action': 'store_true'
+    }),
+])
 
-config = parser.parse_args()
+X, Y, label_encoder = load_and_prepare_X_and_Y(config)
 
-if len(sys.argv[:-1]) == 0:
-    parser.print_help()
-    parser.exit()
+# split data
+X_train, X_test, Y_train, Y_test = train_test_split(
+    X, Y, test_size=config.test_fraction, random_state=config.random_seed)
 
-np.random.seed(config.random_seed)
-random.seed(config.random_seed)
-
-X, y = load_and_prepare_X_and_Y(config)
+# split training data into labeled and unlabeled dataset
+X_train_labeled, X_train_unlabeled, Y_train_labeled, Y_train_unlabeled = train_test_split(
+    X_train,
+    Y_train,
+    test_size=config.start_size,
+    random_state=config.random_seed)
 
 if config.strategy == 'random':
-    sampler = RandomSampler(config)
+    active_learner = RandomSampler(config)
 elif config.strategy == 'boundary':
-    sampler = BoundaryPairSampler(config)
+    active_learner = BoundaryPairSampler(config)
 elif config.strategy == 'uncertainty':
-    sampler = UncertaintySampler(config)
-    sampler.set_uncertainty_strategy('least_confident')
+    active_learner = UncertaintySampler(config)
+    active_learner.set_uncertainty_strategy('least_confident')
 elif config.strategy == 'uncertainty_max_margin':
-    sampler = UncertaintySampler(config)
-    sampler.set_uncertainty_strategy('max_margin')
+    active_learner = UncertaintySampler(config)
+    active_learner.set_uncertainty_strategy('max_margin')
 elif config.strategy == 'uncertainty_entropy':
-    sampler = UncertaintySampler(config)
-    sampler.set_uncertainty_strategy('entropy')
+    active_learner = UncertaintySampler(config)
+    active_learner.set_uncertainty_strategy('entropy')
 elif config.strategy == 'committee':
-    sampler = CommitteeSampler(config)
+    active_learner = CommitteeSampler(config)
 else:
     print("No Active Learning Strategy specified")
     exit(-4)
 
-sampler.run(X, y)
+active_learner.set_data(X_train_labeled, Y_train_labeled, X_train_unlabeled,
+                        Y_train_unlabeled, X_test, Y_test, label_encoder)
+trained_active_clf, log = active_learner.learn()
+
+Y_train_unlabeled_predicted = trained_active_clf.predict(X_train_unlabeled)
+Y_test_predicted = trained_active_clf.predict(X_test)

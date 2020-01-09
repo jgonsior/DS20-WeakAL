@@ -1,10 +1,9 @@
+import argparse
 import contextlib
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 import io
 import json
 import os
 import pickle
-import argparse
 import random
 import sys
 
@@ -12,13 +11,14 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 
 
 def standard_config(additional_parameters=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset_path', required=True)
     parser.add_argument('--classifier',
-                        required=True,
+                        default="RF",
                         help="Supported types: RF, DTree, NB, SVM, Linear")
     parser.add_argument('--cores', type=int, default=-1)
     parser.add_argument('--output_dir', default='tmp/')
@@ -102,13 +102,13 @@ def load_and_prepare_X_and_Y(config):
 def train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, config,
                        label_encoder):
     training_times = train(clf, X_train, Y_train)
-    evaluate(clf,
-             X_test,
-             Y_test,
-             config,
-             label_encoder,
-             store=True,
-             training_times=training_times)
+    classification_report_and_confusion_matrix(clf,
+                                               X_test,
+                                               Y_test,
+                                               config,
+                                               label_encoder,
+                                               store=True,
+                                               training_times=training_times)
 
 
 def train(clf, X_train, Y_train):
@@ -121,26 +121,32 @@ def train(clf, X_train, Y_train):
     return training_times
 
 
-def evaluate(clf,
-             X_test,
-             Y_test,
-             config,
-             label_encoder,
-             store=False,
-             training_times=""):
+def classification_report_and_confusion_matrix(clf,
+                                               X_test,
+                                               Y_test,
+                                               config,
+                                               label_encoder,
+                                               output_dict=True,
+                                               store=False,
+                                               training_times=""):
 
     Y_pred = clf.predict(X_test)
     clf_report = classification_report(Y_test,
                                        Y_pred,
+
                                        output_dict=True,
                                        target_names=label_encoder.classes_)
-    clf_report_string = classification_report(
-        Y_test, Y_pred, target_names=label_encoder.classes_)
-
-    print(clf_report_string)
 
     conf_matrix = confusion_matrix(Y_test, Y_pred)
-    print(conf_matrix)
+
+    if not output_dict:
+        clf_report_string = classification_report(
+            Y_test, Y_pred, target_names=label_encoder.classes_)
+
+        print(clf_report_string)
+        print(conf_matrix)
+    else:
+        return clf_report, conf_matrix
 
     if store:
 
@@ -172,3 +178,21 @@ def evaluate(clf,
 
         with open(config.output_dir + '/clf.pickle', 'wb') as f:
             pickle.dump(clf, f)
+
+
+
+def print_data_segmentation(X_train_labeled, X_train_unlabeled, X_test,
+                            len_queries):
+    len_train_labeled = len(X_train_labeled)
+    len_train_unlabeled = len(X_train_unlabeled)
+    len_test = len(X_test)
+
+    len_total = len_train_unlabeled + len_train_labeled + len_trains
+
+    print("size of train set: %i = %1.2f" %
+          (len_train_labeled, len_train_labeled / len_total))
+    print("size of query set: %i = %1.2f" %
+          (len_train_unlabeled, len_train_unlabeled / len_total))
+    print("learned %i queries of query set" % (len_train_unlabeled))
+    print("size of test set: %i = %1.2f" %
+          (len_testset, len_testset / len_total))
