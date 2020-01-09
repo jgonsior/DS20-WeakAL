@@ -89,8 +89,8 @@ def load_and_prepare_X_and_Y(config):
     X = scaler.fit_transform(X)
 
     # scale again to [0,1]
-    #  scaler = MinMaxScaler()
-    #  X = scaler.fit_transform(X)
+    scaler = MinMaxScaler()
+    X = scaler.fit_transform(X)
 
     # feature selection
     #  selector = SelectKBest(chi2, k=200)

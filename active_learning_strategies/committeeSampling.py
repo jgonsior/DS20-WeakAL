@@ -38,17 +38,16 @@ class CommitteeSampler(ActiveLearner):
 
         super(CommitteeSampler, self).__init__(config)
 
-        random_state = self.best_hyper_parameters['random_state']
-        del self.best_hyper_parameters['random_state']
+        self.best_hyper_parameters = {'n_jobs': config.cores}
+
+        random_state = config.random_seed
 
         clf0 = RandomForestClassifier(random_state=37264 * random_state,
                                       **self.best_hyper_parameters)
         clf1 = RandomForestClassifier(random_state=948 * random_state,
                                       **self.best_hyper_parameters)
-        clf2 = MultinomialNB(**functions.get_best_hyper_params('NB'))
-        clf3 = svm.SVC(random_state=2648 * random_state,
-                       gamma='auto',
-                       **functions.get_best_hyper_params('SVMPoly'))
+        clf2 = MultinomialNB()
+        clf3 = svm.SVC(random_state=2648 * random_state, gamma='auto')
         clf4 = RandomForestClassifier(random_state=382 * random_state,
                                       **self.best_hyper_parameters)
 
@@ -56,22 +55,22 @@ class CommitteeSampler(ActiveLearner):
 
         self.committee = Committee(self.clf_list)
 
-        self.metrics_per_time = {
-            'test_data': [[] for clf in self.clf_list],
-            'train_data': [[] for clf in self.clf_list],
-            'query_data': [[] for clf in self.clf_list],
-            'query_set_distribution': [[] for clf in self.clf_list],
+        # copy and paste because lazy
+        # with new clf_list!
+        self.metrics_per_al_cycle = {
+            'test_data_metrics': [[] for clf in self.clf_list],
+            'train_labeled_data_metrics': [[] for clf in self.clf_list],
+            'train_unlabeled_data_metrics': [[] for clf in self.clf_list],
+            'train_unlabeled_class_distribution':
+            [[] for clf in self.clf_list],
             'stop_certainty_list': [],
             'stop_stddev_list': [],
             'stop_accuracy_list': [],
-            'queried_sheet': [],
-            'queried_length': [],
+            'query_length': [],
         }
 
     def fit_clf(self, ):
         self.committee.fit(self.X_train_labeled, self.Y_train_labeled)
-
-        current_clf_list = self.committee.get_clf_list()
 
     def setClassifierClasses(self, classes):
         self.classifier_classes = classes
