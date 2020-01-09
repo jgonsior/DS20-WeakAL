@@ -48,7 +48,7 @@ batch_sizes 12
 active_learn committee 0.3 5 150 &
 active_learn committee 0.1 5 150 &
 active_learn committee 0.05 5 150 &
-active_learn committee 0.01 5 
+active_learn committee 0.01 5 150 
 
 batch_sizes 15
 batch_sizes 23

@@ -67,16 +67,16 @@ else:
 
 f = io.StringIO()
 
-#  with contextlib.redirect_stdout(f):
-#  active_learner.set_data(X_train_labeled, Y_train_labeled,
-#  X_train_unlabeled, Y_train_unlabeled, X_test,
-#  Y_test, label_encoder)
-#  trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
+with contextlib.redirect_stdout(f):
+    active_learner.set_data(X_train_labeled, Y_train_labeled,
+                            X_train_unlabeled, Y_train_unlabeled, X_test,
+                            Y_test, label_encoder)
+    trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
 
-#  log = f.getvalue()
-log = "hui"
-trained_active_clf_list = ["ui"]
-metrics_per_al_cycle = "oha"
+log = f.getvalue()
+#  log = "hui"
+#  trained_active_clf_list = ["ui"]
+#  metrics_per_al_cycle = "oha"
 filename = config.strategy + '_' + str(config.start_set_size) + '_' + str(
     config.nr_queries_per_iteration)
 
