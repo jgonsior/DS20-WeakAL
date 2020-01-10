@@ -26,7 +26,7 @@ class UncertaintySampler(ActiveLearner):
             result = np.apply_along_axis(entropy, 1, Y_temp_proba)
 
         #  pprint(result)
-        print(np.argsort(-result))
+        #  print(np.argsort(-result))
 
         query_indices = np.argsort(-result)[:self.nr_queries_per_iteration]
         # return smallest probabilities

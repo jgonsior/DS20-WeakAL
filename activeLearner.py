@@ -183,7 +183,7 @@ class ActiveLearner:
                                 self.X_test, self.len_queries)
 
         print(
-            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>5} {:>5} {:>5} {:>5} {:>5} {:>5}"
+            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6}"
             .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA"))
 
         print("Iteration:  -1 {0:6,d} {1:6,d}".format(
@@ -217,8 +217,17 @@ class ActiveLearner:
             self.calculate_stopping_criteria_stddev()
             self.calculate_stopping_criteria_certainty()
 
+            if 'accuracy' not in self.metrics_per_al_cycle[
+                    'train_unlabeled_data_metrics'][0][-1][0].keys():
+                self.metrics_per_al_cycle['train_unlabeled_data_metrics'][0][
+                    -1][0]['accuracy'] = np.sum(
+                        self.metrics_per_al_cycle['train_labeled_data_metrics']
+                        [0][-1][1].diagonal()) / np.sum(
+                            self.metrics_per_al_cycle[
+                                'train_labeled_data_metrics'][0][-1][1])
+
             print(
-                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:5.1%} {:5.1%} {:5.1%} {:5.1%} {:5.1%} {:5.1%}"
+                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%}"
                 .format(
                     i,
                     self.X_train_labeled.shape[0],
