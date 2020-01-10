@@ -46,6 +46,8 @@ class ActiveLearner:
             'stop_stddev_list': [],
             'stop_accuracy_list': [],
             'query_length': [],
+            'amount_of_auto_labels': [],
+            'auto_label_accuracy': []
         }
 
         self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
@@ -196,10 +198,9 @@ class ActiveLearner:
             certain_X = self.X_train_unlabeled[certain_indices]
             recommended_labels = self.clf_list[0].predict(certain_X)
 
-            print(
-                "Taking recommendation: ", amount_of_certain_labels, " \t ",
-                accuracy_score(self.Y_train_unlabeled[certain_indices],
-                               recommended_labels))
+            auto_label_accuracy = accuracy_score(
+                self.Y_train_unlabeled[certain_indices], recommended_labels)
+
             # use these labels!
             self.X_train_labeled = np.append(self.X_train_labeled, certain_X,
                                              0)
@@ -211,13 +212,23 @@ class ActiveLearner:
             self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
                                                certain_indices, 0)
 
+        else:
+            amount_of_certain_labels = float('NaN')
+            auto_label_accuracy = float('NaN')
+
+        self.metrics_per_al_cycle['amount_of_auto_labels'].append(
+            amount_of_certain_labels)
+        self.metrics_per_al_cycle['auto_label_accuracy'].append(
+            auto_label_accuracy)
+
     def learn(self):
         print_data_segmentation(self.X_train_labeled, self.X_train_unlabeled,
                                 self.X_test, self.len_queries)
 
         print(
-            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6}"
-            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA"))
+            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6}"
+            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA", "AL",
+                    "AA"))
 
         print("Iteration:  -1 {0:6,d} {1:6,d}".format(
             self.X_train_labeled.shape[0], self.X_train_unlabeled.shape[0]))
@@ -262,7 +273,7 @@ class ActiveLearner:
             self.check_for_recommendation()
 
             print(
-                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%}"
+                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.0f} {:6.1%}"
                 .format(
                     i,
                     self.X_train_labeled.shape[0],
@@ -277,6 +288,8 @@ class ActiveLearner:
                     self.metrics_per_al_cycle['stop_certainty_list'][-1],
                     self.metrics_per_al_cycle['stop_stddev_list'][-1],
                     self.metrics_per_al_cycle['stop_accuracy_list'][-1],
+                    self.metrics_per_al_cycle['amount_of_auto_labels'][-1],
+                    self.metrics_per_al_cycle['auto_label_accuracy'][-1],
                 ))
 
         # in case we specified more queries than we have data
