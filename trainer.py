@@ -1,14 +1,17 @@
 import argparse
+import contextlib
+import io
 import os
 import random
 import sys
-import contextlib
+
 import numpy as np
-import io
+
 from active_learning_strategies import (BoundaryPairSampler, CommitteeSampler,
                                         RandomSampler, UncertaintySampler)
-from experiment_setup_lib import (load_and_prepare_X_and_Y, standard_config,
-                                  store_pickle, store_result, Logger)
+from experiment_setup_lib import (Logger, load_and_prepare_X_and_Y,
+                                  standard_config, store_pickle, store_result,
+                                  classification_report_and_confusion_matrix)
 from sklearn.model_selection import train_test_split
 
 config = standard_config([
@@ -81,3 +84,14 @@ with Logger(config.output_dir + '/' + filename + ".txt", "w"):
 
 # save output
 store_pickle(filename + '.pickle', metrics_per_al_cycle, config)
+
+# display quick results
+
+classification_report_and_confusion_matrix(trained_active_clf_list[0],
+                                           X_test,
+                                           Y_test,
+                                           config,
+                                           label_encoder,
+                                           output_dict=False,
+                                           store=False,
+                                           training_times="")

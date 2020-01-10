@@ -178,6 +178,39 @@ class ActiveLearner:
 
         return X_query, Y_query
 
+    def check_for_recommendation(self):
+        # calculate certainties for all of X_train_unlabeled
+        certainties = self.clf_list[0].predict_proba(self.X_train_unlabeled)
+
+        recommendation_certainty_threshold = 0.9
+        recommendation_ratio = 1 / 100
+
+        amount_of_certain_labels = np.count_nonzero(
+            np.where(
+                np.max(certainties, 1) > recommendation_certainty_threshold))
+
+        if amount_of_certain_labels > len(
+                self.X_train_unlabeled) * recommendation_ratio:
+            certain_indices = np.where(
+                np.max(certainties, 1) > recommendation_certainty_threshold)
+            certain_X = self.X_train_unlabeled[certain_indices]
+            recommended_labels = self.clf_list[0].predict(certain_X)
+
+            print(
+                "Taking recommendation: ", amount_of_certain_labels, " \t ",
+                accuracy_score(self.Y_train_unlabeled[certain_indices],
+                               recommended_labels))
+            # use these labels!
+            self.X_train_labeled = np.append(self.X_train_labeled, certain_X,
+                                             0)
+            self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
+                                               certain_indices, 0)
+
+            self.Y_train_labeled = np.append(self.Y_train_labeled,
+                                             recommended_labels)
+            self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
+                                               certain_indices, 0)
+
     def learn(self):
         print_data_segmentation(self.X_train_labeled, self.X_train_unlabeled,
                                 self.X_test, self.len_queries)
@@ -225,6 +258,8 @@ class ActiveLearner:
                         [0][-1][1].diagonal()) / np.sum(
                             self.metrics_per_al_cycle[
                                 'train_labeled_data_metrics'][0][-1][1])
+
+            self.check_for_recommendation()
 
             print(
                 "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%}"
