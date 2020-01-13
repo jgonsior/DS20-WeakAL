@@ -46,8 +46,7 @@ class ActiveLearner:
             'stop_stddev_list': [],
             'stop_accuracy_list': [],
             'query_length': [],
-            'amount_of_auto_labels': [],
-            'auto_label_accuracy': []
+            'certainty_recommendation': []
         }
 
         self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
@@ -160,15 +159,7 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
 
-    def increase_labeled_dataset(self):
-
-        # ask strategy for new datapoint
-        query_indices = self.calculate_next_query_indices()
-        X_query = self.X_train_unlabeled[query_indices]
-
-        # ask oracle for new query
-        Y_query = self.Y_train_unlabeled[query_indices]
-
+    def move_labeled_queries(self, X_query, Y_query, query_indices):
         # move new queries from unlabeled to labeled dataset
         self.X_train_labeled = np.append(self.X_train_labeled, X_query, 0)
         self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
@@ -178,14 +169,24 @@ class ActiveLearner:
         self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
                                            query_indices, 0)
 
-        return X_query, Y_query
+    def increase_labeled_dataset(self):
 
-    def check_for_recommendation(self):
+        # ask strategy for new datapoint
+        query_indices = self.calculate_next_query_indices()
+        X_query = self.X_train_unlabeled[query_indices]
+
+        # ask oracle for new query
+        Y_query = self.Y_train_unlabeled[query_indices]
+
+        return X_query, Y_query, query_indices
+
+    def certainty_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
         certainties = self.clf_list[0].predict_proba(self.X_train_unlabeled)
 
         recommendation_certainty_threshold = 0.9
         recommendation_ratio = 1 / 100
+        #  recommendation_ratio = 1 / 100000000000000000000000000
 
         amount_of_certain_labels = np.count_nonzero(
             np.where(
@@ -198,37 +199,23 @@ class ActiveLearner:
             certain_X = self.X_train_unlabeled[certain_indices]
             recommended_labels = self.clf_list[0].predict(certain_X)
 
-            auto_label_accuracy = accuracy_score(
-                self.Y_train_unlabeled[certain_indices], recommended_labels)
-
-            # use these labels!
-            self.X_train_labeled = np.append(self.X_train_labeled, certain_X,
-                                             0)
-            self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
-                                               certain_indices, 0)
-
-            self.Y_train_labeled = np.append(self.Y_train_labeled,
-                                             recommended_labels)
-            self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
-                                               certain_indices, 0)
-
+            self.metrics_per_al_cycle['certainty_recommendation'].append(True)
+            return certain_X, recommended_labels, certain_indices
         else:
-            amount_of_certain_labels = float('NaN')
-            auto_label_accuracy = float('NaN')
+            self.metrics_per_al_cycle['certainty_recommendation'].append(False)
+            return None, None, None
 
-        self.metrics_per_al_cycle['amount_of_auto_labels'].append(
-            amount_of_certain_labels)
-        self.metrics_per_al_cycle['auto_label_accuracy'].append(
-            auto_label_accuracy)
+    def snuba_lite_recommendation(self):
+        return None, None, None
 
     def learn(self):
         print_data_segmentation(self.X_train_labeled, self.X_train_unlabeled,
                                 self.X_test, self.len_queries)
 
         print(
-            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6}"
-            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA", "AL",
-                    "AA"))
+            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3}"
+            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA",
+                    "CR"))
 
         print("Iteration:  -1 {0:6,d} {1:6,d}".format(
             self.X_train_labeled.shape[0], self.X_train_unlabeled.shape[0]))
@@ -241,7 +228,15 @@ class ActiveLearner:
             # retrain classifier
             self.fit_clf()
 
-            X_query, Y_query = self.increase_labeled_dataset()
+            # first try to generate some samples on our own
+            X_query, Y_query, query_indices = self.certainty_recommendation()
+
+            if X_query is None:
+                # ask oracle for some "hard data"
+                X_query, Y_query, query_indices = self.increase_labeled_dataset(
+                )
+
+            self.move_labeled_queries(X_query, Y_query, query_indices)
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
 
             #  print("Y_train_labeled", self.Y_train_labeled.shape)
@@ -270,10 +265,8 @@ class ActiveLearner:
                             self.metrics_per_al_cycle[
                                 'train_labeled_data_metrics'][0][-1][1])
 
-            self.check_for_recommendation()
-
             print(
-                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.0f} {:6.1%}"
+                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3}"
                 .format(
                     i,
                     self.X_train_labeled.shape[0],
@@ -288,8 +281,7 @@ class ActiveLearner:
                     self.metrics_per_al_cycle['stop_certainty_list'][-1],
                     self.metrics_per_al_cycle['stop_stddev_list'][-1],
                     self.metrics_per_al_cycle['stop_accuracy_list'][-1],
-                    self.metrics_per_al_cycle['amount_of_auto_labels'][-1],
-                    self.metrics_per_al_cycle['auto_label_accuracy'][-1],
+                    self.metrics_per_al_cycle['certainty_recommendation'][-1],
                 ))
 
         # in case we specified more queries than we have data

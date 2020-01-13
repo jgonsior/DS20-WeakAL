@@ -155,6 +155,7 @@ def classification_report_and_confusion_matrix(clf,
         Y,
         Y_pred,
         output_dict=True,
+        zero_division=0,
         labels=[i for i in range(len(label_encoder.classes_))],
         target_names=label_encoder.classes_)
 
@@ -164,6 +165,7 @@ def classification_report_and_confusion_matrix(clf,
         clf_report_string = classification_report(
             Y,
             Y_pred,
+            zero_division=0,
             labels=[i for i in range(len(label_encoder.classes_))],
             target_names=label_encoder.classes_)
 
