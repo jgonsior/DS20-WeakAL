@@ -201,18 +201,15 @@ class ActiveLearner:
             certain_X = self.X_train_unlabeled[certain_indices]
             recommended_labels = self.clf_list[0].predict(certain_X)
 
-            self.metrics_per_al_cycle['recommendation'].append(1)
             return certain_X, recommended_labels, certain_indices
         else:
-            self.metrics_per_al_cycle['recommendation'].append(0)
             return None, None, None
 
     def snuba_lite_recommendation(self):
 
         X_weak = Y_weak = weak_indices = None
-        recommendation_value = 0
         # @todo prevent snuba_lite from relearning based on itself (so only "strong" labels are being used for weak labeling)
-
+        # @todo wird die accuracy für QueryAccuracy Stopping Criterion basierend auf den weak oder auf den "richtigen" labeln berechnet?
         # for each label and each feature (or feature combination) generate small shallow decision tree -> is it a good idea to limit the amount of used features?!
         accuracies = []
         heuristics = []
@@ -238,7 +235,7 @@ class ActiveLearner:
                 accuracy_score(Y_temp_test, heuristic.predict(X_temp_test)))
 
         # if accuracy of decision tree is high enough -> take recommendation
-        minimum_heuristic_accuracy = 0.2
+        minimum_heuristic_accuracy = 0.9
 
         if np.max(accuracies) > minimum_heuristic_accuracy:
             highest_heuristic = heuristics[np.argmax(accuracies)]
@@ -253,12 +250,9 @@ class ActiveLearner:
             if weak_indices[0].size > 0:
                 X_weak = self.X_train_unlabeled[weak_indices]
                 Y_weak = self.Y_train_unlabeled[weak_indices]
-                recommendation_value = 2
             else:
                 weak_indices = None
 
-        self.metrics_per_al_cycle['recommendation'].append(
-            recommendation_value)
         return X_weak, Y_weak, weak_indices
 
     def learn(self):
@@ -282,20 +276,21 @@ class ActiveLearner:
             self.fit_clf()
 
             X_query, Y_query, query_indices = self.certain_recommendation()
+            recommendation_value = 1
 
             if X_query is None:
                 X_query, Y_query, query_indices = self.snuba_lite_recommendation(
                 )
+                recommendation_value = 2
 
             if X_query is None:
                 # ask oracle for some "hard data"
                 X_query, Y_query, query_indices = self.increase_labeled_dataset(
                 )
+                recommendation_value = 0
 
-            if len(X_query) == 0:
-                print("hui")
-                print(self.metrics_per_al_cycle['recommendation'][-1])
-
+            self.metrics_per_al_cycle['recommendation'].append(
+                recommendation_value)
             self.move_labeled_queries(X_query, Y_query, query_indices)
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
 

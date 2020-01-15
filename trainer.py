@@ -85,6 +85,9 @@ store_pickle(filename + '.pickle', metrics_per_al_cycle, config)
 
 # display quick results
 
+print(len(metrics_per_al_cycle['recommendation']))
+print(np.count_nonzero(metrics_per_al_cycle['recommendation']))
+
 print("User were asked to label {} queries".format(
     (len(metrics_per_al_cycle['recommendation']) -
      np.count_nonzero(metrics_per_al_cycle['recommendation'])) *
