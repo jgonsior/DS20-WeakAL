@@ -36,7 +36,7 @@ class ActiveLearner:
         # it's a list because of committee (in all other cases it's just one classifier)
         self.clf_list = [RandomForestClassifier(**self.best_hyper_parameters)]
 
-        self.query_accuracy_list = []
+        self.query_weak_accuracy_list = []
 
         self.metrics_per_al_cycle = {
             'test_data_metrics': [[] for clf in self.clf_list],
@@ -46,7 +46,8 @@ class ActiveLearner:
             [[] for clf in self.clf_list],
             'stop_certainty_list': [],
             'stop_stddev_list': [],
-            'stop_accuracy_list': [],
+            'stop_query_weak_accuracy_list': [],
+            'query_strong_accuracy_list': [],
             'query_length': [],
             'recommendation': []
         }
@@ -60,6 +61,7 @@ class ActiveLearner:
         self.Y_train_labeled = Y_train_labeled
         self.X_train_unlabeled = X_train_unlabeled
         self.Y_train_unlabeled = Y_train_unlabeled
+        self.Y_train_strong_labels = np.array(Y_train_unlabeled)  # copy
         self.X_test = X_test
         self.Y_test = Y_test
 
@@ -70,7 +72,7 @@ class ActiveLearner:
         ]
 
     def calculate_stopping_criteria_stddev(self):
-        accuracy_list = self.query_accuracy_list
+        accuracy_list = self.query_weak_accuracy_list
         k = 5
 
         if len(accuracy_list) < k:
@@ -82,8 +84,8 @@ class ActiveLearner:
 
     def calculate_stopping_criteria_accuracy(self):
         # we use the accuracy ONLY for the current selected query
-        self.metrics_per_al_cycle['stop_accuracy_list'].append(
-            self.query_accuracy_list[-1])
+        self.metrics_per_al_cycle['stop_query_weak_accuracy_list'].append(
+            self.query_weak_accuracy_list[-1])
 
     def calculate_stopping_criteria_certainty(self):
         Y_train_unlabeled_pred = self.clf_list[0].predict(
@@ -115,10 +117,17 @@ class ActiveLearner:
                              sample_weight=compute_sample_weight(
                                  'balanced', self.Y_train_labeled))
 
-    def calculate_current_metrics(self, X_query, Y_query):
+    def calculate_current_metrics(self, X_query, Y_query, Y_query_strong=None):
         # calculate for stopping criteria the accuracy of the prediction for the selected queries
-        self.query_accuracy_list.append(
+        self.query_weak_accuracy_list.append(
             accuracy_score(Y_query, self.clf_list[0].predict(X_query)))
+
+        if Y_query_strong is not None:
+            self.metrics_per_al_cycle['query_strong_accuracy_list'].append(
+                accuracy_score(Y_query_strong, Y_query))
+        else:
+            self.metrics_per_al_cycle['query_strong_accuracy_list'].append(
+                float('NaN'))
 
         for i, clf in enumerate(self.clf_list):
             metrics = classification_report_and_confusion_matrix(
@@ -142,13 +151,16 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_labeled_data_metrics'][i].append(
                 metrics)
 
-            metrics = classification_report_and_confusion_matrix(
-                clf,
-                self.X_train_unlabeled,
-                self.Y_train_unlabeled,
-                self.config,
-                self.label_encoder,
-                output_dict=True)
+            if self.X_train_unlabeled.shape[0] != 0:
+                metrics = classification_report_and_confusion_matrix(
+                    clf,
+                    self.X_train_unlabeled,
+                    self.Y_train_unlabeled,
+                    self.config,
+                    self.label_encoder,
+                    output_dict=True)
+            else:
+                metrics = ({'accuracy': 0}, None)
 
             self.metrics_per_al_cycle['train_unlabeled_data_metrics'][
                 i].append(metrics)
@@ -170,6 +182,9 @@ class ActiveLearner:
         self.Y_train_labeled = np.append(self.Y_train_labeled, Y_query)
         self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
                                            query_indices, 0)
+
+        self.Y_train_strong_labels = np.delete(self.Y_train_strong_labels,
+                                               query_indices, 0)
 
     def increase_labeled_dataset(self):
 
@@ -224,7 +239,7 @@ class ActiveLearner:
             Y_temp[Y_temp != clf_class] = -1
 
             X_temp_train, X_temp_test, Y_temp_train, Y_temp_test = train_test_split(
-                X_temp, Y_temp)
+                X_temp, Y_temp, train_size=0.7)
 
             heuristic = DecisionTreeClassifier(max_depth=2)
             heuristic.fit(X_temp_train, Y_temp_train)
@@ -249,7 +264,7 @@ class ActiveLearner:
 
             if weak_indices[0].size > 0:
                 X_weak = self.X_train_unlabeled[weak_indices]
-                Y_weak = self.Y_train_unlabeled[weak_indices]
+                Y_weak = [np.argmax(accuracies) for _ in X_weak]
             else:
                 weak_indices = None
 
@@ -260,44 +275,55 @@ class ActiveLearner:
                                 self.X_test, self.len_queries)
 
         print(
-            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3}"
-            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "SA",
-                    "CR"))
+            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
+            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
+                    "QS"))
 
         print("Iteration:  -1 {0:6,d} {1:6,d}".format(
             self.X_train_labeled.shape[0], self.X_train_unlabeled.shape[0]))
 
         for i in range(0, self.nr_learning_iterations):
+            # try to actively get at least this amount of data, but if there is only less data available that's just fine
             if self.X_train_unlabeled.shape[0] < self.nr_queries_per_iteration:
-                print(self.X_train_unlabeled.shape)
+                self.nr_queries_per_iteration = self.X_train_unlabeled.shape[0]
+
+            if self.nr_queries_per_iteration == 0:
                 break
 
             # retrain classifier
             self.fit_clf()
 
             X_query, Y_query, query_indices = self.certain_recommendation()
-            recommendation_value = 1
+            recommendation_value = "C"
 
             if X_query is None:
                 X_query, Y_query, query_indices = self.snuba_lite_recommendation(
                 )
-                recommendation_value = 2
+                recommendation_value = "S"
+
+            Y_query_strong = self.Y_train_strong_labels[query_indices]
+            #  print(Y_query_strong)
+            #  print(Y_query)
 
             if X_query is None:
                 # ask oracle for some "hard data"
                 X_query, Y_query, query_indices = self.increase_labeled_dataset(
                 )
-                recommendation_value = 0
+                recommendation_value = "A"
+                Y_query_strong = None
 
             self.metrics_per_al_cycle['recommendation'].append(
                 recommendation_value)
             self.move_labeled_queries(X_query, Y_query, query_indices)
+
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
 
             #  print("Y_train_labeled", self.Y_train_labeled.shape)
             #  print("Y_train_unlabeled", self.Y_train_unlabeled.shape)
             #  print("Y_test", self.Y_test.shape)
             #  print("Y_query", Y_query.shape)
+            #  print("Y_train_strong_labels", self.Y_train_strong_labels)
+            #  print("indices", query_indices)
 
             #  print("X_train_labeled", self.X_train_labeled.shape)
             #  print("X_train_unlabeled", self.X_train_unlabeled.shape)
@@ -305,11 +331,14 @@ class ActiveLearner:
             #  print("X_query", X_query.shape)
 
             # calculate new metrics
-            self.calculate_current_metrics(X_query, Y_query)
+            self.calculate_current_metrics(X_query,
+                                           Y_query,
+                                           Y_query_strong=Y_query_strong)
 
-            self.calculate_stopping_criteria_accuracy()
-            self.calculate_stopping_criteria_stddev()
-            self.calculate_stopping_criteria_certainty()
+            if len(self.Y_train_unlabeled) != 0:
+                self.calculate_stopping_criteria_accuracy()
+                self.calculate_stopping_criteria_stddev()
+                self.calculate_stopping_criteria_certainty()
 
             if 'accuracy' not in self.metrics_per_al_cycle[
                     'train_unlabeled_data_metrics'][0][-1][0].keys():
@@ -321,7 +350,7 @@ class ActiveLearner:
                                 'train_labeled_data_metrics'][0][-1][1])
 
             print(
-                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3}"
+                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}"
                 .format(
                     i,
                     self.X_train_labeled.shape[0],
@@ -335,8 +364,11 @@ class ActiveLearner:
                     [0][-1][0]['accuracy'],
                     self.metrics_per_al_cycle['stop_certainty_list'][-1],
                     self.metrics_per_al_cycle['stop_stddev_list'][-1],
-                    self.metrics_per_al_cycle['stop_accuracy_list'][-1],
+                    self.metrics_per_al_cycle['stop_query_weak_accuracy_list']
+                    [-1],
                     self.metrics_per_al_cycle['recommendation'][-1],
+                    self.metrics_per_al_cycle['query_strong_accuracy_list']
+                    [-1],
                 ))
 
         # in case we specified more queries than we have data

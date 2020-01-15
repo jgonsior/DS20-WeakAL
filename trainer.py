@@ -85,13 +85,14 @@ store_pickle(filename + '.pickle', metrics_per_al_cycle, config)
 
 # display quick results
 
-print(len(metrics_per_al_cycle['recommendation']))
-print(np.count_nonzero(metrics_per_al_cycle['recommendation']))
+amount_of_user_asked_queries = 0
 
-print("User were asked to label {} queries".format(
-    (len(metrics_per_al_cycle['recommendation']) -
-     np.count_nonzero(metrics_per_al_cycle['recommendation'])) *
-    config.nr_queries_per_iteration))
+for i, amount_of_queries in enumerate(metrics_per_al_cycle['query_length']):
+    if metrics_per_al_cycle['recommendation'][i] == "A":
+        amount_of_user_asked_queries += amount_of_queries
+
+print(
+    "User were asked to label {} queries".format(amount_of_user_asked_queries))
 
 classification_report_and_confusion_matrix(trained_active_clf_list[0],
                                            X_test,
