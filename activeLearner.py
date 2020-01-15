@@ -15,6 +15,8 @@ from experiment_setup_lib import (classification_report_and_confusion_matrix,
                                   print_data_segmentation)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
 
@@ -46,7 +48,7 @@ class ActiveLearner:
             'stop_stddev_list': [],
             'stop_accuracy_list': [],
             'query_length': [],
-            'certainty_recommendation': []
+            'recommendation': []
         }
 
         self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
@@ -180,7 +182,7 @@ class ActiveLearner:
 
         return X_query, Y_query, query_indices
 
-    def certainty_recommendation(self):
+    def certain_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
         certainties = self.clf_list[0].predict_proba(self.X_train_unlabeled)
 
@@ -199,14 +201,65 @@ class ActiveLearner:
             certain_X = self.X_train_unlabeled[certain_indices]
             recommended_labels = self.clf_list[0].predict(certain_X)
 
-            self.metrics_per_al_cycle['certainty_recommendation'].append(True)
+            self.metrics_per_al_cycle['recommendation'].append(1)
             return certain_X, recommended_labels, certain_indices
         else:
-            self.metrics_per_al_cycle['certainty_recommendation'].append(False)
+            self.metrics_per_al_cycle['recommendation'].append(0)
             return None, None, None
 
     def snuba_lite_recommendation(self):
-        return None, None, None
+
+        X_weak = Y_weak = weak_indices = None
+        recommendation_value = 0
+        # @todo prevent snuba_lite from relearning based on itself (so only "strong" labels are being used for weak labeling)
+
+        # for each label and each feature (or feature combination) generate small shallow decision tree -> is it a good idea to limit the amount of used features?!
+        accuracies = []
+        heuristics = []
+        # generated heuristics should only being applied to small subset (which one?)
+        # balance jaccard and f1_measure (coverage + accuracy)
+        for clf_class in self.classifier_classes:
+            # create training and test data set out of current available training/test data
+            X_temp = self.X_train_labeled
+
+            # do one vs rest
+            Y_temp = np.array(self.Y_train_labeled)  # works like a copy
+            Y_temp[Y_temp != clf_class] = -1
+
+            X_temp_train, X_temp_test, Y_temp_train, Y_temp_test = train_test_split(
+                X_temp, Y_temp)
+
+            heuristic = DecisionTreeClassifier(max_depth=2)
+            heuristic.fit(X_temp_train, Y_temp_train)
+
+            heuristics.append(heuristic)
+
+            accuracies.append(
+                accuracy_score(Y_temp_test, heuristic.predict(X_temp_test)))
+
+        # if accuracy of decision tree is high enough -> take recommendation
+        minimum_heuristic_accuracy = 0.2
+
+        if np.max(accuracies) > minimum_heuristic_accuracy:
+            highest_heuristic = heuristics[np.argmax(accuracies)]
+
+            probabilities = highest_heuristic.predict_proba(
+                self.X_train_unlabeled)
+
+            # filter out labels where one-vs-rest heuristic is sure that sample is of label L
+            weak_indices = np.where(
+                np.argmax(probabilities, 1) > minimum_heuristic_accuracy)
+
+            if weak_indices[0].size > 0:
+                X_weak = self.X_train_unlabeled[weak_indices]
+                Y_weak = self.Y_train_unlabeled[weak_indices]
+                recommendation_value = 2
+            else:
+                weak_indices = None
+
+        self.metrics_per_al_cycle['recommendation'].append(
+            recommendation_value)
+        return X_weak, Y_weak, weak_indices
 
     def learn(self):
         print_data_segmentation(self.X_train_labeled, self.X_train_unlabeled,
@@ -228,13 +281,20 @@ class ActiveLearner:
             # retrain classifier
             self.fit_clf()
 
-            # first try to generate some samples on our own
-            X_query, Y_query, query_indices = self.certainty_recommendation()
+            X_query, Y_query, query_indices = self.certain_recommendation()
+
+            if X_query is None:
+                X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                )
 
             if X_query is None:
                 # ask oracle for some "hard data"
                 X_query, Y_query, query_indices = self.increase_labeled_dataset(
                 )
+
+            if len(X_query) == 0:
+                print("hui")
+                print(self.metrics_per_al_cycle['recommendation'][-1])
 
             self.move_labeled_queries(X_query, Y_query, query_indices)
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
@@ -281,7 +341,7 @@ class ActiveLearner:
                     self.metrics_per_al_cycle['stop_certainty_list'][-1],
                     self.metrics_per_al_cycle['stop_stddev_list'][-1],
                     self.metrics_per_al_cycle['stop_accuracy_list'][-1],
-                    self.metrics_per_al_cycle['certainty_recommendation'][-1],
+                    self.metrics_per_al_cycle['recommendation'][-1],
                 ))
 
         # in case we specified more queries than we have data

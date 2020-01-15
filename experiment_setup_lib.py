@@ -74,8 +74,7 @@ def load_and_prepare_X_and_Y(config):
     df = pd.read_csv(config.dataset_path, index_col="id")
 
     # shuffle df
-    df = df.sample(frac=1,
-                   random_state=config.random_seed).reset_index(drop=True)
+    df = df.sample(frac=1).reset_index(drop=True)
 
     # create numpy data
     Y = df.pop('CLASS').to_numpy()

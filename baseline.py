@@ -15,7 +15,7 @@ X, Y, label_encoder = load_and_prepare_X_and_Y(config)
 
 # train/test split
 X_train, X_test, Y_train, Y_test = train_test_split(
-    X, Y, test_size=config.test_fraction, random_state=config.random_seed)
+    X, Y, test_size=config.test_fraction)
 
 #  print(X_train)
 #  print(Y_train)

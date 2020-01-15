@@ -9,9 +9,10 @@ import numpy as np
 
 from active_learning_strategies import (BoundaryPairSampler, CommitteeSampler,
                                         RandomSampler, UncertaintySampler)
-from experiment_setup_lib import (Logger, load_and_prepare_X_and_Y,
-                                  standard_config, store_pickle, store_result,
-                                  classification_report_and_confusion_matrix)
+from experiment_setup_lib import (Logger,
+                                  classification_report_and_confusion_matrix,
+                                  load_and_prepare_X_and_Y, standard_config,
+                                  store_pickle, store_result)
 from sklearn.model_selection import train_test_split
 
 config = standard_config([
@@ -40,14 +41,11 @@ X, Y, label_encoder = load_and_prepare_X_and_Y(config)
 
 # split data
 X_train, X_test, Y_train, Y_test = train_test_split(
-    X, Y, test_size=config.test_fraction, random_state=config.random_seed)
+    X, Y, test_size=config.test_fraction)
 
 # split training data into labeled and unlabeled dataset
 X_train_labeled, X_train_unlabeled, Y_train_labeled, Y_train_unlabeled = train_test_split(
-    X_train,
-    Y_train,
-    test_size=1 - config.start_set_size,
-    random_state=config.random_seed)
+    X_train, Y_train, test_size=1 - config.start_set_size)
 
 if config.strategy == 'random':
     active_learner = RandomSampler(config)
@@ -86,6 +84,11 @@ with Logger(config.output_dir + '/' + filename + ".txt", "w"):
 store_pickle(filename + '.pickle', metrics_per_al_cycle, config)
 
 # display quick results
+
+print("User were asked to label {} queries".format(
+    (len(metrics_per_al_cycle['recommendation']) -
+     np.count_nonzero(metrics_per_al_cycle['recommendation'])) *
+    config.nr_queries_per_iteration))
 
 classification_report_and_confusion_matrix(trained_active_clf_list[0],
                                            X_test,
