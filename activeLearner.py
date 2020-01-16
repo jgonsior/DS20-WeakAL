@@ -14,6 +14,7 @@ import pandas as pd
 from experiment_setup_lib import (classification_report_and_confusion_matrix,
                                   print_data_segmentation)
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.exceptions import NotFittedError
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
@@ -57,11 +58,21 @@ class ActiveLearner:
 
     def set_data(self, X_train_labeled, Y_train_labeled, X_train_unlabeled,
                  Y_train_unlabeled, X_test, Y_test, label_encoder):
-        self.X_train_labeled = X_train_labeled
-        self.Y_train_labeled = Y_train_labeled
-        self.X_train_unlabeled = X_train_unlabeled
-        self.Y_train_unlabeled = Y_train_unlabeled
-        self.Y_train_strong_labels = np.array(Y_train_unlabeled)  # copy
+        print_data_segmentation(X_train_labeled, X_train_unlabeled, X_test,
+                                self.len_queries)
+
+        self.X_train_labeled = np.ndarray(shape=(0, X_train_labeled.shape[1]))
+        self.Y_train_labeled = np.array([], dtype='int64')
+
+        # this one is a bit tricky:
+        # we merge both back together here -> but solely for the purpose of using them as the first oracle query down below
+        self.X_train_unlabeled = np.concatenate(
+            (X_train_labeled, X_train_unlabeled))
+        self.Y_train_unlabeled = np.append(Y_train_labeled, Y_train_unlabeled)
+        self.ground_truth_indices = [i for i in range(0, len(Y_train_labeled))]
+
+        self.Y_train_strong_labels = np.array(self.Y_train_labeled)  # copy
+
         self.X_test = X_test
         self.Y_test = Y_test
 
@@ -117,11 +128,16 @@ class ActiveLearner:
                              sample_weight=compute_sample_weight(
                                  'balanced', self.Y_train_labeled))
 
-    def calculate_current_metrics(self, X_query, Y_query, Y_query_strong=None):
+    def calculate_pre_metrics(self, X_query, Y_query, Y_query_strong=None):
         # calculate for stopping criteria the accuracy of the prediction for the selected queries
-        self.query_weak_accuracy_list.append(
-            accuracy_score(Y_query, self.clf_list[0].predict(X_query)))
 
+        try:
+            self.query_weak_accuracy_list.append(
+                accuracy_score(Y_query, self.clf_list[0].predict(X_query)))
+        except NotFittedError:
+            self.query_weak_accuracy_list.append(1)
+
+    def calculate_post_metrics(self, X_query, Y_query, Y_query_strong=None):
         if Y_query_strong is not None:
             self.metrics_per_al_cycle['query_strong_accuracy_list'].append(
                 accuracy_score(Y_query_strong, Y_query))
@@ -178,13 +194,12 @@ class ActiveLearner:
         self.X_train_labeled = np.append(self.X_train_labeled, X_query, 0)
         self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
                                            query_indices, 0)
-
+        self.Y_train_strong_labels = np.append(
+            self.Y_train_strong_labels, self.Y_train_unlabeled[query_indices],
+            0)
         self.Y_train_labeled = np.append(self.Y_train_labeled, Y_query)
         self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
                                            query_indices, 0)
-
-        self.Y_train_strong_labels = np.delete(self.Y_train_strong_labels,
-                                               query_indices, 0)
 
     def increase_labeled_dataset(self):
 
@@ -224,10 +239,10 @@ class ActiveLearner:
 
         X_weak = Y_weak = weak_indices = None
         # @todo prevent snuba_lite from relearning based on itself (so only "strong" labels are being used for weak labeling)
-        # @todo wird die accuracy für QueryAccuracy Stopping Criterion basierend auf den weak oder auf den "richtigen" labeln berechnet?
         # for each label and each feature (or feature combination) generate small shallow decision tree -> is it a good idea to limit the amount of used features?!
         accuracies = []
         heuristics = []
+
         # generated heuristics should only being applied to small subset (which one?)
         # balance jaccard and f1_measure (coverage + accuracy)
         for clf_class in self.classifier_classes:
@@ -263,6 +278,8 @@ class ActiveLearner:
                 np.argmax(probabilities, 1) > minimum_heuristic_accuracy)
 
             if weak_indices[0].size > 0:
+                print("Snuba mit Klasse " +
+                      self.label_encoder.classes_[np.argmax(accuracies)])
                 X_weak = self.X_train_unlabeled[weak_indices]
                 Y_weak = [np.argmax(accuracies) for _ in X_weak]
             else:
@@ -271,16 +288,11 @@ class ActiveLearner:
         return X_weak, Y_weak, weak_indices
 
     def learn(self):
-        print_data_segmentation(self.X_train_labeled, self.X_train_unlabeled,
-                                self.X_test, self.len_queries)
 
         print(
             "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
             .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
                     "QS"))
-
-        print("Iteration:  -1 {0:6,d} {1:6,d}".format(
-            self.X_train_labeled.shape[0], self.X_train_unlabeled.shape[0]))
 
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
@@ -290,33 +302,38 @@ class ActiveLearner:
             if self.nr_queries_per_iteration == 0:
                 break
 
-            # retrain classifier
-            self.fit_clf()
+            # first iteration - add everything from ground truth
+            if i == 0:
+                query_indices = self.ground_truth_indices
+                X_query = self.X_train_unlabeled[query_indices]
+                Y_query = self.Y_train_unlabeled[query_indices]
 
-            X_query, Y_query, query_indices = self.certain_recommendation()
-            recommendation_value = "C"
-
-            if X_query is None:
-                X_query, Y_query, query_indices = self.snuba_lite_recommendation(
-                )
-                recommendation_value = "S"
-
-            Y_query_strong = self.Y_train_strong_labels[query_indices]
-            #  print(Y_query_strong)
-            #  print(Y_query)
-
-            if X_query is None:
-                # ask oracle for some "hard data"
-                X_query, Y_query, query_indices = self.increase_labeled_dataset(
-                )
-                recommendation_value = "A"
+                recommendation_value = "G"
                 Y_query_strong = None
+            else:
+                X_query, Y_query, query_indices = self.certain_recommendation()
+                recommendation_value = "C"
+
+                if X_query is None and len(self.Y_train_labeled) > 200:
+                    X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                    )
+                    recommendation_value = "S"
+                Y_query_strong = self.Y_train_unlabeled[query_indices]
+                #  print(Y_query_strong)
+                #  print(Y_query)
+
+                if X_query is None:
+                    # ask oracle for some "hard data"
+                    X_query, Y_query, query_indices = self.increase_labeled_dataset(
+                    )
+                    recommendation_value = "A"
+                    Y_query_strong = None
 
             self.metrics_per_al_cycle['recommendation'].append(
                 recommendation_value)
-            self.move_labeled_queries(X_query, Y_query, query_indices)
-
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
+
+            self.move_labeled_queries(X_query, Y_query, query_indices)
 
             #  print("Y_train_labeled", self.Y_train_labeled.shape)
             #  print("Y_train_unlabeled", self.Y_train_unlabeled.shape)
@@ -330,10 +347,17 @@ class ActiveLearner:
             #  print("X_test", self.X_test.shape)
             #  print("X_query", X_query.shape)
 
+            self.calculate_pre_metrics(X_query,
+                                       Y_query,
+                                       Y_query_strong=Y_query_strong)
+
+            # retrain classifier
+            self.fit_clf()
+
             # calculate new metrics
-            self.calculate_current_metrics(X_query,
-                                           Y_query,
-                                           Y_query_strong=Y_query_strong)
+            self.calculate_post_metrics(X_query,
+                                        Y_query,
+                                        Y_query_strong=Y_query_strong)
 
             if len(self.Y_train_unlabeled) != 0:
                 self.calculate_stopping_criteria_accuracy()
