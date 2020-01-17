@@ -1,57 +1,80 @@
-from activeLearner import ActiveLearner
-import numpy as np
-import pandas as pd
-from sklearn.neighbors import NearestNeighbors
 from pprint import pprint
+
+import numpy as np
+from scipy.cluster.hierarchy import dendrogram
+
+import matplotlib.pyplot as plt
+import pandas as pd
+from activeLearner import ActiveLearner
+from sklearn.cluster import (DBSCAN, OPTICS, AgglomerativeClustering, Birch,
+                             KMeans)
+from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
 
 
 class ClusterSampling(ActiveLearner):
-    def append(self, indices, x, distance_dict, Y_joined):
-        if Y_joined[indices[x][0]] is Y_joined[indices[x][1]]:
-            return False  # limit to distance between different classes
-        if (indices[x][1], indices[x][0]) in distance_dict:
-            return False  # avoid double point pairs
-        return True
+    def plot_dendrogram(self, **kwargs):
+        self.cluster_model.fit(self.X_train_combined_pca)
+        model = self.cluster_model
+        # Create linkage matrix and then plot the dendrogram
+
+        # create the counts of samples under each node
+        counts = np.zeros(model.children_.shape[0])
+        n_samples = len(model.labels_)
+        for i, merge in enumerate(model.children_):
+            current_count = 0
+            for child_idx in merge:
+                if child_idx < n_samples:
+                    current_count += 1  # leaf node
+                else:
+                    current_count += counts[child_idx - n_samples]
+            counts[i] = current_count
+
+        linkage_matrix = np.column_stack(
+            [model.children_, model.distances_, counts]).astype(float)
+
+        # Plot the corresponding dendrogram
+        dendrogram(linkage_matrix, **kwargs)
+        plt.show()
+
+    def plot_cluster(self):
+        y_pred = self.cluster_model.fit_predict(self.X_train_combined_pca,
+                                                self.Y_train_combined)
+
+        # plot the top three levels of the dendrogram
+        plt.figure()
+        dimension = 0
+        plt.scatter(self.X_train_combined_pca[:, dimension],
+                    self.X_train_combined_pca[:, dimension + 1],
+                    c=y_pred)
+
+        plt.show()
+
+    def set_data(self, X_train_labeled, Y_train_labeled, X_train_unlabeled,
+                 Y_train_unlabeled, X_test, Y_test, label_encoder):
+        super(ClusterSampling,
+              self).set_data(X_train_labeled, Y_train_labeled,
+                             X_train_unlabeled, Y_train_unlabeled, X_test,
+                             Y_test, label_encoder)
+
+        # first run pca to downsample data
+        self.X_train_combined = np.concatenate(
+            (X_train_labeled, X_train_unlabeled))
+
+        self.Y_train_combined = np.append(self.Y_train_labeled,
+                                          self.Y_train_unlabeled)
+        n_clusters = len(label_encoder.classes_)
+
+        #  n_clusters = 8
+        self.pca = PCA(n_components=n_clusters)
+        self.pca.fit(self.X_train_combined)
+        self.X_train_combined_pca = self.pca.transform(self.X_train_combined)
+        # then cluster it
+        self.cluster_model = AgglomerativeClustering(
+            n_clusters=int(self.X_train_combined.shape[1] / 10)
+        )  #distance_threshold=0,                                                     n_clusters=None)
+        #  self.plot_cluster()
+        #  self.plot_dendrogram()
 
     def calculate_next_query_indices(self):
-        print("BoundaryPairSampler is broken. Please fix or move on.")
-        exit(-2)
-        Y_pred = self.clf_list[0].predict(self.X_train_unlabeled)
-
-        Y_joined = np.append(Y_pred, self.Y_train_labeled0)
-        X_joined = np.append(self.X_train_unlabeled, self.X_train_labeled0)
-        index_joined = np.indices(X_joined)
-
-        nbrs = NearestNeighbors(n_neighbors=2,
-                                algorithm='ball_tree',
-                                n_jobs=self.config.cores).fit(X_joined)
-        distances, indices = nbrs.kneighbors(X_joined)
-
-        distance_dict = {}
-
-        for x in range(len(distances)):
-            if (self.append(indices, x, distance_dict, Y_joined) is True):
-                distance_dict[(indices[x][0], indices[x][1])] = distances[x][1]
-
-        myset = []
-
-        while len(myset) < self.nr_queries_per_iteration:
-            if len(distance_dict.keys()) == 0:
-                pprint(distances)
-                pprint(indices)
-
-            # somehow distance_dict is empty?!
-            index_pair = min(distance_dict, key=distance_dict.get)
-
-            if index_pair[0] < len(self.X_train_unlabeled):
-                true_index = index_joined[index_pair[0]]
-                myset.append(true_index)
-
-            if index_pair[1] < len(self.X_train_unlabeled):
-                true_index = index_joined[index_pair[1]]
-                myset.append(true_index)
-
-            # myset = np.unique(myset)
-            del distance_dict[index_pair]
-
-        return (myset)
+        return None

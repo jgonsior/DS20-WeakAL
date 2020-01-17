@@ -8,7 +8,8 @@ import sys
 import numpy as np
 
 from active_learning_strategies import (BoundaryPairSampler, CommitteeSampler,
-                                        RandomSampler, UncertaintySampler)
+                                        RandomSampler, UncertaintySampler,
+                                        RandomClusterSampling)
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
                                   load_and_prepare_X_and_Y, standard_config,
@@ -62,6 +63,8 @@ elif config.strategy == 'uncertainty_entropy':
     active_learner.set_uncertainty_strategy('entropy')
 elif config.strategy == 'committee':
     active_learner = CommitteeSampler(config)
+elif config.strategy == 'random_cluster':
+    active_learner = RandomClusterSampling(config)
 else:
     print("No Active Learning Strategy specified")
     exit(-4)

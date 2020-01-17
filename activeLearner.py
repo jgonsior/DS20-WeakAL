@@ -326,10 +326,10 @@ class ActiveLearner:
                     )
                     recommendation_value = "C"
 
-                    if X_query is None:
-                        X_query, Y_query, query_indices = self.snuba_lite_recommendation(
-                        )
-                        recommendation_value = "S"
+                    #  if X_query is None:
+                    #  X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                    #  )
+                    #  recommendation_value = "S"
                     Y_query_strong = self.Y_train_unlabeled[query_indices]
                     #  print(Y_query_strong)
                     #  print(Y_query)
