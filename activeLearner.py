@@ -5,7 +5,7 @@ import random
 import sys
 from collections import defaultdict
 from pprint import pprint
-
+import itertools
 import numpy as np
 
 import matplotlib
@@ -240,38 +240,47 @@ class ActiveLearner:
         X_weak = Y_weak = weak_indices = None
         # @todo prevent snuba_lite from relearning based on itself (so only "strong" labels are being used for weak labeling)
         # for each label and each feature (or feature combination) generate small shallow decision tree -> is it a good idea to limit the amount of used features?!
-        accuracies = []
-        heuristics = []
+        highest_accuracy = 0
+        best_heuristic = None
+        best_combination = None
+        best_class = None
+
+        combinations = []
+        for combination in itertools.combinations(
+                list(range(self.X_train_labeled.shape[1])), 1):
+            combinations.append(combination)
 
         # generated heuristics should only being applied to small subset (which one?)
         # balance jaccard and f1_measure (coverage + accuracy)
         for clf_class in self.classifier_classes:
-            # create training and test data set out of current available training/test data
-            X_temp = self.X_train_labeled
+            for combination in combinations:
+                # create training and test data set out of current available training/test data
+                X_temp = self.X_train_labeled[:, combination]
 
-            # do one vs rest
-            Y_temp = np.array(self.Y_train_labeled)  # works like a copy
-            Y_temp[Y_temp != clf_class] = -1
+                # do one vs rest
+                Y_temp = np.array(self.Y_train_labeled)  # works like a copy
+                Y_temp[Y_temp != clf_class] = -1
 
-            X_temp_train, X_temp_test, Y_temp_train, Y_temp_test = train_test_split(
-                X_temp, Y_temp, train_size=0.7)
+                X_temp_train, X_temp_test, Y_temp_train, Y_temp_test = train_test_split(
+                    X_temp, Y_temp, train_size=0.6)
 
-            heuristic = DecisionTreeClassifier(max_depth=2)
-            heuristic.fit(X_temp_train, Y_temp_train)
+                heuristic = DecisionTreeClassifier(max_depth=2)
+                heuristic.fit(X_temp_train, Y_temp_train)
 
-            heuristics.append(heuristic)
-
-            accuracies.append(
-                accuracy_score(Y_temp_test, heuristic.predict(X_temp_test)))
+                accuracy = accuracy_score(Y_temp_test,
+                                          heuristic.predict(X_temp_test))
+                if accuracy > highest_accuracy:
+                    highest_accuracy = accuracy
+                    best_heuristic = heuristic
+                    best_combination = combination
+                    best_class = clf_class
 
         # if accuracy of decision tree is high enough -> take recommendation
         minimum_heuristic_accuracy = 0.9
 
-        if np.max(accuracies) > minimum_heuristic_accuracy:
-            highest_heuristic = heuristics[np.argmax(accuracies)]
-
-            probabilities = highest_heuristic.predict_proba(
-                self.X_train_unlabeled)
+        if highest_accuracy > minimum_heuristic_accuracy:
+            probabilities = best_heuristic.predict_proba(
+                self.X_train_unlabeled[:, best_combination])
 
             # filter out labels where one-vs-rest heuristic is sure that sample is of label L
             weak_indices = np.where(
@@ -279,9 +288,9 @@ class ActiveLearner:
 
             if weak_indices[0].size > 0:
                 print("Snuba mit Klasse " +
-                      self.label_encoder.classes_[np.argmax(accuracies)])
+                      self.label_encoder.classes_[best_class])
                 X_weak = self.X_train_unlabeled[weak_indices]
-                Y_weak = [np.argmax(accuracies) for _ in X_weak]
+                Y_weak = [best_class for _ in X_weak]
             else:
                 weak_indices = None
 
@@ -311,16 +320,19 @@ class ActiveLearner:
                 recommendation_value = "G"
                 Y_query_strong = None
             else:
-                X_query, Y_query, query_indices = self.certain_recommendation()
-                recommendation_value = "C"
-
-                if X_query is None and len(self.Y_train_labeled) > 200:
-                    X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                X_query = None
+                if len(self.Y_train_labeled) > 200:
+                    X_query, Y_query, query_indices = self.certain_recommendation(
                     )
-                    recommendation_value = "S"
-                Y_query_strong = self.Y_train_unlabeled[query_indices]
-                #  print(Y_query_strong)
-                #  print(Y_query)
+                    recommendation_value = "C"
+
+                    if X_query is None:
+                        X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                        )
+                        recommendation_value = "S"
+                    Y_query_strong = self.Y_train_unlabeled[query_indices]
+                    #  print(Y_query_strong)
+                    #  print(Y_query)
 
                 if X_query is None:
                     # ask oracle for some "hard data"
