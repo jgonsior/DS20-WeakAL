@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from cluster_strategies import DummyClusterStrategy, RandomClusterStrategy
+from dataStorage import DataStorage
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
                                   load_and_prepare_X_and_Y, standard_config,
@@ -42,15 +43,8 @@ config = standard_config([
     }),
 ])
 
-X, Y, label_encoder = load_and_prepare_X_and_Y(config)
-
-# split data
-X_train, X_test, Y_train, Y_test = train_test_split(
-    X, Y, test_size=config.test_fraction)
-
-# split training data into labeled and unlabeled dataset
-X_train_labeled, X_train_unlabeled, Y_train_labeled, Y_train_unlabeled = train_test_split(
-    X_train, Y_train, test_size=1 - config.start_set_size)
+dataStorage = DataStorage(config)
+dataStorage.load_csv(config.dataset_path)
 
 if config.sampling == 'random':
     active_learner = RandomSampler(config)
@@ -67,25 +61,23 @@ elif config.sampling == 'uncertainty_entropy':
     active_learner.set_uncertainty_strategy('entropy')
 elif config.sampling == 'committee':
     active_learner = CommitteeSampler(config)
-elif config.sampling == 'random_cluster':
-    active_learner = RandomClusterSampling(config)
 else:
     print("No Active Learning Strategy specified")
     exit(-4)
 
 if config.cluster == 'dummy':
-    clusterer = DummyClusterStrategy()
+    cluster_strategy = DummyClusterStrategy()
 elif config.cluster == 'random':
-    clusterer = RandomClusterStrategy()
+    cluster_strategy = RandomClusterStrategy()
 
 filename = config.sampling + '_' + str(config.start_set_size) + '_' + str(
     config.nr_queries_per_iteration)
 
 store_result(filename + ".txt", "", config)
 with Logger(config.output_dir + '/' + filename + ".txt", "w"):
-    active_learner.set_data(X_train_labeled, Y_train_labeled,
-                            X_train_unlabeled, Y_train_unlabeled, X_test,
-                            Y_test, label_encoder)
+    active_learner.set_data_storage(dataStorage)
+    cluster_strategy.set_data_storage(dataStorage)
+    active_learner.set_cluster_strategy(dataStorage)
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
 
 # save output
@@ -103,10 +95,10 @@ print(
     "User were asked to label {} queries".format(amount_of_user_asked_queries))
 
 classification_report_and_confusion_matrix(trained_active_clf_list[0],
-                                           X_test,
-                                           Y_test,
+                                           dataStorage.X_test,
+                                           dataStorage.Y_test,
                                            config,
-                                           label_encoder,
+                                           dataStorage.label_encoder,
                                            output_dict=False,
                                            store=False,
                                            training_times="")

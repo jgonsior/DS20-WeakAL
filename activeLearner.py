@@ -14,12 +14,10 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.exceptions import NotFittedError
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
-from experiment_setup_lib import (classification_report_and_confusion_matrix,
-                                  print_data_segmentation)
+from experiment_setup_lib import (classification_report_and_confusion_matrix)
 
 
 class ActiveLearner:
@@ -57,31 +55,11 @@ class ActiveLearner:
         self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
         self.config = config
 
-    def set_data(self, X_train_labeled, Y_train_labeled, X_train_unlabeled,
-                 Y_train_unlabeled, X_test, Y_test, label_encoder):
-        print_data_segmentation(X_train_labeled, X_train_unlabeled, X_test,
-                                self.len_queries)
+    def set_cluster_strategy(self, cluster_strategy):
+        self.cluster_strategy = cluster_strategy
 
-        self.X_train_labeled = np.ndarray(shape=(0, X_train_labeled.shape[1]))
-        self.Y_train_labeled = np.array([], dtype='int64')
-
-        # this one is a bit tricky:
-        # we merge both back together here -> but solely for the purpose of using them as the first oracle query down below
-        self.X_train_unlabeled = np.concatenate(
-            (X_train_labeled, X_train_unlabeled))
-        self.Y_train_unlabeled = np.append(Y_train_labeled, Y_train_unlabeled)
-        self.ground_truth_indices = [i for i in range(0, len(Y_train_labeled))]
-
-        self.Y_train_strong_labels = np.array(self.Y_train_labeled)  # copy
-
-        self.X_test = X_test
-        self.Y_test = Y_test
-
-        self.label_encoder = label_encoder
-
-        self.classifier_classes = [
-            i for i in range(0, len(label_encoder.classes_))
-        ]
+    def set_data_storage(self, data_storage):
+        self.data_storage = data_storage
 
     def calculate_stopping_criteria_stddev(self):
         accuracy_list = self.query_weak_accuracy_list
@@ -101,13 +79,13 @@ class ActiveLearner:
 
     def calculate_stopping_criteria_certainty(self):
         Y_train_unlabeled_pred = self.clf_list[0].predict(
-            self.X_train_unlabeled)
+            self.data_storage.X_train_unlabeled)
         Y_train_unlabeled_pred_proba = self.clf_list[0].predict_proba(
-            self.X_train_unlabeled)
+            self.data_storage.X_train_unlabeled)
 
         # don't ask
         test = pd.Series(Y_train_unlabeled_pred)
-        test1 = pd.Series(self.classifier_classes)
+        test1 = pd.Series(self.data_storage.label_encoder.classes_)
 
         indices = test.map(lambda x: np.where(test1 == x)[0][0]).tolist()
 
@@ -124,10 +102,11 @@ class ActiveLearner:
         pass
 
     def fit_clf(self):
-        self.clf_list[0].fit(self.X_train_labeled,
-                             self.Y_train_labeled,
+        self.clf_list[0].fit(self.data_storage.X_train_labeled,
+                             self.data_storage.Y_train_labeled,
                              sample_weight=compute_sample_weight(
-                                 'balanced', self.Y_train_labeled))
+                                 'balanced',
+                                 self.data_storage.Y_train_labeled))
 
     def calculate_pre_metrics(self, X_query, Y_query, Y_query_strong=None):
         # calculate for stopping criteria the accuracy of the prediction for the selected queries
@@ -149,8 +128,8 @@ class ActiveLearner:
         for i, clf in enumerate(self.clf_list):
             metrics = classification_report_and_confusion_matrix(
                 clf,
-                self.X_test,
-                self.Y_test,
+                self.data_storage.X_test,
+                self.data_storage.Y_test,
                 self.config,
                 self.label_encoder,
                 output_dict=True)
@@ -159,8 +138,8 @@ class ActiveLearner:
 
             metrics = classification_report_and_confusion_matrix(
                 clf,
-                self.X_train_labeled,
-                self.Y_train_labeled,
+                self.data_storage.X_train_labeled,
+                self.data_storage.Y_train_labeled,
                 self.config,
                 self.label_encoder,
                 output_dict=True)
@@ -168,11 +147,11 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_labeled_data_metrics'][i].append(
                 metrics)
 
-            if self.X_train_unlabeled.shape[0] != 0:
+            if self.data_storage.X_train_unlabeled.shape[0] != 0:
                 metrics = classification_report_and_confusion_matrix(
                     clf,
-                    self.X_train_unlabeled,
-                    self.Y_train_unlabeled,
+                    self.data_storage.X_train_unlabeled,
+                    self.data_storage.Y_train_unlabeled,
                     self.config,
                     self.label_encoder,
                     output_dict=True)
@@ -192,15 +171,17 @@ class ActiveLearner:
 
     def move_labeled_queries(self, X_query, Y_query, query_indices):
         # move new queries from unlabeled to labeled dataset
-        self.X_train_labeled = np.append(self.X_train_labeled, X_query, 0)
-        self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
-                                           query_indices, 0)
-        self.Y_train_strong_labels = np.append(
-            self.Y_train_strong_labels, self.Y_train_unlabeled[query_indices],
-            0)
-        self.Y_train_labeled = np.append(self.Y_train_labeled, Y_query)
-        self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
-                                           query_indices, 0)
+        self.data_storage.X_train_labeled = np.append(
+            self.data_storage.X_train_labeled, X_query, 0)
+        self.data_storage.X_train_unlabeled = np.delete(
+            self.data_storage.X_train_unlabeled, query_indices, 0)
+        self.data_storage.Y_train_strong_labels = np.append(
+            self.data_storage.Y_train_strong_labels,
+            self.data_storage.Y_train_unlabeled[query_indices], 0)
+        self.data_storage.Y_train_labeled = np.append(
+            self.data_storage.Y_train_labeled, Y_query)
+        self.data_storage.Y_train_unlabeled = np.delete(
+            self.data_storage.Y_train_unlabeled, query_indices, 0)
 
     def increase_labeled_dataset(self):
         X_train_unlabeled = self.cluster_strategy.get_oracle_cluster()
@@ -214,13 +195,14 @@ class ActiveLearner:
             cluster_query_indices)
 
         # ask oracle for new query
-        Y_query = self.Y_train_unlabeled[global_query_indices]
+        Y_query = self.data_storage.Y_train_unlabeled[global_query_indices]
 
         return X_query, Y_query, global_query_indices
 
     def certain_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
-        certainties = self.clf_list[0].predict_proba(self.X_train_unlabeled)
+        certainties = self.clf_list[0].predict_proba(
+            self.data_storage.X_train_unlabeled)
 
         recommendation_certainty_threshold = 0.9
         recommendation_ratio = 1 / 100
@@ -231,10 +213,10 @@ class ActiveLearner:
                 np.max(certainties, 1) > recommendation_certainty_threshold))
 
         if amount_of_certain_labels > len(
-                self.X_train_unlabeled) * recommendation_ratio:
+                self.data_storage.X_train_unlabeled) * recommendation_ratio:
             certain_indices = np.where(
                 np.max(certainties, 1) > recommendation_certainty_threshold)
-            certain_X = self.X_train_unlabeled[certain_indices]
+            certain_X = self.data_storage.X_train_unlabeled[certain_indices]
             recommended_labels = self.clf_list[0].predict(certain_X)
 
             return certain_X, recommended_labels, certain_indices
@@ -253,18 +235,19 @@ class ActiveLearner:
 
         combinations = []
         for combination in itertools.combinations(
-                list(range(self.X_train_labeled.shape[1])), 1):
+                list(range(self.data_storage.X_train_labeled.shape[1])), 1):
             combinations.append(combination)
 
         # generated heuristics should only being applied to small subset (which one?)
         # balance jaccard and f1_measure (coverage + accuracy)
-        for clf_class in self.classifier_classes:
+        for clf_class in self.data_storage.label_encoder.classes_:
             for combination in combinations:
                 # create training and test data set out of current available training/test data
-                X_temp = self.X_train_labeled[:, combination]
+                X_temp = self.data_storage.X_train_labeled[:, combination]
 
                 # do one vs rest
-                Y_temp = np.array(self.Y_train_labeled)  # works like a copy
+                Y_temp = np.array(
+                    self.data_storage.Y_train_labeled)  # works like a copy
                 Y_temp[Y_temp != clf_class] = -1
 
                 X_temp_train, X_temp_test, Y_temp_train, Y_temp_test = train_test_split(
@@ -286,7 +269,7 @@ class ActiveLearner:
 
         if highest_accuracy > minimum_heuristic_accuracy:
             probabilities = best_heuristic.predict_proba(
-                self.X_train_unlabeled[:, best_combination])
+                self.data_storage.X_train_unlabeled[:, best_combination])
 
             # filter out labels where one-vs-rest heuristic is sure that sample is of label L
             weak_indices = np.where(
@@ -295,7 +278,7 @@ class ActiveLearner:
             if weak_indices[0].size > 0:
                 print("Snuba mit Klasse " +
                       self.label_encoder.classes_[best_class])
-                X_weak = self.X_train_unlabeled[weak_indices]
+                X_weak = self.data_storage.X_train_unlabeled[weak_indices]
                 Y_weak = [best_class for _ in X_weak]
             else:
                 weak_indices = None
@@ -311,23 +294,25 @@ class ActiveLearner:
 
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
-            if self.X_train_unlabeled.shape[0] < self.nr_queries_per_iteration:
-                self.nr_queries_per_iteration = self.X_train_unlabeled.shape[0]
+            if self.data_storage.X_train_unlabeled.shape[
+                    0] < self.nr_queries_per_iteration:
+                self.nr_queries_per_iteration = self.data_storage.X_train_unlabeled.shape[
+                    0]
 
             if self.nr_queries_per_iteration == 0:
                 break
 
             # first iteration - add everything from ground truth
             if i == 0:
-                query_indices = self.ground_truth_indices
-                X_query = self.X_train_unlabeled[query_indices]
-                Y_query = self.Y_train_unlabeled[query_indices]
+                query_indices = self.data_storage.ground_truth_indices
+                X_query = self.data_storage.X_train_unlabeled[query_indices]
+                Y_query = self.data_storage.Y_train_unlabeled[query_indices]
 
                 recommendation_value = "G"
                 Y_query_strong = None
             else:
                 X_query = None
-                if len(self.Y_train_labeled) > 200:
+                if len(self.data_storage.Y_train_labeled) > 200:
                     X_query, Y_query, query_indices = self.certain_recommendation(
                     )
                     recommendation_value = "C"
@@ -336,7 +321,8 @@ class ActiveLearner:
                     #  X_query, Y_query, query_indices = self.snuba_lite_recommendation(
                     #  )
                     #  recommendation_value = "S"
-                    Y_query_strong = self.Y_train_unlabeled[query_indices]
+                    Y_query_strong = self.data_storage.Y_train_unlabeled[
+                        query_indices]
                     #  print(Y_query_strong)
                     #  print(Y_query)
 
@@ -353,16 +339,16 @@ class ActiveLearner:
 
             self.move_labeled_queries(X_query, Y_query, query_indices)
 
-            #  print("Y_train_labeled", self.Y_train_labeled.shape)
-            #  print("Y_train_unlabeled", self.Y_train_unlabeled.shape)
-            #  print("Y_test", self.Y_test.shape)
+            #  print("Y_train_labeled", self.data_storage.Y_train_labeled.shape)
+            #  print("Y_train_unlabeled", self.data_storage.Y_train_unlabeled.shape)
+            #  print("Y_test", self.data_storage.Y_test.shape)
             #  print("Y_query", Y_query.shape)
-            #  print("Y_train_strong_labels", self.Y_train_strong_labels)
+            #  print("Y_train_strong_labels", self.data_storage.Y_train_strong_labels)
             #  print("indices", query_indices)
 
-            #  print("X_train_labeled", self.X_train_labeled.shape)
-            #  print("X_train_unlabeled", self.X_train_unlabeled.shape)
-            #  print("X_test", self.X_test.shape)
+            #  print("X_train_labeled", self.data_storage.X_train_labeled.shape)
+            #  print("X_train_unlabeled", self.data_storage.X_train_unlabeled.shape)
+            #  print("X_test", self.data_storage.X_test.shape)
             #  print("X_query", X_query.shape)
 
             self.calculate_pre_metrics(X_query,
@@ -377,7 +363,7 @@ class ActiveLearner:
                                         Y_query,
                                         Y_query_strong=Y_query_strong)
 
-            if len(self.Y_train_unlabeled) != 0:
+            if len(self.data_storage.Y_train_unlabeled) != 0:
                 self.calculate_stopping_criteria_accuracy()
                 self.calculate_stopping_criteria_stddev()
                 self.calculate_stopping_criteria_certainty()
@@ -395,8 +381,8 @@ class ActiveLearner:
                 "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}"
                 .format(
                     i,
-                    self.X_train_labeled.shape[0],
-                    self.X_train_unlabeled.shape[0],
+                    self.data_storage.X_train_labeled.shape[0],
+                    self.data_storage.X_train_unlabeled.shape[0],
                     self.metrics_per_al_cycle['query_length'][-1],
                     self.metrics_per_al_cycle['test_data_metrics'][0][-1][0]
                     ['accuracy'],

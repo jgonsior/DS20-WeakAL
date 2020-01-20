@@ -201,21 +201,6 @@ def classification_report_and_confusion_matrix(clf,
         store_pickle("clf.pickle", clf, config)
 
 
-def print_data_segmentation(X_train_labeled, X_train_unlabeled, X_test,
-                            len_queries):
-    len_train_labeled = len(X_train_labeled)
-    len_train_unlabeled = len(X_train_unlabeled)
-    len_test = len(X_test)
-
-    len_total = len_train_unlabeled + len_train_labeled + len_test
-
-    print("size of train  labeled set: %i = %1.2f" %
-          (len_train_labeled, len_train_labeled / len_total))
-    print("size of train unlabeled set: %i = %1.2f" %
-          (len_train_unlabeled, len_train_unlabeled / len_total))
-    print("size of test set: %i = %1.2f" % (len_test, len_test / len_total))
-
-
 class Logger(object):
     #source: https://stackoverflow.com/q/616645
     def __init__(self, filename="log.txt", mode="a"):

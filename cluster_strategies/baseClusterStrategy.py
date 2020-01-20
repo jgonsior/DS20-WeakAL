@@ -12,6 +12,29 @@ from sklearn.neighbors import NearestNeighbors
 
 
 class BaseClusterStrategy:
+    def set_data_storage(self, data_storage):
+        self.data_storage = data_storage
+        # first run pca to downsample data
+        n_clusters = len(self.data_storage.label_encoder.classes_)
+
+        #  n_clusters = 8
+        self.pca = PCA(n_components=n_clusters)
+
+        X_train_combined = np.concatenate(
+            (self.data_storage.X_train_labeled,
+             self.data_storage.X_train_unlabeled))
+
+        self.pca.fit(X_train_combined)
+        self.X_train_combined_pca = self.pca.transform(X_train_combined)
+        # then cluster it
+        self.cluster_model = AgglomerativeClustering(
+            n_clusters=int(X_train_combined.shape[1] / 10)
+        )  #distance_threshold=0,                                                     n_clusters=None)
+        #  self.plot_cluster()
+        #  self.plot_dendrogram()
+
+        self.data_storage = data_storage
+
     def plot_dendrogram(self, **kwargs):
         self.cluster_model.fit(self.X_train_combined_pca)
         model = self.cluster_model
@@ -37,8 +60,8 @@ class BaseClusterStrategy:
         plt.show()
 
     def plot_cluster(self):
-        y_pred = self.cluster_model.fit_predict(self.X_train_combined_pca,
-                                                self.Y_train_labeled)
+        y_pred = self.cluster_model.fit_predict(
+            self.X_train_combined_pca, self.data_storage.Y_train_labeled)
 
         # plot the top three levels of the dendrogram
         plt.figure()
@@ -48,27 +71,6 @@ class BaseClusterStrategy:
                     c=y_pred)
 
         plt.show()
-
-    def set_data(self, X_train_labeled, Y_train_labeled, X_train_unlabeled,
-                 label_encoder):
-        # first run pca to downsample data
-        self.X_train_combined = np.concatenate(
-            (X_train_labeled, X_train_unlabeled))
-        self.X_train_unlabeled = X_train_unlabeled
-        self.Y_train_labeled = self.Y_train_labeled
-
-        n_clusters = len(label_encoder.classes_)
-
-        #  n_clusters = 8
-        self.pca = PCA(n_components=n_clusters)
-        self.pca.fit(self.X_train_combined)
-        self.X_train_combined_pca = self.pca.transform(self.X_train_combined)
-        # then cluster it
-        self.cluster_model = AgglomerativeClustering(
-            n_clusters=int(self.X_train_combined.shape[1] / 10)
-        )  #distance_threshold=0,                                                     n_clusters=None)
-        #  self.plot_cluster()
-        #  self.plot_dendrogram()
 
     @abc.abstractmethod
     def get_oracle_cluster(self):
