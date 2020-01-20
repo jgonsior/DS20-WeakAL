@@ -1,7 +1,7 @@
 import numpy as np
 from pprint import pprint
 from activeLearner import ActiveLearner
-from active_learning_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
+from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 from scipy.stats import entropy
 
 

@@ -5,7 +5,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from active_learning_strategies import ClusterSampling
+from sampling_strategies import ClusterSampling
 
 
 class RandomClusterSampling(ClusterSampling):

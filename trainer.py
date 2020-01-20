@@ -7,9 +7,9 @@ import sys
 
 import numpy as np
 
-from active_learning_strategies import (BoundaryPairSampler, CommitteeSampler,
-                                        RandomSampler, UncertaintySampler,
-                                        RandomClusterSampling)
+from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
+                                 RandomSampler, UncertaintySampler,
+                                 RandomClusterSampling)
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
                                   load_and_prepare_X_and_Y, standard_config,

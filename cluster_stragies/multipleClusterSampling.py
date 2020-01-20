@@ -5,7 +5,7 @@ from pprint import pprint
 
 import numpy as np
 
-from active_learning_strategies import ClusterSampling
+from sampling_strategies import ClusterSampling
 
 
 class MultipleClusterAtATimeSampling(ClusterSampling):

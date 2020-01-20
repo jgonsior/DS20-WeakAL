@@ -1,7 +1,7 @@
 from pprint import pprint
 import random
 from itertools import islice
-from active_learning_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
+from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 import numpy as np
 
 
