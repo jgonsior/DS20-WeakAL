@@ -1,5 +1,5 @@
-from pprint import pprint
-
+import random
+from collections import defaultdict
 import numpy as np
 from scipy.cluster.hierarchy import dendrogram
 
@@ -75,6 +75,20 @@ class ClusterSampling(ActiveLearner):
         )  #distance_threshold=0,                                                     n_clusters=None)
         #  self.plot_cluster()
         #  self.plot_dendrogram()
+
+    def get_random_cluster(self):
+        self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
+            self.pca.transform(self.X_train_unlabeled))
+
+        self.X_train_unlabeled_clustered = defaultdict(lambda: list())
+        for index, Y in enumerate(self.Y_train_unlabeled_cluster):
+            self.X_train_unlabeled_clustered[Y].append(index)
+
+        # randomly select cluster
+        random_cluster = random.sample(range(0,
+                                             self.cluster_model.n_clusters_),
+                                       k=1)[0]
+        return random_cluster
 
     def calculate_next_query_indices(self):
         return None

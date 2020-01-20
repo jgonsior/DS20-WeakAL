@@ -8,7 +8,7 @@ import numpy as np
 from active_learning_strategies import ClusterSampling
 
 
-class RandomClusterSampling(ClusterSampling):
+class MultipleClusterAtATimeSampling(ClusterSampling):
     def calculate_next_query_indices(self):
         Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
             self.pca.transform(self.X_train_unlabeled))

@@ -1,24 +1,25 @@
 import abc
 import argparse
+import itertools
 import pickle
 import random
 import sys
 from collections import defaultdict
 from pprint import pprint
-import itertools
-import numpy as np
 
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from experiment_setup_lib import (classification_report_and_confusion_matrix,
-                                  print_data_segmentation)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.exceptions import NotFittedError
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
+
+from experiment_setup_lib import (classification_report_and_confusion_matrix,
+                                  print_data_segmentation)
 
 
 class ActiveLearner:
@@ -119,7 +120,7 @@ class ActiveLearner:
         self.metrics_per_al_cycle['stop_certainty_list'].append(result)
 
     @abc.abstractmethod
-    def calculate_next_query_indices(self, *args):
+    def calculate_next_query_indices(self, X_train_unlabeled, *args):
         pass
 
     def fit_clf(self):
@@ -202,15 +203,20 @@ class ActiveLearner:
                                            query_indices, 0)
 
     def increase_labeled_dataset(self):
+        X_train_unlabeled = self.cluster_strategy.get_oracle_cluster()
 
         # ask strategy for new datapoint
-        query_indices = self.calculate_next_query_indices()
-        X_query = self.X_train_unlabeled[query_indices]
+        cluster_query_indices = self.calculate_next_query_indices(
+            X_train_unlabeled)
+        X_query = X_train_unlabeled[cluster_query_indices]
+
+        global_query_indices = self.cluster_strategy.get_global_query_indice(
+            cluster_query_indices)
 
         # ask oracle for new query
-        Y_query = self.Y_train_unlabeled[query_indices]
+        Y_query = self.Y_train_unlabeled[global_query_indices]
 
-        return X_query, Y_query, query_indices
+        return X_query, Y_query, global_query_indices
 
     def certain_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
