@@ -6,5 +6,3 @@ from sampling_strategies.sheetBasedCommitteeSampling import *
 from sampling_strategies.sheetBasedRandomSampling import *
 from sampling_strategies.sheetBasedUncertaintySampling import *
 from sampling_strategies.sheetBasedActiveLearner import *
-from sampling_strategies.clusterSampling import *
-from sampling_strategies.clusterRandomSampling import *

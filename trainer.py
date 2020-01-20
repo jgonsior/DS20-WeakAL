@@ -6,20 +6,24 @@ import random
 import sys
 
 import numpy as np
+from sklearn.model_selection import train_test_split
 
-from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
-                                 RandomSampler, UncertaintySampler,
-                                 RandomClusterSampling)
+from cluster_strategies import DummyClusterStrategy, RandomClusterStrategy
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
                                   load_and_prepare_X_and_Y, standard_config,
                                   store_pickle, store_result)
-from sklearn.model_selection import train_test_split
+from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
+                                 RandomSampler, UncertaintySampler)
 
 config = standard_config([
-    (['--strategy'], {
+    (['--sampling'], {
         'required': True,
         'help': "Possible values: uncertainty, random, committe, boundary"
+    }),
+    (['--cluster'], {
+        'default': 'dummy',
+        'help': "Possible values: dummy, random, mostUncertain, roundRobin"
     }),
     (['--nr_learning_iterations'], {
         'type': int,
@@ -48,28 +52,33 @@ X_train, X_test, Y_train, Y_test = train_test_split(
 X_train_labeled, X_train_unlabeled, Y_train_labeled, Y_train_unlabeled = train_test_split(
     X_train, Y_train, test_size=1 - config.start_set_size)
 
-if config.strategy == 'random':
+if config.sampling == 'random':
     active_learner = RandomSampler(config)
-elif config.strategy == 'boundary':
+elif config.sampling == 'boundary':
     active_learner = BoundaryPairSampler(config)
-elif config.strategy == 'uncertainty':
+elif config.sampling == 'uncertainty':
     active_learner = UncertaintySampler(config)
     active_learner.set_uncertainty_strategy('least_confident')
-elif config.strategy == 'uncertainty_max_margin':
+elif config.sampling == 'uncertainty_max_margin':
     active_learner = UncertaintySampler(config)
     active_learner.set_uncertainty_strategy('max_margin')
-elif config.strategy == 'uncertainty_entropy':
+elif config.sampling == 'uncertainty_entropy':
     active_learner = UncertaintySampler(config)
     active_learner.set_uncertainty_strategy('entropy')
-elif config.strategy == 'committee':
+elif config.sampling == 'committee':
     active_learner = CommitteeSampler(config)
-elif config.strategy == 'random_cluster':
+elif config.sampling == 'random_cluster':
     active_learner = RandomClusterSampling(config)
 else:
     print("No Active Learning Strategy specified")
     exit(-4)
 
-filename = config.strategy + '_' + str(config.start_set_size) + '_' + str(
+if config.cluster == 'dummy':
+    clusterer = DummyClusterStrategy()
+elif config.cluster == 'random':
+    clusterer = RandomClusterStrategy()
+
+filename = config.sampling + '_' + str(config.start_set_size) + '_' + str(
     config.nr_queries_per_iteration)
 
 store_result(filename + ".txt", "", config)
@@ -78,10 +87,6 @@ with Logger(config.output_dir + '/' + filename + ".txt", "w"):
                             X_train_unlabeled, Y_train_unlabeled, X_test,
                             Y_test, label_encoder)
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
-
-#  log = "hui"
-#  trained_active_clf_list = ["ui"]
-#  metrics_per_al_cycle = "oha"
 
 # save output
 store_pickle(filename + '.pickle', metrics_per_al_cycle, config)
