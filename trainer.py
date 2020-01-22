@@ -77,7 +77,7 @@ store_result(filename + ".txt", "", config)
 with Logger(config.output_dir + '/' + filename + ".txt", "w"):
     active_learner.set_data_storage(dataStorage)
     cluster_strategy.set_data_storage(dataStorage)
-    active_learner.set_cluster_strategy(dataStorage)
+    active_learner.set_cluster_strategy(cluster_strategy)
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
 
 # save output

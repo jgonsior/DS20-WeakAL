@@ -15,7 +15,6 @@ class UncertaintySampler(ActiveLearner):
                                      Y_train_labeled, *args):
         # recieve predictions and probabilitys
         # for all possible classifications of classifier
-        Y_temp_pred = self.clf_list[0].predict(X_train_unlabeled)
         Y_temp_proba = self.clf_list[0].predict_proba(X_train_unlabeled)
 
         if self.strategy == 'least_confident':

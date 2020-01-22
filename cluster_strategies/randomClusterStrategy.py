@@ -9,9 +9,9 @@ from cluster_strategies import BaseClusterStrategy
 
 
 class RandomClusterStrategy(BaseClusterStrategy):
-    def get_random_cluster(self):
+    def _get_random_cluster(self):
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
-            self.pca.transform(self.X_train_unlabeled))
+            self.pca.transform(self.data_storage.X_train_unlabeled))
 
         self.X_train_unlabeled_clustered = defaultdict(lambda: list())
         for index, Y in enumerate(self.Y_train_unlabeled_cluster):
@@ -23,9 +23,9 @@ class RandomClusterStrategy(BaseClusterStrategy):
                                        k=1)[0]
         return random_cluster
 
-    def get_oracle_cluster(self):
-        random_cluster = self.get_random_cluster()
-        k = self.nr_queries_per_iteration
+    def get_cluster_indices(self):
+        random_cluster = self._get_random_cluster()
+        k = self.data_storage.nr_queries_per_iteration
         if k > len(self.X_train_unlabeled_clustered[random_cluster]):
             return self.X_train_unlabeled_clustered[random_cluster]
 
@@ -33,7 +33,3 @@ class RandomClusterStrategy(BaseClusterStrategy):
             self.X_train_unlabeled_clustered[random_cluster], k=k)
 
         return random_indices
-
-    def get_global_query_indice(self, cluster_query_indices):
-        # return global_query_indices
-        pass

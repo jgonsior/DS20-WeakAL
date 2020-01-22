@@ -73,11 +73,6 @@ class BaseClusterStrategy:
         plt.show()
 
     @abc.abstractmethod
-    def get_oracle_cluster(self):
+    def get_cluster_indices(self):
         # return X_train_unlabeled
-        pass
-
-    @abc.abstractmethod
-    def get_global_query_indice(self, cluster_query_indices):
-        # return global_query_indices
         pass

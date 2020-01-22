@@ -8,7 +8,7 @@ import numpy as np
 from cluster_strategies import BaseClusterStrategy
 
 
-class RandomClusterStrategy(BaseClusterStrategy):
+class MostUncertainClusterStrategy(BaseClusterStrategy):
     def get_random_cluster(self):
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
             self.pca.transform(self.X_train_unlabeled))

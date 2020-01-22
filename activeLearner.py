@@ -11,13 +11,14 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import entropy
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.exceptions import NotFittedError
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
-from experiment_setup_lib import (classification_report_and_confusion_matrix)
+from experiment_setup_lib import classification_report_and_confusion_matrix
 
 
 class ActiveLearner:
@@ -26,7 +27,6 @@ class ActiveLearner:
         random.seed(config.random_seed)
 
         self.nr_learning_iterations = config.nr_learning_iterations
-        self.nr_queries_per_iteration = config.nr_queries_per_iteration
 
         self.best_hyper_parameters = {
             'random_state': config.random_seed,
@@ -52,7 +52,6 @@ class ActiveLearner:
             'recommendation': []
         }
 
-        self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
         self.config = config
 
     def set_cluster_strategy(self, cluster_strategy):
@@ -60,6 +59,7 @@ class ActiveLearner:
 
     def set_data_storage(self, data_storage):
         self.data_storage = data_storage
+        self.len_queries = self.nr_learning_iterations * self.data_storage.nr_queries_per_iteration
 
     def calculate_stopping_criteria_stddev(self):
         accuracy_list = self.query_weak_accuracy_list
@@ -78,27 +78,15 @@ class ActiveLearner:
             self.query_weak_accuracy_list[-1])
 
     def calculate_stopping_criteria_certainty(self):
-        Y_train_unlabeled_pred = self.clf_list[0].predict(
-            self.data_storage.X_train_unlabeled)
         Y_train_unlabeled_pred_proba = self.clf_list[0].predict_proba(
             self.data_storage.X_train_unlabeled)
 
-        # don't ask
-        test = pd.Series(Y_train_unlabeled_pred)
-        test1 = pd.Series(self.data_storage.label_encoder.classes_)
-
-        indices = test.map(lambda x: np.where(test1 == x)[0][0]).tolist()
-
-        class_certainties = [
-            Y_train_unlabeled_pred_proba[i][indices[i]]
-            for i in range(len(Y_train_unlabeled_pred_proba))
-        ]
-
-        result = np.min(class_certainties)
-        self.metrics_per_al_cycle['stop_certainty_list'].append(result)
+        result = np.apply_along_axis(entropy, 1, Y_train_unlabeled_pred_proba)
+        self.metrics_per_al_cycle['stop_certainty_list'].append(np.max(result))
 
     @abc.abstractmethod
-    def calculate_next_query_indices(self, X_train_unlabeled, *args):
+    def calculate_next_query_indices(self, X_train_unlabeled_cluster_indices,
+                                     *args):
         pass
 
     def fit_clf(self):
@@ -131,7 +119,7 @@ class ActiveLearner:
                 self.data_storage.X_test,
                 self.data_storage.Y_test,
                 self.config,
-                self.label_encoder,
+                self.data_storage.label_encoder,
                 output_dict=True)
 
             self.metrics_per_al_cycle['test_data_metrics'][i].append(metrics)
@@ -141,7 +129,7 @@ class ActiveLearner:
                 self.data_storage.X_train_labeled,
                 self.data_storage.Y_train_labeled,
                 self.config,
-                self.label_encoder,
+                self.data_storage.label_encoder,
                 output_dict=True)
 
             self.metrics_per_al_cycle['train_labeled_data_metrics'][i].append(
@@ -153,7 +141,7 @@ class ActiveLearner:
                     self.data_storage.X_train_unlabeled,
                     self.data_storage.Y_train_unlabeled,
                     self.config,
-                    self.label_encoder,
+                    self.data_storage.label_encoder,
                     output_dict=True)
             else:
                 metrics = ({'accuracy': 0}, None)
@@ -163,41 +151,26 @@ class ActiveLearner:
 
             train_unlabeled_class_distribution = defaultdict(int)
 
-            for label in self.label_encoder.inverse_transform(Y_query):
+            for label in self.data_storage.label_encoder.inverse_transform(
+                    Y_query):
                 train_unlabeled_class_distribution[label] += 1
 
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
 
-    def move_labeled_queries(self, X_query, Y_query, query_indices):
-        # move new queries from unlabeled to labeled dataset
-        self.data_storage.X_train_labeled = np.append(
-            self.data_storage.X_train_labeled, X_query, 0)
-        self.data_storage.X_train_unlabeled = np.delete(
-            self.data_storage.X_train_unlabeled, query_indices, 0)
-        self.data_storage.Y_train_strong_labels = np.append(
-            self.data_storage.Y_train_strong_labels,
-            self.data_storage.Y_train_unlabeled[query_indices], 0)
-        self.data_storage.Y_train_labeled = np.append(
-            self.data_storage.Y_train_labeled, Y_query)
-        self.data_storage.Y_train_unlabeled = np.delete(
-            self.data_storage.Y_train_unlabeled, query_indices, 0)
-
     def increase_labeled_dataset(self):
-        X_train_unlabeled = self.cluster_strategy.get_oracle_cluster()
+        X_train_unlabeled_cluster_indices = self.cluster_strategy.get_cluster_indices(
+        )
 
         # ask strategy for new datapoint
-        cluster_query_indices = self.calculate_next_query_indices(
-            X_train_unlabeled)
-        X_query = X_train_unlabeled[cluster_query_indices]
+        query_indices = self.calculate_next_query_indices(
+            X_train_unlabeled_cluster_indices)
 
-        global_query_indices = self.cluster_strategy.get_global_query_indice(
-            cluster_query_indices)
+        X_query = self.data_storage.X_train_unlabeled[query_indices]
 
         # ask oracle for new query
-        Y_query = self.data_storage.Y_train_unlabeled[global_query_indices]
-
-        return X_query, Y_query, global_query_indices
+        Y_query = self.data_storage.Y_train_unlabeled[query_indices]
+        return X_query, Y_query, query_indices
 
     def certain_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
@@ -277,7 +250,7 @@ class ActiveLearner:
 
             if weak_indices[0].size > 0:
                 print("Snuba mit Klasse " +
-                      self.label_encoder.classes_[best_class])
+                      self.data_storage.label_encoder.classes_[best_class])
                 X_weak = self.data_storage.X_train_unlabeled[weak_indices]
                 Y_weak = [best_class for _ in X_weak]
             else:
@@ -295,11 +268,11 @@ class ActiveLearner:
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
             if self.data_storage.X_train_unlabeled.shape[
-                    0] < self.nr_queries_per_iteration:
-                self.nr_queries_per_iteration = self.data_storage.X_train_unlabeled.shape[
+                    0] < self.data_storage.nr_queries_per_iteration:
+                self.data_storage.nr_queries_per_iteration = self.data_storage.X_train_unlabeled.shape[
                     0]
 
-            if self.nr_queries_per_iteration == 0:
+            if self.data_storage.nr_queries_per_iteration == 0:
                 break
 
             # first iteration - add everything from ground truth
@@ -337,7 +310,8 @@ class ActiveLearner:
                 recommendation_value)
             self.metrics_per_al_cycle['query_length'].append(len(Y_query))
 
-            self.move_labeled_queries(X_query, Y_query, query_indices)
+            self.data_storage.move_labeled_queries(X_query, Y_query,
+                                                   query_indices)
 
             #  print("Y_train_labeled", self.data_storage.Y_train_labeled.shape)
             #  print("Y_train_unlabeled", self.data_storage.Y_train_unlabeled.shape)
@@ -401,7 +375,7 @@ class ActiveLearner:
 
         # in case we specified more queries than we have data
         self.nr_learning_iterations = i
-        self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
+        self.len_queries = self.nr_learning_iterations * self.data_storage.nr_queries_per_iteration
 
         #  print(self.metrics_per_al_cycle)
 
