@@ -17,6 +17,8 @@ class DataStorage:
 
     def load_csv(self, dataset_path):
         X, Y, self.label_encoder = load_and_prepare_X_and_Y(self.config)
+        X = pd.DataFrame(X, dtype=float)
+        Y = pd.DataFrame(Y, dtype=int)
 
         # split data
         X_train, self.X_test, Y_train, self.Y_test = train_test_split(
@@ -29,7 +31,6 @@ class DataStorage:
         self._print_data_segmentation()
 
         self.X_train_unlabeled_cluster_indices = {}
-
         self.prepare_fake_iteration_zero()
 
     def prepare_fake_iteration_zero(self):
@@ -37,21 +38,21 @@ class DataStorage:
         original_X_train_labeled = self.X_train_labeled
         original_Y_train_labeled = self.Y_train_labeled
 
-        self.X_train_labeled = np.ndarray(
-            shape=(0, original_X_train_labeled.shape[1]))
-        self.Y_train_labeled = np.array([], dtype='int64')
+        self.X_train_labeled = pd.DataFrame(
+            columns=original_X_train_labeled.columns, dtype=float)
+        self.Y_train_labeled = pd.DataFrame(
+            columns=original_Y_train_labeled.columns, dtype=int)
 
         # this one is a bit tricky:
         # we merge both back together here -> but solely for the purpose of using them as the first oracle query down below
-        self.X_train_unlabeled = np.concatenate(
-            (original_X_train_labeled, self.X_train_unlabeled))
-        self.Y_train_unlabeled = np.append(original_Y_train_labeled,
-                                           self.Y_train_unlabeled)
-        self.ground_truth_indices = [
-            i for i in range(0, len(original_Y_train_labeled))
-        ]
+        self.X_train_unlabeled = pd.concat(
+            [original_X_train_labeled, self.X_train_unlabeled])
+        self.Y_train_unlabeled = pd.concat(
+            [original_Y_train_labeled, self.Y_train_unlabeled])
+        self.ground_truth_indices = original_X_train_labeled.index
 
-        self.Y_train_strong_labels = np.array(original_Y_train_labeled)  # copy
+        self.Y_train_strong_labels = pd.DataFrame.copy(
+            original_Y_train_labeled)
 
     def _print_data_segmentation(self):
         len_train_labeled = len(self.X_train_labeled)
@@ -69,15 +70,12 @@ class DataStorage:
 
     def move_labeled_queries(self, X_query, Y_query, query_indices):
         # move new queries from unlabeled to labeled dataset
-        self.X_train_labeled = np.append(self.X_train_labeled, X_query, 0)
-        self.X_train_unlabeled = np.delete(self.X_train_unlabeled,
-                                           query_indices, 0)
-        self.Y_train_strong_labels = np.append(
-            self.Y_train_strong_labels, self.Y_train_unlabeled[query_indices],
-            0)
-        self.Y_train_labeled = np.append(self.Y_train_labeled, Y_query)
-        self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
-                                           query_indices, 0)
+        self.X_train_labeled = self.X_train_labeled.append(X_query)
+        self.X_train_unlabeled = self.X_train_unlabeled.drop(query_indices)
+        self.Y_train_strong_labels = self.Y_train_strong_labels.append(
+            self.Y_train_unlabeled.loc[query_indices])
+        self.Y_train_labeled = self.Y_train_labeled.append(Y_query)
+        self.Y_train_unlabeled = self.Y_train_unlabeled.drop(query_indices)
 
         # remove indices from all clusters
         for cluster in self.X_train_unlabeled_cluster_indices.keys():

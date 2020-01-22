@@ -9,6 +9,7 @@ from sklearn.cluster import (DBSCAN, OPTICS, AgglomerativeClustering, Birch,
                              KMeans)
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
+import pandas as pd
 
 
 class BaseClusterStrategy:
@@ -20,9 +21,10 @@ class BaseClusterStrategy:
         #  n_clusters = 8
         self.pca = PCA(n_components=n_clusters)
 
-        X_train_combined = np.concatenate(
-            (self.data_storage.X_train_labeled,
-             self.data_storage.X_train_unlabeled))
+        X_train_combined = pd.concat([
+            self.data_storage.X_train_labeled,
+            self.data_storage.X_train_unlabeled
+        ])
 
         self.pca.fit(X_train_combined)
         self.X_train_combined_pca = self.pca.transform(X_train_combined)

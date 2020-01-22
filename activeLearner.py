@@ -90,11 +90,11 @@ class ActiveLearner:
         pass
 
     def fit_clf(self):
-        self.clf_list[0].fit(self.data_storage.X_train_labeled,
-                             self.data_storage.Y_train_labeled,
-                             sample_weight=compute_sample_weight(
-                                 'balanced',
-                                 self.data_storage.Y_train_labeled))
+        self.clf_list[0].fit(
+            self.data_storage.X_train_labeled.to_numpy(),
+            self.data_storage.Y_train_labeled[0].to_numpy(),
+            sample_weight=compute_sample_weight(
+                'balanced', self.data_storage.Y_train_labeled[0].to_numpy()))
 
     def calculate_pre_metrics(self, X_query, Y_query, Y_query_strong=None):
         # calculate for stopping criteria the accuracy of the prediction for the selected queries
@@ -150,9 +150,8 @@ class ActiveLearner:
                 i].append(metrics)
 
             train_unlabeled_class_distribution = defaultdict(int)
-
             for label in self.data_storage.label_encoder.inverse_transform(
-                    Y_query):
+                    Y_query[0].to_numpy()):
                 train_unlabeled_class_distribution[label] += 1
 
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
@@ -279,8 +278,10 @@ class ActiveLearner:
             # first iteration - add everything from ground truth
             if i == 0:
                 query_indices = self.data_storage.ground_truth_indices
-                X_query = self.data_storage.X_train_unlabeled[query_indices]
-                Y_query = self.data_storage.Y_train_unlabeled[query_indices]
+                X_query = self.data_storage.X_train_unlabeled.loc[
+                    query_indices]
+                Y_query = self.data_storage.Y_train_unlabeled.loc[
+                    query_indices]
 
                 recommendation_value = "G"
                 Y_query_strong = None
