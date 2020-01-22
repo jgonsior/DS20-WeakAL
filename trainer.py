@@ -38,6 +38,12 @@ config = standard_config([
         'type': float,
         'default': 0.1
     }),
+    (['--with_recommendation'], {
+        'action': 'store_true'
+    }),
+    (['--with_snuba_lite'], {
+        'action': 'store_true'
+    }),
     (['--plot'], {
         'action': 'store_true'
     }),
@@ -78,6 +84,7 @@ with Logger(config.output_dir + '/' + filename + ".txt", "w"):
     active_learner.set_data_storage(dataStorage)
     cluster_strategy.set_data_storage(dataStorage)
     active_learner.set_cluster_strategy(cluster_strategy)
+
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn()
 
 # save output

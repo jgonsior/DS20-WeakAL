@@ -1,4 +1,5 @@
 import matplotlib
+from itertools import chain
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,23 +23,35 @@ class DataStorage:
             X, Y, test_size=self.config.test_fraction)
 
         # split training data into labeled and unlabeled dataset
-        X_train_labeled, self.X_train_unlabeled, Y_train_labeled, self.Y_train_unlabeled = train_test_split(
+        self.X_train_labeled, self.X_train_unlabeled, self.Y_train_labeled, self.Y_train_unlabeled = train_test_split(
             X_train, Y_train, test_size=1 - self.config.start_set_size)
 
-        self.X_train_labeled = np.ndarray(shape=(0, X_train_labeled.shape[1]))
+        self._print_data_segmentation()
+
+        self.X_train_unlabeled_cluster_indices = {}
+
+        self.prepare_fake_iteration_zero()
+
+    def prepare_fake_iteration_zero(self):
+        # fake iteration zero where we add the given ground truth labels all at once
+        original_X_train_labeled = self.X_train_labeled
+        original_Y_train_labeled = self.Y_train_labeled
+
+        self.X_train_labeled = np.ndarray(
+            shape=(0, original_X_train_labeled.shape[1]))
         self.Y_train_labeled = np.array([], dtype='int64')
 
         # this one is a bit tricky:
         # we merge both back together here -> but solely for the purpose of using them as the first oracle query down below
         self.X_train_unlabeled = np.concatenate(
-            (X_train_labeled, self.X_train_unlabeled))
-        self.Y_train_unlabeled = np.append(Y_train_labeled,
+            (original_X_train_labeled, self.X_train_unlabeled))
+        self.Y_train_unlabeled = np.append(original_Y_train_labeled,
                                            self.Y_train_unlabeled)
-        self.ground_truth_indices = [i for i in range(0, len(Y_train_labeled))]
+        self.ground_truth_indices = [
+            i for i in range(0, len(original_Y_train_labeled))
+        ]
 
-        self.Y_train_strong_labels = np.array(Y_train_labeled)  # copy
-
-        self._print_data_segmentation()
+        self.Y_train_strong_labels = np.array(original_Y_train_labeled)  # copy
 
     def _print_data_segmentation(self):
         len_train_labeled = len(self.X_train_labeled)
@@ -65,3 +78,16 @@ class DataStorage:
         self.Y_train_labeled = np.append(self.Y_train_labeled, Y_query)
         self.Y_train_unlabeled = np.delete(self.Y_train_unlabeled,
                                            query_indices, 0)
+
+        # remove indices from all clusters
+        for cluster in self.X_train_unlabeled_cluster_indices.keys():
+            for indice in query_indices:
+                if indice in self.X_train_unlabeled_cluster_indices[cluster]:
+                    self.X_train_unlabeled_cluster_indices[cluster].remove(
+                        indice)
+        # print out the amount of stored data in X_train_unlabeled_cluster_indices
+        #  print(
+        #  len(
+        #  list(
+        #  chain(*list(
+        #  self.X_train_unlabeled_cluster_indices.values())))))

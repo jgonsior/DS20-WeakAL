@@ -159,6 +159,7 @@ class ActiveLearner:
                 i].append(train_unlabeled_class_distribution)
 
     def increase_labeled_dataset(self):
+        # dict of cluster -> [X_train_unlabeled_indices]
         X_train_unlabeled_cluster_indices = self.cluster_strategy.get_cluster_indices(
         )
 
@@ -285,15 +286,17 @@ class ActiveLearner:
                 Y_query_strong = None
             else:
                 X_query = None
-                if len(self.data_storage.Y_train_labeled) > 200:
+                if len(self.data_storage.Y_train_labeled
+                       ) > 200 and self.config.with_recommendation:
                     X_query, Y_query, query_indices = self.certain_recommendation(
                     )
                     recommendation_value = "C"
 
-                    #  if X_query is None:
-                    #  X_query, Y_query, query_indices = self.snuba_lite_recommendation(
-                    #  )
-                    #  recommendation_value = "S"
+                    if X_query is None and self.config.with_snuba_lite:
+                        X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                        )
+                        recommendation_value = "S"
+
                     Y_query_strong = self.data_storage.Y_train_unlabeled[
                         query_indices]
                     #  print(Y_query_strong)

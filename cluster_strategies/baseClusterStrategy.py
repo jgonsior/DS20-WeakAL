@@ -35,6 +35,17 @@ class BaseClusterStrategy:
 
         self.data_storage = data_storage
 
+        # fit cluster
+        self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
+            self.pca.transform(self.data_storage.X_train_unlabeled))
+
+        self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
+            lambda: list())
+
+        for index, Y in enumerate(self.Y_train_unlabeled_cluster):
+            self.data_storage.X_train_unlabeled_cluster_indices[Y].append(
+                index)
+
     def plot_dendrogram(self, **kwargs):
         self.cluster_model.fit(self.X_train_combined_pca)
         model = self.cluster_model
