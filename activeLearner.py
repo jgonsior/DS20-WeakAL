@@ -79,7 +79,7 @@ class ActiveLearner:
 
     def calculate_stopping_criteria_certainty(self):
         Y_train_unlabeled_pred_proba = self.clf_list[0].predict_proba(
-            self.data_storage.X_train_unlabeled)
+            self.data_storage.X_train_unlabeled.to_numpy())
 
         result = np.apply_along_axis(entropy, 1, Y_train_unlabeled_pred_proba)
         self.metrics_per_al_cycle['stop_certainty_list'].append(np.max(result))
@@ -175,11 +175,10 @@ class ActiveLearner:
     def certain_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
         certainties = self.clf_list[0].predict_proba(
-            self.data_storage.X_train_unlabeled)
+            self.data_storage.X_train_unlabeled.to_numpy())
 
         recommendation_certainty_threshold = 0.9
         recommendation_ratio = 1 / 100
-        #  recommendation_ratio = 1 / 100000000000000000000000000
 
         amount_of_certain_labels = np.count_nonzero(
             np.where(
@@ -187,10 +186,21 @@ class ActiveLearner:
 
         if amount_of_certain_labels > len(
                 self.data_storage.X_train_unlabeled) * recommendation_ratio:
-            certain_indices = np.where(
-                np.max(certainties, 1) > recommendation_certainty_threshold)
-            certain_X = self.data_storage.X_train_unlabeled[certain_indices]
-            recommended_labels = self.clf_list[0].predict(certain_X)
+
+            # for safety reasons I refrain from explaining the following
+            certain_indices = [
+                j for i, j in enumerate(
+                    self.data_storage.X_train_unlabeled.index.tolist()) if
+                np.max(certainties, 1)[i] > recommendation_certainty_threshold
+            ]
+
+            certain_X = self.data_storage.X_train_unlabeled.loc[
+                certain_indices]
+
+            recommended_labels = self.clf_list[0].predict(certain_X.to_numpy())
+            # add indices to recommended_labels, could be maybe useful later on?
+            recommended_labels = pd.DataFrame(recommended_labels,
+                                              index=certain_X.index)
 
             return certain_X, recommended_labels, certain_indices
         else:
@@ -242,7 +252,9 @@ class ActiveLearner:
 
         if highest_accuracy > minimum_heuristic_accuracy:
             probabilities = best_heuristic.predict_proba(
-                self.data_storage.X_train_unlabeled[:, best_combination])
+                self.data_storage.X_train_unlabeled[:,
+                                                    best_combination].to_numpy(
+                                                    ))
 
             # filter out labels where one-vs-rest heuristic is sure that sample is of label L
             weak_indices = np.where(
@@ -298,10 +310,11 @@ class ActiveLearner:
                         )
                         recommendation_value = "S"
 
-                    Y_query_strong = self.data_storage.Y_train_unlabeled[
-                        query_indices]
-                    #  print(Y_query_strong)
-                    #  print(Y_query)
+                    if X_query is not None:
+                        Y_query_strong = self.data_storage.Y_train_unlabeled.loc[
+                            query_indices]
+                        #  print(Y_query_strong)
+                        #  print(Y_query)
 
                 if X_query is None:
                     # ask oracle for some "hard data"
