@@ -1,10 +1,12 @@
-import matplotlib
+import random
 from itertools import chain
-from sklearn.model_selection import train_test_split
+
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import random
+from sklearn.model_selection import train_test_split
+
 from experiment_setup_lib import load_and_prepare_X_and_Y
 
 
@@ -49,7 +51,7 @@ class DataStorage:
             [original_X_train_labeled, self.X_train_unlabeled])
         self.Y_train_unlabeled = pd.concat(
             [original_Y_train_labeled, self.Y_train_unlabeled])
-        self.ground_truth_indices = original_X_train_labeled.index
+        self.ground_truth_indices = original_X_train_labeled.index.tolist()
 
         self.Y_train_strong_labels = pd.DataFrame.copy(
             original_Y_train_labeled)
@@ -83,7 +85,14 @@ class DataStorage:
                 if indice in self.X_train_unlabeled_cluster_indices[cluster]:
                     self.X_train_unlabeled_cluster_indices[cluster].remove(
                         indice)
-        # print out the amount of stored data in X_train_unlabeled_cluster_indices
+
+        # remove possible empty clusters
+        self.X_train_unlabeled_cluster_indices = {
+            k: v
+            for k, v in self.X_train_unlabeled_cluster_indices.items()
+            if len(v) != 0
+        }
+        #  print out the amount of stored data in X_train_unlabeled_cluster_indices
         #  print(
         #  len(
         #  list(

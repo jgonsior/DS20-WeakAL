@@ -1,15 +1,15 @@
+import abc
 import random
 from collections import defaultdict
-import numpy as np
-from scipy.cluster.hierarchy import dendrogram
-import abc
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+from scipy.cluster.hierarchy import dendrogram
 from sklearn.cluster import (DBSCAN, OPTICS, AgglomerativeClustering, Birch,
                              KMeans)
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
-import pandas as pd
 
 
 class BaseClusterStrategy:
@@ -28,6 +28,7 @@ class BaseClusterStrategy:
 
         self.pca.fit(X_train_combined)
         self.X_train_combined_pca = self.pca.transform(X_train_combined)
+
         # then cluster it
         self.cluster_model = AgglomerativeClustering(
             n_clusters=int(X_train_combined.shape[1] / 10)
@@ -43,10 +44,11 @@ class BaseClusterStrategy:
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
             lambda: list())
-
-        for index, Y in enumerate(self.Y_train_unlabeled_cluster):
-            self.data_storage.X_train_unlabeled_cluster_indices[Y].append(
-                index)
+        for cluster_index, X_train_index in zip(
+                self.Y_train_unlabeled_cluster,
+                self.data_storage.X_train_unlabeled.index):
+            self.data_storage.X_train_unlabeled_cluster_indices[
+                cluster_index].append(X_train_index)
 
     def plot_dendrogram(self, **kwargs):
         self.cluster_model.fit(self.X_train_combined_pca)
