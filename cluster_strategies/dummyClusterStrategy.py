@@ -9,10 +9,5 @@ from cluster_strategies import BaseClusterStrategy
 
 
 class DummyClusterStrategy(BaseClusterStrategy):
-    def get_oracle_cluster(self):
-        # return X_train_unlabeled
-        pass
-
-    def get_global_query_indice(self, cluster_query_indices):
-        # return global_query_indices
-        pass
+    def get_cluster_indices(self):
+        return self.data_storage.X_train_unlabeled_cluster_indices
