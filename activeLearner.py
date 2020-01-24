@@ -15,6 +15,7 @@ from scipy.stats import entropy
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.exceptions import NotFittedError
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
@@ -226,12 +227,15 @@ class ActiveLearner:
         for clf_class in self.data_storage.label_encoder.classes_:
             for combination in combinations:
                 # create training and test data set out of current available training/test data
-                X_temp = self.data_storage.X_train_labeled[:, combination]
+                X_temp = self.data_storage.X_train_labeled.loc[:, combination]
 
                 # do one vs rest
-                Y_temp = np.array(
-                    self.data_storage.Y_train_labeled)  # works like a copy
-                Y_temp[Y_temp != clf_class] = -1
+                Y_temp = self.data_storage.Y_train_labeled.copy()
+                Y_temp = Y_temp.replace(
+                    self.data_storage.label_encoder.transform([
+                        c for c in self.data_storage.label_encoder.classes_
+                        if c != clf_class
+                    ]), -1)
 
                 X_temp_train, X_temp_test, Y_temp_train, Y_temp_test = train_test_split(
                     X_temp, Y_temp, train_size=0.6)
@@ -252,17 +256,15 @@ class ActiveLearner:
 
         if highest_accuracy > minimum_heuristic_accuracy:
             probabilities = best_heuristic.predict_proba(
-                self.data_storage.X_train_unlabeled[:,
-                                                    best_combination].to_numpy(
-                                                    ))
+                self.data_storage.X_train_unlabeled.loc[:, best_combination].
+                to_numpy())
 
             # filter out labels where one-vs-rest heuristic is sure that sample is of label L
             weak_indices = np.where(
                 np.argmax(probabilities, 1) > minimum_heuristic_accuracy)
 
             if weak_indices[0].size > 0:
-                print("Snuba mit Klasse " +
-                      self.data_storage.label_encoder.classes_[best_class])
+                print("Snuba mit Klasse " + best_class)
                 X_weak = self.data_storage.X_train_unlabeled[weak_indices]
                 Y_weak = [best_class for _ in X_weak]
             else:
@@ -305,16 +307,18 @@ class ActiveLearner:
                     )
                     recommendation_value = "C"
 
-                    if X_query is None and self.config.with_snuba_lite:
-                        X_query, Y_query, query_indices = self.snuba_lite_recommendation(
-                        )
-                        recommendation_value = "S"
+                if len(
+                        self.data_storage.Y_train_labeled
+                ) > 200 and X_query is None and self.config.with_snuba_lite:
+                    X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                    )
+                    recommendation_value = "S"
 
-                    if X_query is not None:
-                        Y_query_strong = self.data_storage.Y_train_unlabeled.loc[
-                            query_indices]
-                        #  print(Y_query_strong)
-                        #  print(Y_query)
+                if X_query is not None:
+                    Y_query_strong = self.data_storage.Y_train_unlabeled.loc[
+                        query_indices]
+                    #  print(Y_query_strong)
+                    #  print(Y_query)
 
                 if X_query is None:
                     # ask oracle for some "hard data"
