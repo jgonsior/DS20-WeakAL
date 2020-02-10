@@ -41,6 +41,9 @@ config = standard_config([
     (['--with_recommendation'], {
         'action': 'store_true'
     }),
+    (['--with_cluster_recommendation'], {
+        'action': 'store_true'
+    }),
     (['--with_snuba_lite'], {
         'action': 'store_true'
     }),

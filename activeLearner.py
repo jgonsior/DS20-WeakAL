@@ -151,9 +151,15 @@ class ActiveLearner:
                 i].append(metrics)
 
             train_unlabeled_class_distribution = defaultdict(int)
-            for label in self.data_storage.label_encoder.inverse_transform(
-                    Y_query[0].to_numpy()):
-                train_unlabeled_class_distribution[label] += 1
+
+            if isinstance(Y_query, pd.DataFrame):
+                for label in self.data_storage.label_encoder.inverse_transform(
+                        Y_query[0].to_numpy()):
+                    train_unlabeled_class_distribution[label] += 1
+            else:
+                for label in self.data_storage.label_encoder.inverse_transform(
+                        Y_query):
+                    train_unlabeled_class_distribution[label] += 1
 
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
@@ -260,13 +266,19 @@ class ActiveLearner:
                 to_numpy())
 
             # filter out labels where one-vs-rest heuristic is sure that sample is of label L
-            weak_indices = np.where(
-                np.argmax(probabilities, 1) > minimum_heuristic_accuracy)
+            weak_indices = [
+                index for index, proba in zip(
+                    self.data_storage.X_train_unlabeled.index, probabilities)
+                if np.max(proba) > minimum_heuristic_accuracy
+            ]
 
-            if weak_indices[0].size > 0:
+            if len(weak_indices) > 0:
                 print("Snuba mit Klasse " + best_class)
-                X_weak = self.data_storage.X_train_unlabeled[weak_indices]
-                Y_weak = [best_class for _ in X_weak]
+                #  print(weak_indices)
+                X_weak = self.data_storage.X_train_unlabeled.loc[weak_indices]
+                best_class_encoded = self.data_storage.label_encoder.transform(
+                    [best_class])[0]
+                Y_weak = [best_class_encoded for _ in weak_indices]
             else:
                 weak_indices = None
 

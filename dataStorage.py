@@ -34,6 +34,7 @@ class DataStorage:
 
         self.X_train_unlabeled_cluster_indices = {}
         self.prepare_fake_iteration_zero()
+        print(self.X_train_labeled.shape)
 
     def prepare_fake_iteration_zero(self):
         # fake iteration zero where we add the given ground truth labels all at once
