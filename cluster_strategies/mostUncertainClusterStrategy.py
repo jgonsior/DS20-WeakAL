@@ -11,7 +11,7 @@ from cluster_strategies import BaseClusterStrategy
 class MostUncertainClusterStrategy(BaseClusterStrategy):
     def get_random_cluster(self):
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
-            self.pca.transform(self.X_train_unlabeled))
+            self.X_train_unlabeled)
 
         self.X_train_unlabeled_clustered = defaultdict(lambda: list())
         for index, Y in enumerate(self.Y_train_unlabeled_cluster):

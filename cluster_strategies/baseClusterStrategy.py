@@ -11,27 +11,43 @@ from sklearn.cluster import (DBSCAN, OPTICS, AgglomerativeClustering, Birch,
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
+from sklearn import metrics
+from math import log, e
+
 
 class BaseClusterStrategy:
+    def _entropy(self, labels):
+        n_labels = len(labels)
+        if n_labels <= 1:
+            return 0
+        _, counts = np.unique(labels, return_counts=True)
+        probs = counts / n_labels
+        n_classes = np.count_nonzero(probs)
+
+        if n_classes <= 1:
+            return 0
+
+        ent = 0
+
+        # compute entropy
+        base = e
+        for i in probs:
+            ent -= i * log(i, base)
+        return ent
+
     def set_data_storage(self, data_storage):
         self.data_storage = data_storage
         # first run pca to downsample data
-        n_clusters = len(self.data_storage.label_encoder.classes_)
-
-        #  n_clusters = 8
-        self.pca = PCA(n_components=n_clusters)
 
         X_train_combined = pd.concat([
             self.data_storage.X_train_labeled,
             self.data_storage.X_train_unlabeled
         ])
-
-        self.pca.fit(X_train_combined)
-        self.X_train_combined_pca = self.pca.transform(X_train_combined)
+        self.X_train_combined = X_train_combined
 
         # then cluster it
         self.cluster_model = AgglomerativeClustering(
-            n_clusters=int(X_train_combined.shape[1] / 10)
+            n_clusters=int(X_train_combined.shape[1] / 5)
         )  #distance_threshold=0,                                                     n_clusters=None)
         #  self.plot_cluster()
         #  self.plot_dendrogram()
@@ -40,7 +56,9 @@ class BaseClusterStrategy:
 
         # fit cluster
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
-            self.pca.transform(self.data_storage.X_train_unlabeled))
+            self.data_storage.X_train_unlabeled)
+
+        print("Clustering into ", self.cluster_model.n_clusters, " cluster")
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
             lambda: list())
@@ -50,8 +68,14 @@ class BaseClusterStrategy:
             self.data_storage.X_train_unlabeled_cluster_indices[
                 cluster_index].append(X_train_index)
 
+        for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
+        ):
+            cluster_labels = self.data_storage.Y_train_unlabeled.loc[
+                X_train_indices][0].to_numpy()
+            print(self._entropy(cluster_labels), '\t', cluster_labels)
+
     def plot_dendrogram(self, **kwargs):
-        self.cluster_model.fit(self.X_train_combined_pca)
+        self.cluster_model.fit(self.X_train_combined)
         model = self.cluster_model
         # Create linkage matrix and then plot the dendrogram
 
@@ -76,13 +100,13 @@ class BaseClusterStrategy:
 
     def plot_cluster(self):
         y_pred = self.cluster_model.fit_predict(
-            self.X_train_combined_pca, self.data_storage.Y_train_labeled)
+            self.X_train_combined, self.data_storage.Y_train_labeled)
 
         # plot the top three levels of the dendrogram
         plt.figure()
         dimension = 0
-        plt.scatter(self.X_train_combined_pca[:, dimension],
-                    self.X_train_combined_pca[:, dimension + 1],
+        plt.scatter(self.X_train_combined[:, dimension],
+                    self.X_train_combined[:, dimension + 1],
                     c=y_pred)
 
         plt.show()

@@ -8,7 +8,7 @@ import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-from cluster_strategies import DummyClusterStrategy, RandomClusterStrategy
+from cluster_strategies import DummyClusterStrategy, RandomClusterStrategy, MostUncertainClusterStrategy, RoundRobinClusterStrategy
 from dataStorage import DataStorage
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
@@ -78,6 +78,10 @@ if config.cluster == 'dummy':
     cluster_strategy = DummyClusterStrategy()
 elif config.cluster == 'random':
     cluster_strategy = RandomClusterStrategy()
+elif config.cluster == "MostUncertain":
+    cluster_strategy = MostUncertainClusterStrategy()
+elif config.cluster == 'RoundRobin':
+    cluster_strategy = RoundRobinClusterStrategy()
 
 filename = config.sampling + '_' + str(config.start_set_size) + '_' + str(
     config.nr_queries_per_iteration)

@@ -169,6 +169,13 @@ class ActiveLearner:
         X_train_unlabeled_cluster_indices = self.cluster_strategy.get_cluster_indices(
         )
 
+        #  for cluster_id, cluster_indices in X_train_unlabeled_cluster_indices.items(
+        #  ):
+        #  print(
+        #  "Selected cluster ", cluster_id, ":\t",
+        #  self.cluster_strategy._entropy(
+        #  self.data_storage.Y_train_unlabeled.loc[cluster_indices]))
+
         # ask strategy for new datapoint
         query_indices = self.calculate_next_query_indices(
             X_train_unlabeled_cluster_indices)
