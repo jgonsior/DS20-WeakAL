@@ -62,17 +62,20 @@ class BaseClusterStrategy:
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
             lambda: list())
+        self.data_storage.X_train_labeled_cluster_indices = defaultdict(
+            lambda: list())
+
         for cluster_index, X_train_index in zip(
                 self.Y_train_unlabeled_cluster,
                 self.data_storage.X_train_unlabeled.index):
             self.data_storage.X_train_unlabeled_cluster_indices[
                 cluster_index].append(X_train_index)
 
-        for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
-        ):
-            cluster_labels = self.data_storage.Y_train_unlabeled.loc[
-                X_train_indices][0].to_numpy()
-            print(self._entropy(cluster_labels), '\t', cluster_labels)
+        #  for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
+        #  ):
+        #  cluster_labels = self.data_storage.Y_train_unlabeled.loc[
+        #  X_train_indices][0].to_numpy()
+        #  print(self._entropy(cluster_labels), '\t', cluster_labels)
 
     def plot_dendrogram(self, **kwargs):
         self.cluster_model.fit(self.X_train_combined)
@@ -112,6 +115,6 @@ class BaseClusterStrategy:
         plt.show()
 
     @abc.abstractmethod
-    def get_cluster_indices(self):
+    def get_cluster_indices(self, **kwargs):
         # return X_train_unlabeled
         pass

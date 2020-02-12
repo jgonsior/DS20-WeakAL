@@ -75,17 +75,26 @@ class DataStorage:
         # move new queries from unlabeled to labeled dataset
         self.X_train_labeled = self.X_train_labeled.append(X_query)
         self.X_train_unlabeled = self.X_train_unlabeled.drop(query_indices)
+
         self.Y_train_strong_labels = self.Y_train_strong_labels.append(
             self.Y_train_unlabeled.loc[query_indices])
+
         self.Y_train_labeled = self.Y_train_labeled.append(Y_query)
         self.Y_train_unlabeled = self.Y_train_unlabeled.drop(query_indices)
 
-        # remove indices from all clusters
-        for cluster in self.X_train_unlabeled_cluster_indices.keys():
+        # remove indices from all clusters in unlabeled and add to labeled
+        for cluster_id in self.X_train_unlabeled_cluster_indices.keys():
+            list_to_be_removed_and_appended = []
             for indice in query_indices:
-                if indice in self.X_train_unlabeled_cluster_indices[cluster]:
-                    self.X_train_unlabeled_cluster_indices[cluster].remove(
-                        indice)
+                if indice in self.X_train_unlabeled_cluster_indices[
+                        cluster_id]:
+                    list_to_be_removed_and_appended.append(indice)
+
+            # don't change a list you're iterating over!
+            for indice in list_to_be_removed_and_appended:
+                self.X_train_unlabeled_cluster_indices[cluster_id].remove(
+                    indice)
+                self.X_train_labeled_cluster_indices[cluster_id].append(indice)
 
         # remove possible empty clusters
         self.X_train_unlabeled_cluster_indices = {

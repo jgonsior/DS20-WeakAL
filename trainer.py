@@ -59,7 +59,7 @@ if config.sampling == 'random':
     active_learner = RandomSampler(config)
 elif config.sampling == 'boundary':
     active_learner = BoundaryPairSampler(config)
-elif config.sampling == 'uncertainty':
+elif config.sampling == 'uncertainty_lc':
     active_learner = UncertaintySampler(config)
     active_learner.set_uncertainty_strategy('least_confident')
 elif config.sampling == 'uncertainty_max_margin':
@@ -78,8 +78,15 @@ if config.cluster == 'dummy':
     cluster_strategy = DummyClusterStrategy()
 elif config.cluster == 'random':
     cluster_strategy = RandomClusterStrategy()
-elif config.cluster == "MostUncertain":
+elif config.cluster == "MostUncertain_lc":
     cluster_strategy = MostUncertainClusterStrategy()
+    cluster_strategy.set_uncertainty_strategy('least_confident')
+elif config.cluster == "MostUncertain_max_margin":
+    cluster_strategy = MostUncertainClusterStrategy()
+    cluster_strategy.set_uncertainty_strategy('max_margin')
+elif config.cluster == "MostUncertain_entropy":
+    cluster_strategy = MostUncertainClusterStrategy()
+    cluster_strategy.set_uncertainty_strategy('entropy')
 elif config.cluster == 'RoundRobin':
     cluster_strategy = RoundRobinClusterStrategy()
 

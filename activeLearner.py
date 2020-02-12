@@ -1,5 +1,6 @@
 import abc
 import argparse
+import collections
 import itertools
 import pickle
 import random
@@ -164,10 +165,46 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
 
+    def cluster_recommendation(self):
+        minimum_cluster_size = 10
+        minimum_ratio = 0.9
+        certain_X = recommended_labels = certain_indices = None
+        cluster_found = False
+
+        # check if the most prominent label for one cluster can be propagated over to the rest of it's cluster
+        for cluster_id, cluster_indices in self.data_storage.X_train_labeled_cluster_indices.items(
+        ):
+            if len(cluster_indices) > minimum_cluster_size:
+                frequencies = collections.Counter(
+                    self.data_storage.Y_train_labeled.loc[cluster_indices]
+                    [0].tolist())
+
+                if frequencies.most_common(
+                        1)[0][1] > len(cluster_indices) * minimum_ratio:
+                    certain_indices = self.data_storage.X_train_unlabeled_cluster_indices[
+                        cluster_id]
+
+                    certain_X = self.data_storage.X_train_unlabeled.loc[
+                        certain_indices]
+                    recommended_labels = [
+                        frequencies.most_common(1)[0][0]
+                        for _ in certain_indices
+                    ]
+                    recommended_labels = pd.DataFrame(recommended_labels,
+                                                      index=certain_X.index)
+                    #  print("Cluster ", cluster_id, certain_indices)
+                    cluster_found = True
+                    break
+
+        # delete this cluster from the list of possible cluster for the next round
+        if cluster_found:
+            self.data_storage.X_train_labeled_cluster_indices.pop(cluster_id)
+        return certain_X, recommended_labels, certain_indices
+
     def increase_labeled_dataset(self):
         # dict of cluster -> [X_train_unlabeled_indices]
         X_train_unlabeled_cluster_indices = self.cluster_strategy.get_cluster_indices(
-        )
+            clf=self.clf_list[0])
 
         #  for cluster_id, cluster_indices in X_train_unlabeled_cluster_indices.items(
         #  ):
@@ -320,11 +357,20 @@ class ActiveLearner:
                 Y_query_strong = None
             else:
                 X_query = None
-                if len(self.data_storage.Y_train_labeled
-                       ) > 200 and self.config.with_recommendation:
-                    X_query, Y_query, query_indices = self.certain_recommendation(
+
+                if len(
+                        self.data_storage.Y_train_labeled
+                ) > 200 and X_query is None and self.config.with_cluster_recommendation:
+                    X_query, Y_query, query_indices = self.cluster_recommendation(
                     )
                     recommendation_value = "C"
+
+                if len(
+                        self.data_storage.Y_train_labeled
+                ) > 200 and X_query is None and self.config.with_recommendation:
+                    X_query, Y_query, query_indices = self.certain_recommendation(
+                    )
+                    recommendation_value = "U"
 
                 if len(
                         self.data_storage.Y_train_labeled

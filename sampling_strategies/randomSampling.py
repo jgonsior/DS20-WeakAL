@@ -13,4 +13,5 @@ class RandomSampler(ActiveLearner):
         length_X_train_unlabled = len(random_cluster)
         if size_of_random_sample > length_X_train_unlabled:
             size_of_random_sample = length_X_train_unlabled
+
         return random.sample(random_cluster, size_of_random_sample)

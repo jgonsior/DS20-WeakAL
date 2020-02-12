@@ -19,7 +19,7 @@ class RandomClusterStrategy(BaseClusterStrategy):
         #  print(cluster, ":\t", len(cluster_indices))
         return random_cluster
 
-    def get_cluster_indices(self):
+    def get_cluster_indices(self, **kwargs):
         random_cluster = self._get_random_cluster()
         #  print("Randomly selected cluster ", random_cluster)
         k = self.data_storage.nr_queries_per_iteration

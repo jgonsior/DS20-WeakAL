@@ -19,7 +19,6 @@ class UncertaintySampler(ActiveLearner):
         # merge indices from all clusters together and take the n most uncertain ones from them
         X_train_unlabeled_indices = list(
             chain(*list(X_train_unlabeled_cluster_indices.values())))
-
         # recieve predictions and probabilitys
         # for all possible classifications of classifier
         Y_temp_proba = self.clf_list[0].predict_proba(
