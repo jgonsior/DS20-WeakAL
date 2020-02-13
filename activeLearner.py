@@ -166,7 +166,7 @@ class ActiveLearner:
                 i].append(train_unlabeled_class_distribution)
 
     def cluster_recommendation(self):
-        minimum_cluster_size = 10
+        minimum_cluster_size = 0.7
         minimum_ratio = 0.9
         certain_X = recommended_labels = certain_indices = None
         cluster_found = False
@@ -174,11 +174,15 @@ class ActiveLearner:
         # check if the most prominent label for one cluster can be propagated over to the rest of it's cluster
         for cluster_id, cluster_indices in self.data_storage.X_train_labeled_cluster_indices.items(
         ):
-            if len(cluster_indices) > minimum_cluster_size:
+            if cluster_id not in self.data_storage.X_train_unlabeled_cluster_indices.keys(
+            ):
+                continue
+            if len(cluster_indices) / len(
+                    self.data_storage.X_train_unlabeled_cluster_indices[
+                        cluster_id]) > minimum_cluster_size:
                 frequencies = collections.Counter(
                     self.data_storage.Y_train_labeled.loc[cluster_indices]
                     [0].tolist())
-
                 if frequencies.most_common(
                         1)[0][1] > len(cluster_indices) * minimum_ratio:
                     certain_indices = self.data_storage.X_train_unlabeled_cluster_indices[
