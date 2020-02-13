@@ -8,7 +8,10 @@ import sys
 import numpy as np
 from sklearn.model_selection import train_test_split
 
-from cluster_strategies import DummyClusterStrategy, RandomClusterStrategy, MostUncertainClusterStrategy, RoundRobinClusterStrategy
+from cluster_strategies import (DummyClusterStrategy,
+                                MostUncertainClusterStrategy,
+                                RandomClusterStrategy,
+                                RoundRobinClusterStrategy)
 from dataStorage import DataStorage
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
@@ -17,64 +20,36 @@ from experiment_setup_lib import (Logger,
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
-config = standard_config([
-    (['--sampling'], {
-        'required': True,
-        'help': "Possible values: uncertainty, random, committe, boundary"
-    }),
-    (['--cluster'], {
-        'default': 'dummy',
-        'help': "Possible values: dummy, random, mostUncertain, roundRobin"
-    }),
-    (['--nr_learning_iterations'], {
-        'type': int,
-        'default': 15
-    }),
-    (['--nr_queries_per_iteration'], {
-        'type': int,
-        'default': 150
-    }),
-    (['--start_set_size'], {
-        'type': float,
-        'default': 0.1
-    }),
-    (['--minimum_test_accuracy_before_recommendations'], {
-        'type': float,
-        'default': 0.7
-    }),
-    (['--uncertainty_recommendation_certainty_threshold'], {
-        'type': float,
-        'default': 0.9
-    }),
-    (['--uncertainty_recommendation_ratio'], {
-        'type': float,
-        'default': 1 / 100
-    }),
-    (['--snuba_lite_minimum_heuristic_accuracy'], {
-        'type': float,
-        'default': 0.9
-    }),
-    (['--cluster_recommendation_minimum_cluster_unity_size'], {
-        'type': float,
-        'default': 0.7
-    }),
-    (['--cluster_recommendation_ratio_labeled_unlabeled'], {
-        'type': float,
-        'default': 0.9
-    }),
-    (['--with_uncertainty_recommendation'], {
-        'action': 'store_true'
-    }),
-    (['--with_cluster_recommendation'], {
-        'action': 'store_true'
-    }),
-    (['--with_snuba_lite'], {
-        'action': 'store_true'
-    }),
-    (['--plot'], {
-        'action': 'store_true'
-    }),
-])
+# copy over stuff from standard config
+config = {
+    "sampling": ['random', 'comittee', 'boundary'],
+    "cluster": [
+        'dummy', 'random', 'RoundRobin', 'MostUncertain_lc',
+        'MostUncertain_max_margin', 'MostUncertain_entropy'
+    ],
+    "nr_learning_iterations":
+    1000000000,
+    "nr_queries_per_iteration": [1, 10, 20, 50, 100, 200, 500],
+    "start_set_size":
+    np.linspace(0, 0.5, 10),
+    "minimum_test_accuracy_before_recommendations":
+    np.linspace(0.5, 1, 10),
+    "uncertainty_recommendation_certainty_threshold":
+    np.linspace(0.5, 1, 10),
+    "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
+    "snuba_lite_minimum_heuristic_accuracy":
+    np.linspace(0.5, 1, 10),
+    "cluster_recommendation_minimum_cluster_unity_size":
+    np.linspace(0.5, 1, 10),
+    "cluster_recommendation_ratio_labeled_unlabeled":
+    np.linspace(0.5, 1, 10),
+    "with_uncertainty_recommendation": [True, False],
+    "with_cluster_recommendation": [True, False],
+    "with_snuba_lite":
+    False,
+    "plot":
+    True,
+}
 
 dataStorage = DataStorage(config)
 dataStorage.load_csv(config.dataset_path)

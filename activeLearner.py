@@ -166,8 +166,8 @@ class ActiveLearner:
                 i].append(train_unlabeled_class_distribution)
 
     def cluster_recommendation(self):
-        minimum_cluster_size = 0.7
-        minimum_ratio = 0.9
+        minimum_cluster_size = self.config.cluster_recommendation_minimum_cluster_unity_size
+        minimum_ratio = self.config.cluster_recommendation_ratio_labeled_unlabeled
         certain_X = recommended_labels = certain_indices = None
         cluster_found = False
 
@@ -227,13 +227,13 @@ class ActiveLearner:
         Y_query = self.data_storage.Y_train_unlabeled.loc[query_indices]
         return X_query, Y_query, query_indices
 
-    def certain_recommendation(self):
+    def uncertainty_recommendation(self):
         # calculate certainties for all of X_train_unlabeled
         certainties = self.clf_list[0].predict_proba(
             self.data_storage.X_train_unlabeled.to_numpy())
 
-        recommendation_certainty_threshold = 0.9
-        recommendation_ratio = 1 / 100
+        recommendation_certainty_threshold = self.config.uncertainty_recommendation_certainty_threshold
+        recommendation_ratio = self.config.uncertainty_recommendation_ratio
 
         amount_of_certain_labels = np.count_nonzero(
             np.where(
@@ -306,7 +306,7 @@ class ActiveLearner:
                     best_class = clf_class
 
         # if accuracy of decision tree is high enough -> take recommendation
-        minimum_heuristic_accuracy = 0.9
+        minimum_heuristic_accuracy = self.config.snuba_lite_minumum_heuristic_accuracy
 
         if highest_accuracy > minimum_heuristic_accuracy:
             probabilities = best_heuristic.predict_proba(
@@ -362,26 +362,22 @@ class ActiveLearner:
             else:
                 X_query = None
 
-                if len(
-                        self.data_storage.Y_train_labeled
-                ) > 200 and X_query is None and self.config.with_cluster_recommendation:
-                    X_query, Y_query, query_indices = self.cluster_recommendation(
-                    )
-                    recommendation_value = "C"
+                if self.metrics_per_al_cycle['test_data_metrics'][0][-1][0][
+                        'accuracy'] > self.config.minimum_test_accuracy_before_recommendations:
+                    if X_query is None and self.config.with_cluster_recommendation:
+                        X_query, Y_query, query_indices = self.cluster_recommendation(
+                        )
+                        recommendation_value = "C"
 
-                if len(
-                        self.data_storage.Y_train_labeled
-                ) > 200 and X_query is None and self.config.with_recommendation:
-                    X_query, Y_query, query_indices = self.certain_recommendation(
-                    )
-                    recommendation_value = "U"
+                    if X_query is None and self.config.with_uncertainty_recommendation:
+                        X_query, Y_query, query_indices = self.uncertainty_recommendation(
+                        )
+                        recommendation_value = "U"
 
-                if len(
-                        self.data_storage.Y_train_labeled
-                ) > 200 and X_query is None and self.config.with_snuba_lite:
-                    X_query, Y_query, query_indices = self.snuba_lite_recommendation(
-                    )
-                    recommendation_value = "S"
+                    if X_query is None and self.config.with_snuba_lite:
+                        X_query, Y_query, query_indices = self.snuba_lite_recommendation(
+                        )
+                        recommendation_value = "S"
 
                 if X_query is not None:
                     Y_query_strong = self.data_storage.Y_train_unlabeled.loc[
