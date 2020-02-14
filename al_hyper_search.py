@@ -39,8 +39,10 @@ standard_param_distribution = {
     "random_seed": [standard_config.random_seed],
     "test_fraction": [standard_config.test_fraction],
     "sampling": [
-        'random', 'uncertainty_lc', 'uncertainty_max_margin',
-        'uncertainty_entropy', 'boundary'
+        'random',
+        'uncertainty_lc',
+        'uncertainty_max_margin',
+        'uncertainty_entropy',
     ],
     "cluster": [
         #  'dummy', 'random', 'MostUncertain_lc', 'MostUncertain_max_margin',
@@ -204,9 +206,13 @@ class Estimator(BaseEstimator):
         elif self.cluster == 'RoundRobin':
             cluster_strategy = RoundRobinClusterStrategy()
 
-        filename = self.sampling + '_' + str(self.start_set_size) + '_' + str(
-            self.nr_queries_per_iteration)
-
+        filename = ""
+        for k, v in self.get_params().items():
+            if k == "dataset_path":
+                continue
+            filename += k + "_" + str(v) + "#"
+-> filename too long -> store checksum, and save somewhere else a mapping from checksum -> params
+alle params in ein file speichern, also zusätzlich zu dem pickel für die metriken (dicts mergen)
         store_result(filename + ".txt", "", self.output_dir)
 
         with Logger(self.output_dir + '/' + filename + ".txt", "w"):

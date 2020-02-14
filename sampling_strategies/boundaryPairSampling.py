@@ -13,7 +13,7 @@ class BoundaryPairSampler(ActiveLearner):
             return False  # avoid double point pairs
         return True
 
-    def calculate_next_query_indices(self):
+    def calculate_next_query_indices(self, X_train_unlabeled_cluster_indices):
         print("BoundaryPairSampler is broken. Please fix or move on.")
         exit(-2)
         Y_pred = self.clf_list[0].predict(self.X_train_unlabeled)
