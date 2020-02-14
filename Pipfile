@@ -17,6 +17,7 @@ sklearn = "*"
 numpy = "*"
 mlens = "*"
 openpyxl = "*"
+sklearn-deap = "*"
 
 [requires]
 python_version = "3.8"

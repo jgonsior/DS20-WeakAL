@@ -4,9 +4,10 @@ import io
 import os
 import random
 import sys
-
+import pandas as pd
 import numpy as np
-from scipy.stats import randint, uniform
+from evolutionary_search import EvolutionaryAlgorithmSearchCV
+from scipy.stats import uniform, randint
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      RandomizedSearchCV, train_test_split)
@@ -29,7 +30,7 @@ param_grid = {
     "dataset_path": [standard_config.dataset_path],
     "classifier": [standard_config.classifier],
     "cores": [standard_config.cores],
-    "output_dir ": [standard_config.output_dir],
+    "output_dir": [standard_config.output_dir],
     "random_seed": [standard_config.random_seed],
     "test_fraction": [standard_config.test_fraction],
     "sampling": ['random', 'comittee', 'boundary'],
@@ -39,20 +40,20 @@ param_grid = {
     ],
     "nr_learning_iterations": [1000000000],
     "nr_queries_per_iteration":
-    randint(1, 1000),
+    np.random.randint(1, 1000, size=100),
     "start_set_size":
-    uniform(0, 0.5),
+    np.random.uniform(0, 0.5, size=100),
     "minimum_test_accuracy_before_recommendations":
-    uniform(0.5, 1),
+    np.random.uniform(0.5, 1, size=100),
     "uncertainty_recommendation_certainty_threshold":
-    uniform(0.5, 1),
+    np.random.uniform(0.5, 1, size=100),
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
     "snuba_lite_minimum_heuristic_accuracy":
-    uniform(0.5, 1),
+    np.random.uniform(0.5, 1, size=100),
     "cluster_recommendation_minimum_cluster_unity_size":
-    uniform(0.5, 1),
+    np.random.uniform(0.5, 1, size=100),
     "cluster_recommendation_ratio_labeled_unlabeled":
-    uniform(0.5, 1),
+    np.random.uniform(0.5, 1, size=100),
     "with_uncertainty_recommendation": [True, False],
     "with_cluster_recommendation": [True, False],
     "with_snuba_lite": [False],
@@ -63,28 +64,82 @@ param_grid = {
 
 
 class Estimator(BaseEstimator):
-    def __init__(self, a=None, b=None):
-        self.a = a
-        self.b = b
+    def __init__(self,
+                 dataset_path=None,
+                 classifier=None,
+                 cores=None,
+                 output_dir=None,
+                 random_seed=None,
+                 test_fraction=None,
+                 sampling=None,
+                 cluster=None,
+                 nr_learning_iterations=None,
+                 nr_queries_per_iteration=None,
+                 start_set_size=None,
+                 minimum_test_accuracy_before_recommendations=None,
+                 uncertainty_recommendation_certainty_threshold=None,
+                 uncertainty_recommendation_ratio=None,
+                 snuba_lite_minimum_heuristic_accuracy=None,
+                 cluster_recommendation_minimum_cluster_unity_size=None,
+                 cluster_recommendation_ratio_labeled_unlabeled=None,
+                 with_uncertainty_recommendation=None,
+                 with_cluster_recommendation=None,
+                 with_snuba_lite=None,
+                 plot=None):
+        self.dataset_path = dataset_path
+        self.classifier = classifier
+        self.cores = cores
+        self.output_dir = output_dir
+        self.random_seed = random_seed
+        self.test_fraction = test_fraction
+        self.sampling = sampling
+        self.cluster = cluster
+        self.nr_learning_iterations = nr_learning_iterations
+        self.nr_queries_per_iteration = nr_queries_per_iteration
+        self.start_set_size = start_set_size
+        self.minimum_test_accuracy_before_recommendations = minimum_test_accuracy_before_recommendations
+        self.uncertainty_recommendation_certainty_threshold = uncertainty_recommendation_certainty_threshold
+        self.uncertainty_recommendation_ratio = uncertainty_recommendation_ratio
+        self.snuba_lite_minimum_heuristic_accuracy = snuba_lite_minimum_heuristic_accuracy
+        self.cluster_recommendation_minimum_cluster_unity_size = cluster_recommendation_minimum_cluster_unity_size
+        self.cluster_recommendation_ratio_labeled_unlabeled = cluster_recommendation_ratio_labeled_unlabeled
+        self.with_uncertainty_recommendation = with_uncertainty_recommendation
+        self.with_cluster_recommendation = with_cluster_recommendation
+        self.with_snuba_lite = with_snuba_lite
+        self.plot = plot
+        pass
 
     def fit(self, X, y, **kwargs):
-        print("got called")
+        pass
 
     def score(self, X, y):
-        return 1
+        return np.random.uniform(0, 1, size=1)[0]
 
 
-param_grid = {'a': [1, 2], 'b': [True, False]}
 active_learner = Estimator()
-print(active_learner.get_params().keys())
 grid = RandomizedSearchCV(active_learner,
                           param_grid,
+                          n_iter=3,
                           verbose=9999999999999999999999999999999999)
 
-dataStorage = DataStorage(standard_config)
-dataStorage.load_csv(standard_config.dataset_path)
+evolutionary_search = EvolutionaryAlgorithmSearchCV(estimator=active_learner,
+                                                    params=param_grid,
+                                                    verbose=True,
+                                                    population_size=5,
+                                                    gene_mutation_prob=0.10,
+                                                    tournament_size=3,
+                                                    generations_number=10)
 
-grid.fit(dataStorage.X, dataStorage.Y)
+dataStorage = DataStorage(standard_config.random_seed)
+dataStorage.load_csv(standard_config.dataset_path)
+search = grid.fit(dataStorage.X, dataStorage.Y)
+evolutionary_search.fit(dataStorage.X, dataStorage.Y)
+
+print(evolutionary_search.best_params_)
+print(evolutionary_search.best_score_)
+print(
+    pd.DataFrame(evolutionary_search.cv_results_).sort_values(
+        "mean_test_score", ascending=False).head())
 exit(-2)
 
 if config.sampling == 'random':
