@@ -149,7 +149,7 @@ with Logger(config.output_dir + '/' + filename + ".txt", "w"):
         config.snuba_lite_minimum_heuristic_accuracy)
 
 # save output
-store_pickle(filename + '.pickle', metrics_per_al_cycle, config)
+store_pickle(filename + '.pickle', metrics_per_al_cycle, config.output_dir)
 
 # display quick results
 
