@@ -69,9 +69,9 @@ def get_best_hyper_params(clf):
     return best_hyper_params
 
 
-def load_and_prepare_X_and_Y(config):
+def load_and_prepare_X_and_Y(dataset_path):
     # Read in dataset into pandas dataframe
-    df = pd.read_csv(config.dataset_path, index_col="id")
+    df = pd.read_csv(dataset_path, index_col="id")
 
     # shuffle df
     df = df.sample(frac=1).reset_index(drop=True)
@@ -99,13 +99,11 @@ def load_and_prepare_X_and_Y(config):
     return X, Y, label_encoder
 
 
-def train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, config,
-                       label_encoder):
+def train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, label_encoder):
     training_times = train(clf, X_train, Y_train)
     classification_report_and_confusion_matrix(clf,
                                                X_test,
                                                Y_test,
-                                               config,
                                                label_encoder,
                                                output_dict=False,
                                                store=True,
@@ -122,28 +120,28 @@ def train(clf, X_train, Y_train):
     return training_times
 
 
-def store_result(filename, content, config):
+def store_result(filename, content, output_dir):
     # create output folder if not existent
-    if not os.path.exists(config.output_dir):
-        os.makedirs(config.output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-    with open(config.output_dir + '/' + filename, 'w') as f:
+    with open(output_dir + '/' + filename, 'w') as f:
         f.write(content)
 
 
-def store_pickle(filename, content, config):
+def store_pickle(filename, content, output_dir):
     # create output folder if not existent
-    if not os.path.exists(config.output_dir):
-        os.makedirs(config.output_dir)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-    with open(config.output_dir + '/' + filename, 'wb') as f:
+    with open(output_dir + '/' + filename, 'wb') as f:
         pickle.dump(content, f)
 
 
 def classification_report_and_confusion_matrix(clf,
                                                X,
                                                Y,
-                                               config,
+                                               output_dir,
                                                label_encoder,
                                                output_dict=True,
                                                store=False,
@@ -175,14 +173,14 @@ def classification_report_and_confusion_matrix(clf,
 
     if store:
         # create output folder if not existent
-        if not os.path.exists(config.output_dir):
-            os.makedirs(config.output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
         # save Y_pred
         Y_df = pd.DataFrame(Y_pred)
         Y_df.columns = ['Y_pred']
         Y_df.insert(1, 'Y_test', Y)
-        Y_df.to_csv(config.output_dir + '/Y_pred.csv', index=None)
+        Y_df.to_csv(output_dir + '/Y_pred.csv', index=None)
 
         # save classification_report
         file_string = json.dumps(
@@ -197,8 +195,8 @@ def classification_report_and_confusion_matrix(clf,
         file_string += "\n" + "#" * 100 + "\n"
         file_string += training_times
 
-        store_result("results.txt", file_string, config)
-        store_pickle("clf.pickle", clf, config)
+        store_result("results.txt", file_string, output_dir)
+        store_pickle("clf.pickle", clf, output_dir)
 
 
 class Logger(object):

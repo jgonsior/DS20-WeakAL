@@ -6,7 +6,10 @@ import random
 import sys
 
 import numpy as np
-from sklearn.model_selection import train_test_split
+from scipy.stats import randint, uniform
+from sklearn.base import BaseEstimator
+from sklearn.model_selection import (GridSearchCV, ParameterGrid,
+                                     RandomizedSearchCV, train_test_split)
 
 from cluster_strategies import (DummyClusterStrategy,
                                 MostUncertainClusterStrategy,
@@ -20,39 +23,69 @@ from experiment_setup_lib import (Logger,
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
-# copy over stuff from standard config
-config = {
+standard_config = standard_config()
+
+param_grid = {
+    "dataset_path": [standard_config.dataset_path],
+    "classifier": [standard_config.classifier],
+    "cores": [standard_config.cores],
+    "output_dir ": [standard_config.output_dir],
+    "random_seed": [standard_config.random_seed],
+    "test_fraction": [standard_config.test_fraction],
     "sampling": ['random', 'comittee', 'boundary'],
     "cluster": [
         'dummy', 'random', 'RoundRobin', 'MostUncertain_lc',
         'MostUncertain_max_margin', 'MostUncertain_entropy'
     ],
-    "nr_learning_iterations":
-    1000000000,
-    "nr_queries_per_iteration": [1, 10, 20, 50, 100, 200, 500],
+    "nr_learning_iterations": [1000000000],
+    "nr_queries_per_iteration":
+    randint(1, 1000),
     "start_set_size":
-    np.linspace(0, 0.5, 10),
+    uniform(0, 0.5),
     "minimum_test_accuracy_before_recommendations":
-    np.linspace(0.5, 1, 10),
+    uniform(0.5, 1),
     "uncertainty_recommendation_certainty_threshold":
-    np.linspace(0.5, 1, 10),
+    uniform(0.5, 1),
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
     "snuba_lite_minimum_heuristic_accuracy":
-    np.linspace(0.5, 1, 10),
+    uniform(0.5, 1),
     "cluster_recommendation_minimum_cluster_unity_size":
-    np.linspace(0.5, 1, 10),
+    uniform(0.5, 1),
     "cluster_recommendation_ratio_labeled_unlabeled":
-    np.linspace(0.5, 1, 10),
+    uniform(0.5, 1),
     "with_uncertainty_recommendation": [True, False],
     "with_cluster_recommendation": [True, False],
-    "with_snuba_lite":
-    False,
-    "plot":
-    True,
+    "with_snuba_lite": [False],
+    "plot": [True],
 }
 
-dataStorage = DataStorage(config)
-dataStorage.load_csv(config.dataset_path)
+# create estimater object
+
+
+class Estimator(BaseEstimator):
+    def __init__(self, a=None, b=None):
+        self.a = a
+        self.b = b
+
+    def fit(self, X, y, **kwargs):
+        print("got called")
+
+    def score(self, X, y):
+        return 1
+
+
+param_grid = {'a': [1, 2], 'b': [True, False]}
+active_learner = Estimator()
+print(active_learner.get_params().keys())
+grid = RandomizedSearchCV(active_learner,
+                          param_grid,
+                          verbose=9999999999999999999999999999999999)
+
+dataStorage = DataStorage(standard_config)
+dataStorage.load_csv(standard_config.dataset_path)
+
+grid.fit(dataStorage.X, dataStorage.Y)
+exit(-2)
 
 if config.sampling == 'random':
     active_learner = RandomSampler(config)

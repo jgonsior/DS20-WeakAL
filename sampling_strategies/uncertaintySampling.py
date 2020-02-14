@@ -37,4 +37,4 @@ class UncertaintySampler(ActiveLearner):
         query_indices = np.array(X_train_unlabeled_indices)[argsort]
 
         # return smallest probabilities
-        return query_indices[:self.data_storage.nr_queries_per_iteration]
+        return query_indices[:self.nr_queries_per_iteration]

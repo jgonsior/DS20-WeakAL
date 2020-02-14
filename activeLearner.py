@@ -24,15 +24,17 @@ from experiment_setup_lib import classification_report_and_confusion_matrix
 
 
 class ActiveLearner:
-    def __init__(self, config):
-        np.random.seed(config.random_seed)
-        random.seed(config.random_seed)
+    def __init__(self, random_seed, cores, nr_learning_iterations,
+                 nr_queries_per_iteration):
+        np.random.seed(random_seed)
+        random.seed(random_seed)
 
-        self.nr_learning_iterations = config.nr_learning_iterations
+        self.nr_learning_iterations = nr_learning_iterations
+        self.nr_queries_per_iteration = nr_queries_per_iteration
 
         self.best_hyper_parameters = {
-            'random_state': config.random_seed,
-            'n_jobs': config.cores
+            'random_state': random_seed,
+            'n_jobs': cores
         }
 
         # it's a list because of committee (in all other cases it's just one classifier)
@@ -53,15 +55,13 @@ class ActiveLearner:
             'query_length': [],
             'recommendation': []
         }
-
-        self.config = config
+        self.len_queries = nr_learning_iterations * nr_queries_per_iteration
 
     def set_cluster_strategy(self, cluster_strategy):
         self.cluster_strategy = cluster_strategy
 
     def set_data_storage(self, data_storage):
         self.data_storage = data_storage
-        self.len_queries = self.nr_learning_iterations * self.data_storage.nr_queries_per_iteration
 
     def calculate_stopping_criteria_stddev(self):
         accuracy_list = self.query_weak_accuracy_list
@@ -120,7 +120,7 @@ class ActiveLearner:
                 clf,
                 self.data_storage.X_test,
                 self.data_storage.Y_test,
-                self.config,
+                None,
                 self.data_storage.label_encoder,
                 output_dict=True)
 
@@ -130,7 +130,7 @@ class ActiveLearner:
                 clf,
                 self.data_storage.X_train_labeled,
                 self.data_storage.Y_train_labeled,
-                self.config,
+                None,
                 self.data_storage.label_encoder,
                 output_dict=True)
 
@@ -142,7 +142,7 @@ class ActiveLearner:
                     clf,
                     self.data_storage.X_train_unlabeled,
                     self.data_storage.Y_train_unlabeled,
-                    self.config,
+                    None,
                     self.data_storage.label_encoder,
                     output_dict=True)
             else:
@@ -165,9 +165,8 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
 
-    def cluster_recommendation(self):
-        minimum_cluster_size = self.config.cluster_recommendation_minimum_cluster_unity_size
-        minimum_ratio = self.config.cluster_recommendation_ratio_labeled_unlabeled
+    def cluster_recommendation(self, minimum_cluster_unity_size,
+                               minimum_ratio_labeled_unlabeled):
         certain_X = recommended_labels = certain_indices = None
         cluster_found = False
 
@@ -179,12 +178,12 @@ class ActiveLearner:
                 continue
             if len(cluster_indices) / len(
                     self.data_storage.X_train_unlabeled_cluster_indices[
-                        cluster_id]) > minimum_cluster_size:
+                        cluster_id]) > minimum_cluster_unity_size:
                 frequencies = collections.Counter(
                     self.data_storage.Y_train_labeled.loc[cluster_indices]
                     [0].tolist())
-                if frequencies.most_common(
-                        1)[0][1] > len(cluster_indices) * minimum_ratio:
+                if frequencies.most_common(1)[0][1] > len(
+                        cluster_indices) * minimum_ratio_labeled_unlabeled:
                     certain_indices = self.data_storage.X_train_unlabeled_cluster_indices[
                         cluster_id]
 
@@ -227,13 +226,11 @@ class ActiveLearner:
         Y_query = self.data_storage.Y_train_unlabeled.loc[query_indices]
         return X_query, Y_query, query_indices
 
-    def uncertainty_recommendation(self):
+    def uncertainty_recommendation(self, recommendation_certainty_threshold,
+                                   recommendation_ratio):
         # calculate certainties for all of X_train_unlabeled
         certainties = self.clf_list[0].predict_proba(
             self.data_storage.X_train_unlabeled.to_numpy())
-
-        recommendation_certainty_threshold = self.config.uncertainty_recommendation_certainty_threshold
-        recommendation_ratio = self.config.uncertainty_recommendation_ratio
 
         amount_of_certain_labels = np.count_nonzero(
             np.where(
@@ -261,7 +258,7 @@ class ActiveLearner:
         else:
             return None, None, None
 
-    def snuba_lite_recommendation(self):
+    def snuba_lite_recommendation(self, minimum_heuristic_accuracy):
 
         X_weak = Y_weak = weak_indices = None
         # @todo prevent snuba_lite from relearning based on itself (so only "strong" labels are being used for weak labeling)
@@ -306,8 +303,6 @@ class ActiveLearner:
                     best_class = clf_class
 
         # if accuracy of decision tree is high enough -> take recommendation
-        minimum_heuristic_accuracy = self.config.snuba_lite_minumum_heuristic_accuracy
-
         if highest_accuracy > minimum_heuristic_accuracy:
             probabilities = best_heuristic.predict_proba(
                 self.data_storage.X_train_unlabeled.loc[:, best_combination].
@@ -332,8 +327,18 @@ class ActiveLearner:
 
         return X_weak, Y_weak, weak_indices
 
-    def learn(self):
-
+    def learn(
+        self,
+        minimum_test_accuracy_before_recommendations,
+        with_cluster_recommendation,
+        with_uncertainty_recommendation,
+        with_snuba_lite,
+        cluster_recommendation_minimum_cluster_unity_size=None,
+        cluster_recommendation_minimum_ratio_labeled_unlabeled=None,
+        uncertainty_recommendation_certainty_threshold=None,
+        uncertainty_recommendation_ratio=None,
+        snuba_lite_minimum_heuristic_accuracy=None,
+    ):
         print(
             "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
             .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
@@ -342,11 +347,11 @@ class ActiveLearner:
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
             if self.data_storage.X_train_unlabeled.shape[
-                    0] < self.data_storage.nr_queries_per_iteration:
-                self.data_storage.nr_queries_per_iteration = self.data_storage.X_train_unlabeled.shape[
+                    0] < self.nr_queries_per_iteration:
+                self.nr_queries_per_iteration = self.data_storage.X_train_unlabeled.shape[
                     0]
 
-            if self.data_storage.nr_queries_per_iteration == 0:
+            if self.nr_queries_per_iteration == 0:
                 break
 
             # first iteration - add everything from ground truth
@@ -363,20 +368,23 @@ class ActiveLearner:
                 X_query = None
 
                 if self.metrics_per_al_cycle['test_data_metrics'][0][-1][0][
-                        'accuracy'] > self.config.minimum_test_accuracy_before_recommendations:
-                    if X_query is None and self.config.with_cluster_recommendation:
+                        'accuracy'] > minimum_test_accuracy_before_recommendations:
+                    if X_query is None and with_cluster_recommendation:
                         X_query, Y_query, query_indices = self.cluster_recommendation(
+                            cluster_recommendation_minimum_cluster_unity_size,
+                            cluster_recommendation_minimum_ratio_labeled_unlabeled
                         )
                         recommendation_value = "C"
 
-                    if X_query is None and self.config.with_uncertainty_recommendation:
+                    if X_query is None and with_uncertainty_recommendation:
                         X_query, Y_query, query_indices = self.uncertainty_recommendation(
-                        )
+                            uncertainty_recommendation_certainty_threshold,
+                            uncertainty_recommendation_ratio)
                         recommendation_value = "U"
 
-                    if X_query is None and self.config.with_snuba_lite:
+                    if X_query is None and with_snuba_lite:
                         X_query, Y_query, query_indices = self.snuba_lite_recommendation(
-                        )
+                            snuba_lite_minimum_heuristic_accuracy)
                         recommendation_value = "S"
 
                 if X_query is not None:
@@ -461,7 +469,7 @@ class ActiveLearner:
 
         # in case we specified more queries than we have data
         self.nr_learning_iterations = i
-        self.len_queries = self.nr_learning_iterations * self.data_storage.nr_queries_per_iteration
+        self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
 
         #  print(self.metrics_per_al_cycle)
 

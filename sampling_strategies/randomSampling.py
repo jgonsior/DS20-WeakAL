@@ -9,7 +9,7 @@ class RandomSampler(ActiveLearner):
         random_cluster = X_train_unlabeled_cluster_indices[list(
             X_train_unlabeled_cluster_indices.keys())[0]]
 
-        size_of_random_sample = self.data_storage.nr_queries_per_iteration
+        size_of_random_sample = self.nr_queries_per_iteration
         length_X_train_unlabled = len(random_cluster)
         if size_of_random_sample > length_X_train_unlabled:
             size_of_random_sample = length_X_train_unlabled
