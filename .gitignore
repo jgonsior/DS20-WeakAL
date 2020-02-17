@@ -170,3 +170,5 @@ tmp/
 paper/
 
 *.db
+
+Pipfile.lock
