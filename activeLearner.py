@@ -204,7 +204,8 @@ class ActiveLearner:
     def increase_labeled_dataset(self):
         # dict of cluster -> [X_train_unlabeled_indices]
         X_train_unlabeled_cluster_indices = self.cluster_strategy.get_cluster_indices(
-            clf=self.clf_list[0])
+            clf=self.clf_list[0],
+            nr_queries_per_iteration=self.nr_queries_per_iteration)
 
         #  for cluster_id, cluster_indices in X_train_unlabeled_cluster_indices.items(
         #  ):

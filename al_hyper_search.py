@@ -3,12 +3,13 @@ import contextlib
 import datetime
 import io
 import json
+import multiprocessing
 import os
 import random
 import sys
 from itertools import chain, combinations
-
 from timeit import default_timer as timer
+
 import numpy as np
 import pandas as pd
 import peewee
@@ -161,6 +162,11 @@ for recommendation_param_distributions in powerset([
         param_distribution[
             "minimum_test_accuracy_before_recommendations"] = np.random.uniform(
                 0.5, 1, size=100)
+    if 'minimum_test_accuracy_before_recommendations' not in param_distribution.keys(
+    ):
+        param_distribution['minimum_test_accuracy_before_recommendations'] = [
+            1
+        ]
     param_distribution_list.append(param_distribution)
 
 # create estimater object
@@ -210,6 +216,10 @@ class Estimator(BaseEstimator):
         self.with_cluster_recommendation = with_cluster_recommendation
         self.with_snuba_lite = with_snuba_lite
         self.plot = plot
+
+        if with_snuba_lite or with_cluster_recommendation or with_uncertainty_recommendation:
+            if minimum_test_accuracy_before_recommendations is None:
+                print("oh mein gott")
 
         self.dataset_storage = DataStorage(random_seed)
 
@@ -332,7 +342,8 @@ with Logger(
         population_size=50,
         gene_mutation_prob=0.10,
         tournament_size=3,
-        generations_number=10)
+        generations_number=10,
+        n_jobs=multiprocessing.cpu_count())
 
     # @todo: remove cross validation
     iris = load_iris()

@@ -23,9 +23,9 @@ class MostUncertainClusterStrategy(BaseClusterStrategy):
         #  print(cluster, ":\t", len(cluster_indices))
         return random_cluster
 
-    def get_cluster_indices(self, clf):
+    def get_cluster_indices(self, clf, nr_queries_per_iteration):
         # rank all clusters based on average k-most uncertainty
-        k = self.data_storage.nr_queries_per_iteration
+        k = nr_queries_per_iteration
 
         highest_cumulative_uncertainty = 0
         highest_cumulative_uncertainty_cluster_id = None
