@@ -166,3 +166,7 @@ tags
 tmp/
 
 .vim/
+
+paper/
+
+*.db

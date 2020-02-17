@@ -1,9 +1,6 @@
 # Weak Supervision Experiments
 
 
-Ich hab mal versucht den Gedankengang vom Gespräch vorhin zu verschriftlichen und weiter auszuführen, damit auch über Weihnachten nichts davon verloren geht, bis zum 6.1 fällt mir bestimmt auch noch mehr dazu ein:  
-
-
 **Story:**  
 
 
@@ -64,6 +61,3 @@ Labeln von Daten macht keinen Spaß, daher:
 *   Integration von vorgeschlagenen, menschenverständlichen Heuristiken (z. B. visualisierte Decision Trees, Darstellung von Cluster, …), in AL cycle  
 
 Parallel zur Entwicklung von SNUBA Lite erweitern Studierende AERGIA als proof-of-concept Implementierung mittels Gamification von AL mit den vorgeschlagenen LF  
-
-
-Gruß Julius  

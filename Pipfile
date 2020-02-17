@@ -17,6 +17,10 @@ sklearn = "*"
 numpy = "*"
 mlens = "*"
 openpyxl = "*"
+sklearn-deap = "*"
+sqlalchemy = "*"
+flask-sqlalchemy = "*"
+peewee = "*"
 
 [requires]
 python_version = "3.8"
