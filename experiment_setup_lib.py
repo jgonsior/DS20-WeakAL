@@ -141,12 +141,11 @@ def store_pickle(filename, content, output_dir):
 def classification_report_and_confusion_matrix(clf,
                                                X,
                                                Y,
-                                               output_dir,
                                                label_encoder,
+                                               output_dir=None,
                                                output_dict=True,
                                                store=False,
                                                training_times=""):
-
     Y_pred = clf.predict(X)
     clf_report = classification_report(
         Y,

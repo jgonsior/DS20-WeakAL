@@ -120,7 +120,6 @@ class ActiveLearner:
                 clf,
                 self.data_storage.X_test,
                 self.data_storage.Y_test,
-                None,
                 self.data_storage.label_encoder,
                 output_dict=True)
 
@@ -130,7 +129,6 @@ class ActiveLearner:
                 clf,
                 self.data_storage.X_train_labeled,
                 self.data_storage.Y_train_labeled,
-                None,
                 self.data_storage.label_encoder,
                 output_dict=True)
 
@@ -142,7 +140,6 @@ class ActiveLearner:
                     clf,
                     self.data_storage.X_train_unlabeled,
                     self.data_storage.Y_train_unlabeled,
-                    None,
                     self.data_storage.label_encoder,
                     output_dict=True)
             else:

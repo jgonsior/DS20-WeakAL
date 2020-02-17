@@ -2,11 +2,13 @@ import argparse
 import contextlib
 import datetime
 import io
+import json
 import os
 import random
 import sys
 from itertools import chain, combinations
-import json
+
+from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
 import peewee
@@ -47,13 +49,13 @@ standard_param_distribution = {
         'uncertainty_entropy',
     ],
     "cluster": [
-        #  'dummy', 'random', 'MostUncertain_lc', 'MostUncertain_max_margin',
-        #  'MostUncertain_entropy'
-        'dummy',
+        'dummy', 'random', 'MostUncertain_lc', 'MostUncertain_max_margin',
+        'MostUncertain_entropy'
+        #  'dummy',
     ],
     "nr_learning_iterations": [1000000000],
     "nr_queries_per_iteration":
-    np.random.randint(1000, 2000, size=100),
+    np.random.randint(1, 2000, size=100),
     "start_set_size":
     np.random.uniform(0.01, 0.5, size=100),
     "with_uncertainty_recommendation": [False],
@@ -91,7 +93,8 @@ class BaseModel(peewee.Model):
 
 class ExperimentResult(BaseModel):
     id_field = peewee.AutoField()
-    experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
+
+    # hyper params
     dataset_path = peewee.TextField()
     classifier = peewee.TextField()
     cores = peewee.IntegerField()
@@ -114,15 +117,18 @@ class ExperimentResult(BaseModel):
         null=True)
     cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
         null=True)
-    metrics_per_al_cycle = peewee.TextField(null=True)
+    metrics_per_al_cycle = peewee.TextField(null=True)  # json string
     amount_of_user_asked_queries = peewee.IntegerField(null=True)
 
-    #  def __init__(self, value_dict):
-    #  for k, v in value_dict.items():
-    #  print(k, ":\t", v)
-    #  # if k == "createdDate" and v is None:
-    #  #     v = datetime.utcnow()
-    #  setattr(self, k, v)
+    # information of hyperparam run
+    experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
+    fit_time = peewee.TextField()  # timedelta
+    confusion_matrix_test = peewee.TextField()  # json
+    confusion_matrix_train = peewee.TextField()  # json
+    classification_report_train = peewee.TextField()  # json
+    classification_report_test = peewee.TextField()  # json
+    acc_train = peewee.FloatField()
+    acc_test = peewee.FloatField()
 
 
 db.connect()
@@ -256,69 +262,86 @@ class Estimator(BaseEstimator):
         elif self.cluster == 'RoundRobin':
             cluster_strategy = RoundRobinClusterStrategy()
 
-        filename = "test.txt"
-        #  for k, v in self.get_params().items():
-        #  if k == "dataset_path":
-        #  continue
-        #  filename += k + "_" + str(v) + "#"
+        active_learner.set_data_storage(self.dataset_storage)
+        cluster_strategy.set_data_storage(self.dataset_storage)
+        active_learner.set_cluster_strategy(cluster_strategy)
 
-        store_result(filename + ".txt", "", self.output_dir)
-
-        with Logger(self.output_dir + '/' + filename + ".txt", "w"):
-            active_learner.set_data_storage(self.dataset_storage)
-            cluster_strategy.set_data_storage(self.dataset_storage)
-            active_learner.set_cluster_strategy(cluster_strategy)
-
-            #  trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-            #  self.minimum_test_accuracy_before_recommendations,
-            #  self.with_cluster_recommendation,
-            #  self.with_uncertainty_recommendation, self.with_snuba_lite,
-            #  self.cluster_recommendation_minimum_cluster_unity_size,
-            #  self.cluster_recommendation_ratio_labeled_unlabeled,
-            #  self.uncertainty_recommendation_certainty_threshold,
-            #  self.uncertainty_recommendation_ratio,
-            #  self.snuba_lite_minimum_heuristic_accuracy)
+        start = timer()
+        trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
+            self.minimum_test_accuracy_before_recommendations,
+            self.with_cluster_recommendation,
+            self.with_uncertainty_recommendation, self.with_snuba_lite,
+            self.cluster_recommendation_minimum_cluster_unity_size,
+            self.cluster_recommendation_ratio_labeled_unlabeled,
+            self.uncertainty_recommendation_certainty_threshold,
+            self.uncertainty_recommendation_ratio,
+            self.snuba_lite_minimum_heuristic_accuracy)
+        end = timer()
 
         # display quick results
         self.amount_of_user_asked_queries = active_learner.get_amount_of_user_asked_queries(
         )
 
+        classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
+            trained_active_clf_list[0], self.dataset_storage.X_test,
+            self.dataset_storage.Y_test, self.dataset_storage.label_encoder)
+        classification_report_and_confusion_matrix_train = classification_report_and_confusion_matrix(
+            trained_active_clf_list[0], self.dataset_storage.X_train_unlabeled,
+            self.dataset_storage.Y_train_unlabeled,
+            self.dataset_storage.label_encoder)
+
         experiment_result = ExperimentResult(
             **self.get_params(),
             amount_of_user_asked_queries=self.amount_of_user_asked_queries,
-            metrics_per_al_cycle=active_learner.metrics_per_al_cycle)
+            metrics_per_al_cycle=metrics_per_al_cycle,
+            fit_time=str(end - start),
+            confusion_matrix_test=
+            classification_report_and_confusion_matrix_test[1],
+            confusion_matrix_train=
+            classification_report_and_confusion_matrix_train[1],
+            classification_report_test=
+            classification_report_and_confusion_matrix_test[0],
+            classification_report_train=
+            classification_report_and_confusion_matrix_train[0],
+            acc_train=classification_report_and_confusion_matrix_train[0]
+            ['accuracy'],
+            acc_test=classification_report_and_confusion_matrix_test[0]
+            ['accuracy'])
         experiment_result.save()
 
     def score(self, X, y):
         return self.amount_of_user_asked_queries
 
 
-active_learner = Estimator()
+with Logger(
+        standard_config.output_dir + "/" + str(datetime.datetime.now()) +
+        "al_hyper_search.txt", "w"):
+    active_learner = Estimator()
 
-grid = RandomizedSearchCV(active_learner,
-                          param_distribution_list,
-                          n_iter=3,
-                          cv=2,
-                          verbose=9999999999999999999999999999999999)
+    #  grid = RandomizedSearchCV(active_learner,
+    #  param_distribution_list,
+    #  n_iter=3,
+    #  cv=2,
+    #  verbose=9999999999999999999999999999999999)
 
-evolutionary_search = EvolutionaryAlgorithmSearchCV(
-    estimator=active_learner,
-    params=param_distribution_list,
-    verbose=True,
-    cv=2,
-    population_size=5,
-    gene_mutation_prob=0.10,
-    tournament_size=3,
-    generations_number=10)
+    evolutionary_search = EvolutionaryAlgorithmSearchCV(
+        estimator=active_learner,
+        params=param_distribution_list,
+        verbose=True,
+        cv=2,
+        population_size=50,
+        gene_mutation_prob=0.10,
+        tournament_size=3,
+        generations_number=10)
 
-# @todo: remove cross validation
-iris = load_iris()
+    # @todo: remove cross validation
+    iris = load_iris()
 
-#  search = grid.fit(iris.data, iris.target)
-evolutionary_search.fit(iris.data, iris.target)
+    #  search = grid.fit(iris.data, iris.target)
+    evolutionary_search.fit(iris.data, iris.target)
 
-print(evolutionary_search.best_params_)
-print(evolutionary_search.best_score_)
-print(
-    pd.DataFrame(evolutionary_search.cv_results_).sort_values(
-        "mean_test_score", ascending=False).head())
+    print(evolutionary_search.best_params_)
+    print(evolutionary_search.best_score_)
+    print(
+        pd.DataFrame(evolutionary_search.cv_results_).sort_values(
+            "mean_test_score", ascending=False).head())
