@@ -474,3 +474,12 @@ class ActiveLearner:
         #  print(self.metrics_per_al_cycle)
 
         return self.clf_list, self.metrics_per_al_cycle
+
+    def get_amount_of_user_asked_queries(self):
+        amount_of_user_asked_queries = 0
+
+        for i, amount_of_queries in enumerate(
+                self.metrics_per_al_cycle['query_length']):
+            if self.metrics_per_al_cycle['recommendation'][i] == "A":
+                amount_of_user_asked_queries += amount_of_queries
+        return amount_of_user_asked_queries

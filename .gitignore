@@ -168,3 +168,5 @@ tmp/
 .vim/
 
 paper/
+
+*.db

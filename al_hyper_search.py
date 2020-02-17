@@ -1,13 +1,15 @@
 import argparse
 import contextlib
+import datetime
 import io
 import os
 import random
 import sys
 from itertools import chain, combinations
-
+import json
 import numpy as np
 import pandas as pd
+import peewee
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from scipy.stats import randint, uniform
 from sklearn.base import BaseEstimator
@@ -77,6 +79,54 @@ cluster_recommendation_grid = {
     "cluster_recommendation_ratio_labeled_unlabeled":
     np.random.uniform(0.5, 1, size=100)
 }
+
+# create databases for storing the results
+db = peewee.SqliteDatabase('experiment_results.db')
+
+
+class BaseModel(peewee.Model):
+    class Meta:
+        database = db
+
+
+class ExperimentResult(BaseModel):
+    id_field = peewee.AutoField()
+    experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
+    dataset_path = peewee.TextField()
+    classifier = peewee.TextField()
+    cores = peewee.IntegerField()
+    output_dir = peewee.TextField()
+    test_fraction = peewee.FloatField()
+    sampling = peewee.TextField()
+    random_seed = peewee.IntegerField()
+    cluster = peewee.TextField()
+    nr_learning_iterations = peewee.IntegerField()
+    nr_queries_per_iteration = peewee.IntegerField()
+    start_set_size = peewee.FloatField()
+    with_uncertainty_recommendation = peewee.BooleanField()
+    with_cluster_recommendation = peewee.BooleanField()
+    with_snuba_lite = peewee.BooleanField()
+    uncertainty_recommendation_certainty_threshold = peewee.FloatField(
+        null=True)
+    uncertainty_recommendation_ratio = peewee.FloatField(null=True)
+    snuba_lite_minimum_heuristic_accuracy = peewee.FloatField(null=True)
+    cluster_recommendation_minimum_cluster_unity_size = peewee.FloatField(
+        null=True)
+    cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
+        null=True)
+    metrics_per_al_cycle = peewee.TextField(null=True)
+    amount_of_user_asked_queries = peewee.IntegerField(null=True)
+
+    #  def __init__(self, value_dict):
+    #  for k, v in value_dict.items():
+    #  print(k, ":\t", v)
+    #  # if k == "createdDate" and v is None:
+    #  #     v = datetime.utcnow()
+    #  setattr(self, k, v)
+
+
+db.connect()
+db.create_tables([ExperimentResult])
 
 
 # generate all possible combinations of the three recommendations
@@ -206,13 +256,12 @@ class Estimator(BaseEstimator):
         elif self.cluster == 'RoundRobin':
             cluster_strategy = RoundRobinClusterStrategy()
 
-        filename = ""
-        for k, v in self.get_params().items():
-            if k == "dataset_path":
-                continue
-            filename += k + "_" + str(v) + "#"
--> filename too long -> store checksum, and save somewhere else a mapping from checksum -> params
-alle params in ein file speichern, also zusätzlich zu dem pickel für die metriken (dicts mergen)
+        filename = "test.txt"
+        #  for k, v in self.get_params().items():
+        #  if k == "dataset_path":
+        #  continue
+        #  filename += k + "_" + str(v) + "#"
+
         store_result(filename + ".txt", "", self.output_dir)
 
         with Logger(self.output_dir + '/' + filename + ".txt", "w"):
@@ -220,32 +269,25 @@ alle params in ein file speichern, also zusätzlich zu dem pickel für die metri
             cluster_strategy.set_data_storage(self.dataset_storage)
             active_learner.set_cluster_strategy(cluster_strategy)
 
-            trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-                self.minimum_test_accuracy_before_recommendations,
-                self.with_cluster_recommendation,
-                self.with_uncertainty_recommendation, self.with_snuba_lite,
-                self.cluster_recommendation_minimum_cluster_unity_size,
-                self.cluster_recommendation_ratio_labeled_unlabeled,
-                self.uncertainty_recommendation_certainty_threshold,
-                self.uncertainty_recommendation_ratio,
-                self.snuba_lite_minimum_heuristic_accuracy)
-
-        # save output
-        store_pickle(filename + '.pickle', metrics_per_al_cycle,
-                     self.output_dir)
+            #  trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
+            #  self.minimum_test_accuracy_before_recommendations,
+            #  self.with_cluster_recommendation,
+            #  self.with_uncertainty_recommendation, self.with_snuba_lite,
+            #  self.cluster_recommendation_minimum_cluster_unity_size,
+            #  self.cluster_recommendation_ratio_labeled_unlabeled,
+            #  self.uncertainty_recommendation_certainty_threshold,
+            #  self.uncertainty_recommendation_ratio,
+            #  self.snuba_lite_minimum_heuristic_accuracy)
 
         # display quick results
-        amount_of_user_asked_queries = 0
+        self.amount_of_user_asked_queries = active_learner.get_amount_of_user_asked_queries(
+        )
 
-        for i, amount_of_queries in enumerate(
-                metrics_per_al_cycle['query_length']):
-            if metrics_per_al_cycle['recommendation'][i] == "A":
-                amount_of_user_asked_queries += amount_of_queries
-
-        print("User were asked to label {} queries".format(
-            amount_of_user_asked_queries))
-
-        self.amount_of_user_asked_queries = amount_of_user_asked_queries
+        experiment_result = ExperimentResult(
+            **self.get_params(),
+            amount_of_user_asked_queries=self.amount_of_user_asked_queries,
+            metrics_per_al_cycle=active_learner.metrics_per_al_cycle)
+        experiment_result.save()
 
     def score(self, X, y):
         return self.amount_of_user_asked_queries
@@ -272,7 +314,7 @@ evolutionary_search = EvolutionaryAlgorithmSearchCV(
 # @todo: remove cross validation
 iris = load_iris()
 
-search = grid.fit(iris.data, iris.target)
+#  search = grid.fit(iris.data, iris.target)
 evolutionary_search.fit(iris.data, iris.target)
 
 print(evolutionary_search.best_params_)
