@@ -153,6 +153,7 @@ class ExperimentResult(BaseModel):
     classification_report_test = peewee.TextField()  # json
     acc_train = peewee.FloatField()
     acc_test = peewee.FloatField()
+    fit_score = peewee.FloatField()
 
 
 db.connect()
@@ -345,6 +346,16 @@ class Estimator(BaseEstimator):
         #  ]
 
         #  metrics_per_al_cycle = "blabla"
+
+        # normalize by start_set_size
+        percentage_user_asked_queries = 1 - self.amount_of_user_asked_queries / self.len_train_data
+        test_acc = classification_report_and_confusion_matrix_test[0][
+            'accuracy']
+
+        # score is harmonic mean
+        score = 2 * percentage_user_asked_queries * test_acc / (
+            percentage_user_asked_queries + test_acc)
+
         experiment_result = ExperimentResult(
             **self.get_params(),
             amount_of_user_asked_queries=self.amount_of_user_asked_queries,
@@ -366,17 +377,10 @@ class Estimator(BaseEstimator):
             acc_train=classification_report_and_confusion_matrix_train[0]
             ['accuracy'],
             acc_test=classification_report_and_confusion_matrix_test[0]
-            ['accuracy'])
+            ['accuracy'],
+            fit_score=score)
         experiment_result.save()
 
-        # normalize by start_set_size
-        percentage_user_asked_queries = 1 - self.amount_of_user_asked_queries / self.len_train_data
-        test_acc = classification_report_and_confusion_matrix_test[0][
-            'accuracy']
-
-        # score is harmonic mean
-        score = 2 * percentage_user_asked_queries * test_acc / (
-            percentage_user_asked_queries + test_acc)
         return score
 
 
