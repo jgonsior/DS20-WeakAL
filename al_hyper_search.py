@@ -33,7 +33,10 @@ from experiment_setup_lib import (Logger,
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
-standard_config = standard_config()
+standard_config = standard_config([(['--nr_learning_iterations'], {
+    'type': int,
+    'default': 150000000000000000000
+})])
 
 param_distribution = {}
 
@@ -51,12 +54,12 @@ standard_param_distribution = {
         'uncertainty_entropy',
     ],
     "cluster": [
-        #  'dummy', 'random', 'MostUncertain_lc', 'MostUncertain_max_margin',
-        #  'MostUncertain_entropy'
-        'dummy',
+        'dummy', 'random', 'MostUncertain_lc', 'MostUncertain_max_margin',
+        'MostUncertain_entropy'
+        #  'dummy',
     ],
-    #  "nr_learning_iterations": [1000000000],
-    "nr_learning_iterations": [1],
+    "nr_learning_iterations": [standard_config.nr_learning_iterations],
+    #  "nr_learning_iterations": [1],
     "nr_queries_per_iteration":
     np.random.randint(1, 2000, size=100),
     "start_set_size":
@@ -329,9 +332,9 @@ class Estimator(BaseEstimator):
             metrics_per_al_cycle=json.dumps(self.metrics_per_al_cycle),
             fit_time=str(self.fit_time),
             confusion_matrix_test=json.dumps(
-                classification_report_and_confusion_matrix_test[1]),
+                classification_report_and_confusion_matrix_test[1].tolist()),
             confusion_matrix_train=json.dumps(
-                classification_report_and_confusion_matrix_train[1]),
+                classification_report_and_confusion_matrix_train[1].tolist()),
             classification_report_test=json.dumps(
                 classification_report_and_confusion_matrix_test[0]),
             classification_report_train=json.dumps(
@@ -358,7 +361,7 @@ with Logger(
 
     X, Y, label_encoder = load_and_prepare_X_and_Y(
         standard_config.dataset_path)
-    print(label_encoder.get_params(deep=True))
+
     for param_distribution in param_distribution_list:
         param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
