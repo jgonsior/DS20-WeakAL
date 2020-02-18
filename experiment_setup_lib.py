@@ -11,16 +11,19 @@ import numpy as np
 import pandas as pd
 import sklearn.metrics
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 
 
 def divide_data(self, test_fraction, start_set_size):
-    X = pd.DataFrame(self.X, dtype=float)
-    Y = pd.DataFrame(self.Y, dtype=int)
 
     # split data
-    # X_train, X_test, Y_train, Y_test
-    return train_test_split(X, Y, test_size=test_fraction)
+    X_train, X_test, Y_train, Y_test = train_test_split(
+        X, Y, test_size=test_fraction)
+
+    len_test = len(self.X_test)
+    print("size of test set: %i = %1.2f" % (len_test, len_test / len_test))
+    return X_train, X_test, Y_train, Y_test
 
 
 def standard_config(additional_parameters=None):
@@ -103,6 +106,9 @@ def load_and_prepare_X_and_Y(dataset_path):
     # feature selection
     #  selector = SelectKBest(chi2, k=200)
     #  X = selector.fit_transform(X, Y)
+
+    X = pd.DataFrame(X, dtype=float)
+    Y = pd.DataFrame(Y, dtype=int)
 
     return X, Y, label_encoder
 

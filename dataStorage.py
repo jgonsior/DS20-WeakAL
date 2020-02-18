@@ -60,16 +60,14 @@ class DataStorage:
     def _print_data_segmentation(self):
         len_train_labeled = len(self.X_train_labeled)
         len_train_unlabeled = len(self.X_train_unlabeled)
-        len_test = len(self.X_test)
+        #  len_test = len(self.X_test)
 
-        len_total = len_train_unlabeled + len_train_labeled + len_test
+        len_total = len_train_unlabeled + len_train_labeled  #+ len_test
 
         print("size of train  labeled set: %i = %1.2f" %
               (len_train_labeled, len_train_labeled / len_total))
         print("size of train unlabeled set: %i = %1.2f" %
               (len_train_unlabeled, len_train_unlabeled / len_total))
-        print("size of test set: %i = %1.2f" %
-              (len_test, len_test / len_total))
 
     def move_labeled_queries(self, X_query, Y_query, query_indices):
         # move new queries from unlabeled to labeled dataset

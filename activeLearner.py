@@ -62,7 +62,6 @@ class ActiveLearner:
         self.len_queries = nr_learning_iterations * nr_queries_per_iteration
 
         self.with_test = with_test
-        self.with_fake_stopping = with_fake_stopping
 
     def set_cluster_strategy(self, cluster_strategy):
         self.cluster_strategy = cluster_strategy
@@ -346,6 +345,7 @@ class ActiveLearner:
         uncertainty_recommendation_ratio=None,
         snuba_lite_minimum_heuristic_accuracy=None,
     ):
+        print(self.data_storage.label_encoder.classes_)
         print("Used Hyperparams:")
         print(vars(self))
 

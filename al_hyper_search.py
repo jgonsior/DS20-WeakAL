@@ -19,6 +19,7 @@ from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      RandomizedSearchCV, train_test_split)
+from sklearn.preprocessing import LabelEncoder
 
 from cluster_strategies import (DummyClusterStrategy,
                                 MostUncertainClusterStrategy,
@@ -175,7 +176,7 @@ for recommendation_param_distributions in powerset([
 
 class Estimator(BaseEstimator):
     def __init__(self,
-                 label_encoder=None,
+                 label_encoder_classes=None,
                  dataset_path=None,
                  classifier=None,
                  cores=None,
@@ -197,7 +198,7 @@ class Estimator(BaseEstimator):
                  with_cluster_recommendation=None,
                  with_snuba_lite=None,
                  plot=None):
-        self.label_encoder = label_encoder
+        self.label_encoder_classes = label_encoder_classes
         self.dataset_path = dataset_path
         self.classifier = classifier
         self.cores = cores
@@ -220,17 +221,13 @@ class Estimator(BaseEstimator):
         self.with_snuba_lite = with_snuba_lite
         self.plot = plot
 
-        if with_snuba_lite or with_cluster_recommendation or with_uncertainty_recommendation:
-            if minimum_test_accuracy_before_recommendations is None:
-                print("oh mein gott")
-
     def fit(self, X_train, Y_train, **kwargs):
+        label_encoder = LabelEncoder()
+        label_encoder.fit(self.label_encoder_classes)
         self.dataset_storage = DataStorage(self.random_seed)
-        self.dataset_storage.set_training_data(X_train, Y_train,
-                                               self.label_encoder,
+        self.dataset_storage.set_training_data(X_train, Y_train, label_encoder,
                                                self.test_fraction,
                                                self.start_set_size)
-
         if self.sampling == 'random':
             active_learner = RandomSampler(self.random_seed,
                                            self.cores,
@@ -349,6 +346,8 @@ class Estimator(BaseEstimator):
 
         # normalize by start_set_size
         score = score
+
+        # je höher der score, desto besser -> ?!?!?!?!?!?!?!?!?!
         return score
 
 
@@ -359,9 +358,9 @@ with Logger(
 
     X, Y, label_encoder = load_and_prepare_X_and_Y(
         standard_config.dataset_path)
-
+    print(label_encoder.get_params(deep=True))
     for param_distribution in param_distribution_list:
-        param_distribution['label_encoder'] = [label_encoder]
+        param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
     #  grid = RandomizedSearchCV(active_learner,
     #  param_distribution_list,
