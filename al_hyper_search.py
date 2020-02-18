@@ -243,6 +243,7 @@ class Estimator(BaseEstimator):
         self.plot = plot
 
     def fit(self, X_train, Y_train, **kwargs):
+        self.len_train_data = len(Y_train)
         label_encoder = LabelEncoder()
         label_encoder.fit(self.label_encoder_classes)
         self.dataset_storage = DataStorage(self.random_seed)
@@ -368,12 +369,14 @@ class Estimator(BaseEstimator):
             ['accuracy'])
         experiment_result.save()
 
-        score = self.amount_of_user_asked_queries
-
         # normalize by start_set_size
-        score = score
+        percentage_user_asked_queries = 1 - self.amount_of_user_asked_queries / self.len_train_data
+        test_acc = classification_report_and_confusion_matrix_test[0][
+            'accuracy']
 
-        # je höher der score, desto besser -> ?!?!?!?!?!?!?!?!?!
+        # score is harmonic mean
+        score = 2 * percentage_user_asked_queries * test_acc / (
+            percentage_user_asked_queries + test_acc)
         return score
 
 
