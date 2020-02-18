@@ -15,19 +15,14 @@ class DataStorage:
         np.random.seed(random_seed)
         random.seed(random_seed)
 
-    def load_csv(self, dataset_path):
-        X, Y, self.label_encoder = load_and_prepare_X_and_Y(dataset_path)
-        self.X = X
-        self.Y = Y
-
-    def divide_data(self, test_fraction, start_set_size):
-        X = pd.DataFrame(self.X, dtype=float)
-        Y = pd.DataFrame(self.Y, dtype=int)
-
-        # split data
-        X_train, self.X_test, Y_train, self.Y_test = train_test_split(
-            X, Y, test_size=test_fraction)
-
+    def set_training_data(self,
+                          X_train,
+                          Y_train,
+                          label_encoder,
+                          test_fraction,
+                          start_set_size,
+                          X_test=None,
+                          Y_test=None):
         # split training data into labeled and unlabeled dataset
         self.X_train_labeled, self.X_train_unlabeled, self.Y_train_labeled, self.Y_train_unlabeled = train_test_split(
             X_train, Y_train, test_size=1 - start_set_size)
@@ -37,6 +32,9 @@ class DataStorage:
         self.X_train_unlabeled_cluster_indices = {}
         self.prepare_fake_iteration_zero()
         print(self.X_train_labeled.shape)
+        self.label_encoder = label_encoder
+        self.X_test = X_test
+        self.Y_test = Y_test
 
     def prepare_fake_iteration_zero(self):
         # fake iteration zero where we add the given ground truth labels all at once

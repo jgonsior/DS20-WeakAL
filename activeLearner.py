@@ -24,8 +24,12 @@ from experiment_setup_lib import classification_report_and_confusion_matrix
 
 
 class ActiveLearner:
-    def __init__(self, random_seed, cores, nr_learning_iterations,
-                 nr_queries_per_iteration):
+    def __init__(self,
+                 random_seed,
+                 cores,
+                 nr_learning_iterations,
+                 nr_queries_per_iteration,
+                 with_test=True):
         np.random.seed(random_seed)
         random.seed(random_seed)
 
@@ -56,6 +60,9 @@ class ActiveLearner:
             'recommendation': []
         }
         self.len_queries = nr_learning_iterations * nr_queries_per_iteration
+
+        self.with_test = with_test
+        self.with_fake_stopping = with_fake_stopping
 
     def set_cluster_strategy(self, cluster_strategy):
         self.cluster_strategy = cluster_strategy
@@ -118,15 +125,6 @@ class ActiveLearner:
         for i, clf in enumerate(self.clf_list):
             metrics = classification_report_and_confusion_matrix(
                 clf,
-                self.data_storage.X_test,
-                self.data_storage.Y_test,
-                self.data_storage.label_encoder,
-                output_dict=True)
-
-            self.metrics_per_al_cycle['test_data_metrics'][i].append(metrics)
-
-            metrics = classification_report_and_confusion_matrix(
-                clf,
                 self.data_storage.X_train_labeled,
                 self.data_storage.Y_train_labeled,
                 self.data_storage.label_encoder,
@@ -134,6 +132,17 @@ class ActiveLearner:
 
             self.metrics_per_al_cycle['train_labeled_data_metrics'][i].append(
                 metrics)
+
+            if self.with_test:
+                metrics = classification_report_and_confusion_matrix(
+                    clf,
+                    self.data_storage.X_test,
+                    self.data_storage.Y_test,
+                    self.data_storage.label_encoder,
+                    output_dict=True)
+
+            # in case we don't have the metrics just store the train results
+            self.metrics_per_al_cycle['test_data_metrics'][i].append(metrics)
 
             if self.data_storage.X_train_unlabeled.shape[0] != 0:
                 metrics = classification_report_and_confusion_matrix(
@@ -345,6 +354,8 @@ class ActiveLearner:
             .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
                     "QS"))
 
+        self.start_set_size = len(self.data_storage.ground_truth_indices)
+
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
             if self.data_storage.X_train_unlabeled.shape[
@@ -477,7 +488,7 @@ class ActiveLearner:
         return self.clf_list, self.metrics_per_al_cycle
 
     def get_amount_of_user_asked_queries(self):
-        amount_of_user_asked_queries = 0
+        amount_of_user_asked_queries = self.start_set_size
 
         for i, amount_of_queries in enumerate(
                 self.metrics_per_al_cycle['query_length']):

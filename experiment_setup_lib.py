@@ -8,11 +8,19 @@ import random
 import sys
 
 import numpy as np
-
 import pandas as pd
 import sklearn.metrics
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
+
+
+def divide_data(self, test_fraction, start_set_size):
+    X = pd.DataFrame(self.X, dtype=float)
+    Y = pd.DataFrame(self.Y, dtype=int)
+
+    # split data
+    # X_train, X_test, Y_train, Y_test
+    return train_test_split(X, Y, test_size=test_fraction)
 
 
 def standard_config(additional_parameters=None):
