@@ -296,10 +296,16 @@ class Estimator(BaseEstimator):
             trained_active_clf_list[0], self.dataset_storage.X_test,
             self.dataset_storage.Y_test, self.dataset_storage.label_encoder)
         classification_report_and_confusion_matrix_train = classification_report_and_confusion_matrix(
-            trained_active_clf_list[0], self.dataset_storage.X_train_unlabeled,
-            self.dataset_storage.Y_train_unlabeled,
+            trained_active_clf_list[0], self.dataset_storage.X_train_labeled,
+            self.dataset_storage.Y_train_labeled,
             self.dataset_storage.label_encoder)
+        #  classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix_train = [
+        #  {
+        #  'accuracy': 2
+        #  }, "lalala"
+        #  ]
 
+        #  metrics_per_al_cycle = "blabla"
         experiment_result = ExperimentResult(
             **self.get_params(),
             amount_of_user_asked_queries=self.amount_of_user_asked_queries,
@@ -339,8 +345,8 @@ with Logger(
         params=param_distribution_list,
         verbose=True,
         cv=2,
-        population_size=50,
-        gene_mutation_prob=0.10,
+        population_size=100,
+        gene_mutation_prob=0.20,
         tournament_size=3,
         generations_number=10,
         n_jobs=multiprocessing.cpu_count())

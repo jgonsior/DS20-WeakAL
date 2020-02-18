@@ -13,21 +13,11 @@ class MostUncertainClusterStrategy(BaseClusterStrategy):
     def set_uncertainty_strategy(self, strategy):
         self.strategy = strategy
 
-    def _get_random_cluster(self):
-        # randomly select cluster
-        random_cluster = random.choice(
-            list(self.data_storage.X_train_unlabeled_cluster_indices.keys()))
-
-        #  for cluster, cluster_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
-        #  ):
-        #  print(cluster, ":\t", len(cluster_indices))
-        return random_cluster
-
     def get_cluster_indices(self, clf, nr_queries_per_iteration):
         # rank all clusters based on average k-most uncertainty
         k = nr_queries_per_iteration
 
-        highest_cumulative_uncertainty = 0
+        highest_cumulative_uncertainty = float('-inf')
         highest_cumulative_uncertainty_cluster_id = None
         highest_cumulative_uncertainty_cluster_indices = None
         for cluster_id, cluster_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
@@ -47,6 +37,7 @@ class MostUncertainClusterStrategy(BaseClusterStrategy):
             # sum up top k uncertainties
             argsort = np.argsort(-uncertainties)[:k]
             top_k_cluster_indices = np.array(cluster_indices)[argsort]
+
             cumulative_uncertainty = np.sum(
                 np.array(uncertainties)[argsort][:k])
 
