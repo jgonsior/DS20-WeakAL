@@ -165,8 +165,8 @@ print(
 classification_report_and_confusion_matrix(trained_active_clf_list[0],
                                            dataStorage.X_test,
                                            dataStorage.Y_test,
-                                           config.output_dir,
                                            dataStorage.label_encoder,
+                                           output_dir=config.output_dir,
                                            output_dict=False,
                                            store=False,
                                            training_times="")

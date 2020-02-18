@@ -337,6 +337,9 @@ class ActiveLearner:
         uncertainty_recommendation_ratio=None,
         snuba_lite_minimum_heuristic_accuracy=None,
     ):
+        print("Used Hyperparams:")
+        print(vars(self))
+
         print(
             "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
             .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
