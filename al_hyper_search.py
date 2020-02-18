@@ -2,7 +2,6 @@ import argparse
 import contextlib
 import datetime
 import io
-import json
 import multiprocessing
 import os
 import random
@@ -14,6 +13,7 @@ import numpy as np
 import pandas as pd
 import peewee
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
+from json_tricks import dumps
 from scipy.stats import randint, uniform
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
@@ -33,10 +33,28 @@ from experiment_setup_lib import (Logger,
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
-standard_config = standard_config([(['--nr_learning_iterations'], {
-    'type': int,
-    'default': 150000000000000000000
-})])
+standard_config = standard_config([
+    (['--nr_learning_iterations'], {
+        'type': int,
+        'default': 2000000
+    }),
+    (['--population_size'], {
+        'type': int,
+        'default': 100
+    }),
+    (['--tournament_size'], {
+        'type': int,
+        'default': 3
+    }),
+    (['--generations_number'], {
+        'type': int,
+        'default': 10
+    }),
+    (['--gene_mutation_prob'], {
+        'type': float,
+        'default': 0.2
+    }),
+])
 
 param_distribution = {}
 
@@ -329,16 +347,21 @@ class Estimator(BaseEstimator):
         experiment_result = ExperimentResult(
             **self.get_params(),
             amount_of_user_asked_queries=self.amount_of_user_asked_queries,
-            metrics_per_al_cycle=json.dumps(self.metrics_per_al_cycle),
+            metrics_per_al_cycle=dumps(self.metrics_per_al_cycle,
+                                       allow_nan=True),
             fit_time=str(self.fit_time),
-            confusion_matrix_test=json.dumps(
-                classification_report_and_confusion_matrix_test[1].tolist()),
-            confusion_matrix_train=json.dumps(
-                classification_report_and_confusion_matrix_train[1].tolist()),
-            classification_report_test=json.dumps(
-                classification_report_and_confusion_matrix_test[0]),
-            classification_report_train=json.dumps(
-                classification_report_and_confusion_matrix_train[0]),
+            confusion_matrix_test=dumps(
+                classification_report_and_confusion_matrix_test[1],
+                allow_nan=True),
+            confusion_matrix_train=dumps(
+                classification_report_and_confusion_matrix_train[1],
+                allow_nan=True),
+            classification_report_test=dumps(
+                classification_report_and_confusion_matrix_test[0],
+                allow_nan=True),
+            classification_report_train=dumps(
+                classification_report_and_confusion_matrix_train[0],
+                allow_nan=True),
             acc_train=classification_report_and_confusion_matrix_train[0]
             ['accuracy'],
             acc_test=classification_report_and_confusion_matrix_test[0]
@@ -376,10 +399,10 @@ with Logger(
         params=param_distribution_list,
         verbose=True,
         cv=2,
-        population_size=100,
-        gene_mutation_prob=0.20,
-        tournament_size=3,
-        generations_number=10,
+        population_size=standard_config.population_size,
+        gene_mutation_prob=standard_config.gene_mutation_prob,
+        tournament_size=standard_config.tournament_size,
+        generations_number=standard_config.generations_number,
         n_jobs=multiprocessing.cpu_count())
 
     # @todo: remove cross validation

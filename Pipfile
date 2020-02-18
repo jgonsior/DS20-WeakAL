@@ -19,6 +19,7 @@ mlens = "*"
 openpyxl = "*"
 sklearn-deap = "*"
 peewee = "*"
+json-tricks = "*"
 
 [requires]
 python_version = "3.8"
