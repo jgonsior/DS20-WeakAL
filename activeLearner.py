@@ -483,16 +483,13 @@ class ActiveLearner:
                 ))
 
             # checking stop criterias
-            if not early_stop_reached and self.metrics_per_al_cycle[
-                    'stop_query_weak_accuracy_list'][
-                        -1] > stopping_criteria_acc and self.metrics_per_al_cycle[
-                            'stop_stddev_list'][
-                                -1] < stopping_criteria_std and self.metrics_per_al_cycle[
-                                    'stop_certainty_list'][
-                                        -1] < stopping_criteria_std:
+            if self.metrics_per_al_cycle['stop_query_weak_accuracy_list'][
+                    -1] > stopping_criteria_acc and self.metrics_per_al_cycle[
+                        'stop_stddev_list'][
+                            -1] < stopping_criteria_std and self.metrics_per_al_cycle[
+                                'stop_certainty_list'][
+                                    -1] < stopping_criteria_std:
                 break
-
-        # in case we specified more queries than we have data
 
         self.calculate_amount_of_user_asked_queries()
 
