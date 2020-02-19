@@ -65,7 +65,6 @@ class ActiveLearner:
             'query_length': [],
             'recommendation': []
         }
-        self.len_queries = nr_learning_iterations * nr_queries_per_iteration
 
         self.with_test = with_test
         self.cluster_strategy = cluster_strategy
@@ -361,6 +360,8 @@ class ActiveLearner:
 
         self.start_set_size = len(self.data_storage.ground_truth_indices)
 
+        early_stop_reached = False
+
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
             if self.data_storage.X_train_unlabeled.shape[
@@ -484,19 +485,29 @@ class ActiveLearner:
                     [-1],
                 ))
 
-        # in case we specified more queries than we have data
-        self.nr_learning_iterations = i
-        self.len_queries = self.nr_learning_iterations * self.nr_queries_per_iteration
+            # checking stop criterias
+            if self.metrics_per_al_cycle['stop_query_weak_accuracy_list'][
+                    -1] > self.stopping_criteria_acc and self.metrics_per_al_cycle[
+                        'stop_stddev_list'][
+                            -1] < self.stopping_criteria_std and self.metrics_per_al_cycle[
+                                'stop_certainty_list'][
+                                    -1] < self.stopping_criteria_std:
+                early_stop_reached = True
+                print("Early stop")
+                self.calculate_amount_of_user_asked_queries()
 
-        #  print(self.metrics_per_al_cycle)
+        # in case we specified more queries than we have data
+
+        if not early_stop_reached:
+            self.calculate_amount_of_user_asked_queries()
 
         return self.clf_list, self.metrics_per_al_cycle
 
-    def get_amount_of_user_asked_queries(self):
+    def calculate_amount_of_user_asked_queries(self):
         amount_of_user_asked_queries = self.start_set_size
 
         for i, amount_of_queries in enumerate(
                 self.metrics_per_al_cycle['query_length']):
             if self.metrics_per_al_cycle['recommendation'][i] == "A":
                 amount_of_user_asked_queries += amount_of_queries
-        return amount_of_user_asked_queries
+        self.amount_of_user_asked_queries = amount_of_user_asked_queries

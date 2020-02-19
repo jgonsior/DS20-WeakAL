@@ -335,8 +335,7 @@ class Estimator(BaseEstimator):
 
     def score(self, X_test, Y_test):
         # display quick results
-        self.amount_of_user_asked_queries = self.active_learner.get_amount_of_user_asked_queries(
-        )
+        self.amount_of_user_asked_queries = self.active_learner.amount_of_user_asked_queries
 
         classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
             self.trained_active_clf_list[0], X_test, Y_test,
