@@ -26,10 +26,16 @@ from experiment_setup_lib import classification_report_and_confusion_matrix
 class ActiveLearner:
     def __init__(self,
                  random_seed,
+                 dataset_storage,
+                 cluster_strategy,
+                 stopping_criteria_uncertainty,
+                 stopping_criteria_acc,
+                 stopping_criteria_std,
                  cores,
                  nr_learning_iterations,
                  nr_queries_per_iteration,
                  with_test=True):
+
         np.random.seed(random_seed)
         random.seed(random_seed)
 
@@ -62,12 +68,11 @@ class ActiveLearner:
         self.len_queries = nr_learning_iterations * nr_queries_per_iteration
 
         self.with_test = with_test
-
-    def set_cluster_strategy(self, cluster_strategy):
         self.cluster_strategy = cluster_strategy
-
-    def set_data_storage(self, data_storage):
-        self.data_storage = data_storage
+        self.data_storage = dataset_storage
+        self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
+        self.stopping_criteria_std = stopping_criteria_std
+        self.stopping_criteria_acc = stopping_criteria_acc
 
     def calculate_stopping_criteria_stddev(self):
         accuracy_list = self.query_weak_accuracy_list

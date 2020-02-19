@@ -79,31 +79,36 @@ standard_param_distribution = {
     "nr_learning_iterations": [standard_config.nr_learning_iterations],
     #  "nr_learning_iterations": [1],
     "nr_queries_per_iteration":
-    np.random.randint(1, 2000, size=100),
+    np.linspace(1, 2000, num=51).astype(int),
     "start_set_size":
-    np.random.uniform(0.01, 0.5, size=100),
+    np.linspace(0.01, 0.2, num=10).astype(float),
     "with_uncertainty_recommendation": [False],
     "with_cluster_recommendation": [False],
-    "with_snuba_lite": [False]
+    "with_snuba_lite": [False],
+    "stopping_criteria_uncertainty":
+    np.linspace(0, 1, num=101).astype(float),
+    "stopping_criteria_std":
+    np.linspace(0, 1, num=101).astype(float),
+    "stopping_criteria_acc":
+    np.linspace(0, 1, num=101).astype(float),
 }
 
 uncertainty_recommendation_grid = {
     "uncertainty_recommendation_certainty_threshold":
-    np.random.uniform(0.5, 1, size=100),
+    np.linspace(0.5, 1, num=51).astype(float),
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000]
 }
 
 snuba_lite_grid = {
-    "snuba_lite_minimum_heuristic_accuracy": np.random.uniform(0.5,
-                                                               1,
-                                                               size=100)
+    "snuba_lite_minimum_heuristic_accuracy":
+    np.linspace(0.5, 1, num=51).astype(float)
 }
 
 cluster_recommendation_grid = {
     "cluster_recommendation_minimum_cluster_unity_size":
-    np.random.uniform(0.5, 1, size=100),
+    np.linspace(0.5, 1, num=51).astype(float),
     "cluster_recommendation_ratio_labeled_unlabeled":
-    np.random.uniform(0.5, 1, size=100)
+    np.linspace(0.5, 1, num=51).astype(float)
 }
 
 # create databases for storing the results
@@ -154,6 +159,9 @@ class ExperimentResult(BaseModel):
     acc_train = peewee.FloatField()
     acc_test = peewee.FloatField()
     fit_score = peewee.FloatField()
+    stopping_criteria_uncertainty = peewee.FloatField()
+    stopping_criteria_acc = peewee.FloatField()
+    stopping_criteria_std = peewee.FloatField()
 
 
 db.connect()
@@ -219,7 +227,10 @@ class Estimator(BaseEstimator):
                  with_uncertainty_recommendation=None,
                  with_cluster_recommendation=None,
                  with_snuba_lite=None,
-                 plot=None):
+                 plot=None,
+                 stopping_criteria_uncertainty=None,
+                 stopping_criteria_std=None,
+                 stopping_criteria_acc=None):
         self.label_encoder_classes = label_encoder_classes
         self.dataset_path = dataset_path
         self.classifier = classifier
@@ -242,6 +253,9 @@ class Estimator(BaseEstimator):
         self.with_cluster_recommendation = with_cluster_recommendation
         self.with_snuba_lite = with_snuba_lite
         self.plot = plot
+        self.stopping_criteria_acc = stopping_criteria_acc
+        self.stopping_criteria_std = stopping_criteria_std
+        self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
 
     def fit(self, X_train, Y_train, **kwargs):
         self.len_train_data = len(Y_train)
@@ -251,43 +265,6 @@ class Estimator(BaseEstimator):
         self.dataset_storage.set_training_data(X_train, Y_train, label_encoder,
                                                self.test_fraction,
                                                self.start_set_size)
-        if self.sampling == 'random':
-            active_learner = RandomSampler(self.random_seed,
-                                           self.cores,
-                                           self.nr_learning_iterations,
-                                           self.nr_queries_per_iteration,
-                                           with_test=False)
-        elif self.sampling == 'boundary':
-            active_learner = BoundaryPairSampler(self.random_seed,
-                                                 self.cores,
-                                                 self.nr_learning_iterations,
-                                                 self.nr_queries_per_iteration,
-                                                 with_test=False)
-        elif self.sampling == 'uncertainty_lc':
-            active_learner = UncertaintySampler(self.random_seed,
-                                                self.cores,
-                                                self.nr_learning_iterations,
-                                                self.nr_queries_per_iteration,
-                                                with_test=False)
-            active_learner.set_uncertainty_strategy('least_confident')
-        elif self.sampling == 'uncertainty_max_margin':
-            active_learner = UncertaintySampler(self.random_seed,
-                                                self.cores,
-                                                self.nr_learning_iterations,
-                                                self.nr_queries_per_iteration,
-                                                with_test=False)
-            active_learner.set_uncertainty_strategy('max_margin')
-        elif self.sampling == 'uncertainty_entropy':
-            active_learner = UncertaintySampler(self.random_seed,
-                                                self.cores,
-                                                self.nr_learning_iterations,
-                                                self.nr_queries_per_iteration,
-                                                with_test=False)
-            active_learner.set_uncertainty_strategy('entropy')
-        #  elif self.sampling == 'committee':
-        #  active_learner = CommitteeSampler(self.random_seed, self.cores, self.nr_learning_iterations)
-        else:
-            print("No Active Learning Strategy specified")
 
         if self.cluster == 'dummy':
             cluster_strategy = DummyClusterStrategy()
@@ -305,9 +282,39 @@ class Estimator(BaseEstimator):
         elif self.cluster == 'RoundRobin':
             cluster_strategy = RoundRobinClusterStrategy()
 
-        active_learner.set_data_storage(self.dataset_storage)
         cluster_strategy.set_data_storage(self.dataset_storage)
-        active_learner.set_cluster_strategy(cluster_strategy)
+
+        active_learner_params = {
+            'dataset_storage': self.dataset_storage,
+            'cluster_strategy': cluster_strategy,
+            'stopping_criteria_uncertainty':
+            self.stopping_criteria_uncertainty,
+            'stopping_criteria_acc': self.stopping_criteria_acc,
+            'stopping_criteria_std': self.stopping_criteria_std,
+            'cores': self.cores,
+            'random_seed': self.random_seed,
+            'nr_learning_iterations': self.nr_learning_iterations,
+            'nr_queries_per_iteration': self.nr_queries_per_iteration,
+            'with_test': False
+        }
+
+        if self.sampling == 'random':
+            active_learner = RandomSampler(**active_learner_params)
+        elif self.sampling == 'boundary':
+            active_learner = BoundaryPairSampler(**active_learner_params)
+        elif self.sampling == 'uncertainty_lc':
+            active_learner = UncertaintySampler(**active_learner_params)
+            active_learner.set_uncertainty_strategy('least_confident')
+        elif self.sampling == 'uncertainty_max_margin':
+            active_learner = UncertaintySampler(**active_learner_params)
+            active_learner.set_uncertainty_strategy('max_margin')
+        elif self.sampling == 'uncertainty_entropy':
+            active_learner = UncertaintySampler(**active_learner_params)
+            active_learner.set_uncertainty_strategy('entropy')
+        #  elif self.sampling == 'committee':
+        #  active_learner = CommitteeSampler(self.random_seed, self.cores, self.nr_learning_iterations)
+        else:
+            print("No Active Learning Strategy specified")
 
         start = timer()
         trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
