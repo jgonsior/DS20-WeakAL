@@ -48,11 +48,11 @@ standard_config = standard_config([
     }),
     (['--generations_number'], {
         'type': int,
-        'default': 10
+        'default': 50
     }),
     (['--gene_mutation_prob'], {
         'type': float,
-        'default': 0.2
+        'default': 0.15
     }),
 ])
 
