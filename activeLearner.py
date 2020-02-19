@@ -358,6 +358,7 @@ class ActiveLearner:
                     "QS"))
 
         self.start_set_size = len(self.data_storage.ground_truth_indices)
+        early_stop_reached = False
 
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
@@ -408,6 +409,8 @@ class ActiveLearner:
                     #  print(Y_query_strong)
                     #  print(Y_query)
 
+                if early_stop_reached and X_query is None:
+                    break
                 if X_query is None:
                     # ask oracle for some "hard data"
                     X_query, Y_query, query_indices = self.increase_labeled_dataset(
@@ -489,7 +492,10 @@ class ActiveLearner:
                             -1] < stopping_criteria_std and self.metrics_per_al_cycle[
                                 'stop_certainty_list'][
                                     -1] < stopping_criteria_std:
-                break
+                early_stop_reached = True
+                print("Early stop")
+                if not allow_recommendations_after_stop:
+                    break
 
         self.calculate_amount_of_user_asked_queries()
 
