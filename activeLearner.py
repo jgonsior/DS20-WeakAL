@@ -352,6 +352,7 @@ class ActiveLearner:
         print(self.data_storage.label_encoder.classes_)
         print("Used Hyperparams:")
         print(vars(self))
+        print(locals())
 
         print(
             "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
