@@ -28,9 +28,6 @@ class ActiveLearner:
                  random_seed,
                  dataset_storage,
                  cluster_strategy,
-                 stopping_criteria_uncertainty,
-                 stopping_criteria_acc,
-                 stopping_criteria_std,
                  cores,
                  nr_learning_iterations,
                  nr_queries_per_iteration,
@@ -69,9 +66,6 @@ class ActiveLearner:
         self.with_test = with_test
         self.cluster_strategy = cluster_strategy
         self.data_storage = dataset_storage
-        self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
-        self.stopping_criteria_std = stopping_criteria_std
-        self.stopping_criteria_acc = stopping_criteria_acc
 
     def calculate_stopping_criteria_stddev(self):
         accuracy_list = self.query_weak_accuracy_list
@@ -343,6 +337,10 @@ class ActiveLearner:
         with_cluster_recommendation,
         with_uncertainty_recommendation,
         with_snuba_lite,
+        stopping_criteria_uncertainty,
+        stopping_criteria_acc,
+        stopping_criteria_std,
+        allow_recommendations_after_stop,
         cluster_recommendation_minimum_cluster_unity_size=None,
         cluster_recommendation_minimum_ratio_labeled_unlabeled=None,
         uncertainty_recommendation_certainty_threshold=None,
@@ -360,8 +358,6 @@ class ActiveLearner:
                     "QS"))
 
         self.start_set_size = len(self.data_storage.ground_truth_indices)
-
-        early_stop_reached = False
 
         for i in range(0, self.nr_learning_iterations):
             # try to actively get at least this amount of data, but if there is only less data available that's just fine
@@ -489,19 +485,16 @@ class ActiveLearner:
             # checking stop criterias
             if not early_stop_reached and self.metrics_per_al_cycle[
                     'stop_query_weak_accuracy_list'][
-                        -1] > self.stopping_criteria_acc and self.metrics_per_al_cycle[
+                        -1] > stopping_criteria_acc and self.metrics_per_al_cycle[
                             'stop_stddev_list'][
-                                -1] < self.stopping_criteria_std and self.metrics_per_al_cycle[
+                                -1] < stopping_criteria_std and self.metrics_per_al_cycle[
                                     'stop_certainty_list'][
-                                        -1] < self.stopping_criteria_std:
-                early_stop_reached = True
-                print("Early stop")
-                self.calculate_amount_of_user_asked_queries()
+                                        -1] < stopping_criteria_std:
+                break
 
         # in case we specified more queries than we have data
 
-        if not early_stop_reached:
-            self.calculate_amount_of_user_asked_queries()
+        self.calculate_amount_of_user_asked_queries()
 
         return self.clf_list, self.metrics_per_al_cycle
 
