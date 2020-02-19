@@ -91,6 +91,7 @@ standard_param_distribution = {
     np.linspace(0, 1, num=101).astype(float),
     "stopping_criteria_acc":
     np.linspace(0, 1, num=101).astype(float),
+    "allow_recommendations_after_stop": [True, False]
 }
 
 uncertainty_recommendation_grid = {
@@ -146,8 +147,12 @@ class ExperimentResult(BaseModel):
         null=True)
     cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
         null=True)
-    metrics_per_al_cycle = peewee.TextField(null=True)  # json string
-    amount_of_user_asked_queries = peewee.IntegerField(null=True)
+    metrics_per_al_cycle = peewee.TextField()  # json string
+    amount_of_user_asked_queries = peewee.IntegerField()
+    allow_recommendations_after_stop = peewee.BooleanField()
+    stopping_criteria_uncertainty = peewee.FloatField()
+    stopping_criteria_acc = peewee.FloatField()
+    stopping_criteria_std = peewee.FloatField()
 
     # information of hyperparam run
     experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
@@ -159,9 +164,6 @@ class ExperimentResult(BaseModel):
     acc_train = peewee.FloatField()
     acc_test = peewee.FloatField()
     fit_score = peewee.FloatField()
-    stopping_criteria_uncertainty = peewee.FloatField()
-    stopping_criteria_acc = peewee.FloatField()
-    stopping_criteria_std = peewee.FloatField()
 
 
 db.connect()
@@ -230,7 +232,8 @@ class Estimator(BaseEstimator):
                  plot=None,
                  stopping_criteria_uncertainty=None,
                  stopping_criteria_std=None,
-                 stopping_criteria_acc=None):
+                 stopping_criteria_acc=None,
+                 allow_recommendations_after_stop=None):
         self.label_encoder_classes = label_encoder_classes
         self.dataset_path = dataset_path
         self.classifier = classifier
@@ -256,6 +259,7 @@ class Estimator(BaseEstimator):
         self.stopping_criteria_acc = stopping_criteria_acc
         self.stopping_criteria_std = stopping_criteria_std
         self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
+        self.allow_recommendations_after_stop = allow_recommendations_after_stop
 
     def fit(self, X_train, Y_train, **kwargs):
         self.len_train_data = len(Y_train)
@@ -287,15 +291,11 @@ class Estimator(BaseEstimator):
         active_learner_params = {
             'dataset_storage': self.dataset_storage,
             'cluster_strategy': cluster_strategy,
-            'stopping_criteria_uncertainty':
-            self.stopping_criteria_uncertainty,
-            'stopping_criteria_acc': self.stopping_criteria_acc,
-            'stopping_criteria_std': self.stopping_criteria_std,
             'cores': self.cores,
             'random_seed': self.random_seed,
             'nr_learning_iterations': self.nr_learning_iterations,
             'nr_queries_per_iteration': self.nr_queries_per_iteration,
-            'with_test': False
+            'with_test': False,
         }
 
         if self.sampling == 'random':
@@ -318,14 +318,27 @@ class Estimator(BaseEstimator):
 
         start = timer()
         trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-            self.minimum_test_accuracy_before_recommendations,
-            self.with_cluster_recommendation,
-            self.with_uncertainty_recommendation, self.with_snuba_lite,
-            self.cluster_recommendation_minimum_cluster_unity_size,
-            self.cluster_recommendation_ratio_labeled_unlabeled,
-            self.uncertainty_recommendation_certainty_threshold,
-            self.uncertainty_recommendation_ratio,
-            self.snuba_lite_minimum_heuristic_accuracy)
+            minimum_test_accuracy_before_recommendations=self.
+            minimum_test_accuracy_before_recommendations,
+            with_cluster_recommendation=self.with_cluster_recommendation,
+            with_uncertainty_recommendation=self.
+            with_uncertainty_recommendation,
+            with_snuba_lite=self.with_snuba_lite,
+            cluster_recommendation_minimum_cluster_unity_size=self.
+            cluster_recommendation_minimum_cluster_unity_size,
+            cluster_recommendation_minimum_ratio_labeled_unlabeled=self.
+            cluster_recommendation_ratio_labeled_unlabeled,
+            uncertainty_recommendation_certainty_threshold=self.
+            uncertainty_recommendation_certainty_threshold,
+            uncertainty_recommendation_ratio=self.
+            uncertainty_recommendation_ratio,
+            snuba_lite_minimum_heuristic_accuracy=self.
+            snuba_lite_minimum_heuristic_accuracy,
+            stopping_criteria_uncertainty=self.stopping_criteria_uncertainty,
+            stopping_criteria_acc=self.stopping_criteria_acc,
+            stopping_criteria_std=self.stopping_criteria_std,
+            allow_recommendations_after_stop=self.
+            allow_recommendations_after_stop)
         end = timer()
 
         self.trained_active_clf_list = trained_active_clf_list
