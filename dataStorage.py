@@ -1,3 +1,4 @@
+import logging
 import random
 from itertools import chain
 
@@ -31,7 +32,7 @@ class DataStorage:
 
         self.X_train_unlabeled_cluster_indices = {}
         self.prepare_fake_iteration_zero()
-        print(self.X_train_labeled.shape)
+        logging.info(self.X_train_labeled.shape)
         self.label_encoder = label_encoder
         self.X_test = X_test
         self.Y_test = Y_test
@@ -64,10 +65,10 @@ class DataStorage:
 
         len_total = len_train_unlabeled + len_train_labeled  #+ len_test
 
-        print("size of train  labeled set: %i = %1.2f" %
-              (len_train_labeled, len_train_labeled / len_total))
-        print("size of train unlabeled set: %i = %1.2f" %
-              (len_train_unlabeled, len_train_unlabeled / len_total))
+        logging.info("size of train  labeled set: %i = %1.2f" %
+                     (len_train_labeled, len_train_labeled / len_total))
+        logging.info("size of train unlabeled set: %i = %1.2f" %
+                     (len_train_unlabeled, len_train_unlabeled / len_total))
 
     def move_labeled_queries(self, X_query, Y_query, query_indices):
         # move new queries from unlabeled to labeled dataset
@@ -101,7 +102,7 @@ class DataStorage:
             if len(v) != 0
         }
         #  print out the amount of stored data in X_train_unlabeled_cluster_indices
-        #  print(
+        #  logging.info(
         #  len(
         #  list(
         #  chain(*list(

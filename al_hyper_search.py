@@ -2,6 +2,7 @@ import argparse
 import contextlib
 import datetime
 import io
+import logging
 import multiprocessing
 import os
 import random
@@ -40,7 +41,7 @@ standard_config = standard_config([
     }),
     (['--population_size'], {
         'type': int,
-        'default': 100
+        'default': 20
     }),
     (['--tournament_size'], {
         'type': int,
@@ -48,13 +49,22 @@ standard_config = standard_config([
     }),
     (['--generations_number'], {
         'type': int,
-        'default': 50
+        'default': 100
     }),
     (['--gene_mutation_prob'], {
         'type': float,
-        'default': 0.15
+        'default': 0.2
     }),
 ])
+
+logging_file_name = standard_config.output_dir + "/" + str(
+    datetime.datetime.now()) + "al_hyper_search.txt"
+
+logging.basicConfig(
+    filename=logging_file_name,
+    filemode='a',
+    level=logging.INFO,
+    format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
 param_distribution = {}
 
@@ -314,7 +324,7 @@ class Estimator(BaseEstimator):
         #  elif self.sampling == 'committee':
         #  active_learner = CommitteeSampler(self.random_seed, self.cores, self.nr_learning_iterations)
         else:
-            print("No Active Learning Strategy specified")
+            logging.error("No Active Learning Strategy specified")
 
         start = timer()
         trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
@@ -403,41 +413,37 @@ class Estimator(BaseEstimator):
         return score
 
 
-with Logger(
-        standard_config.output_dir + "/" + str(datetime.datetime.now()) +
-        "al_hyper_search.txt", "w"):
-    active_learner = Estimator()
+active_learner = Estimator()
 
-    X, Y, label_encoder = load_and_prepare_X_and_Y(
-        standard_config.dataset_path)
+X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
 
-    for param_distribution in param_distribution_list:
-        param_distribution['label_encoder_classes'] = [label_encoder.classes_]
+for param_distribution in param_distribution_list:
+    param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
-    #  grid = RandomizedSearchCV(active_learner,
-    #  param_distribution_list,
-    #  n_iter=3,
-    #  cv=2,
-    #  verbose=9999999999999999999999999999999999)
+#  grid = RandomizedSearchCV(active_learner,
+#  param_distribution_list,
+#  n_iter=3,
+#  cv=2,
+#  verbose=9999999999999999999999999999999999)
 
-    evolutionary_search = EvolutionaryAlgorithmSearchCV(
-        estimator=active_learner,
-        params=param_distribution_list,
-        verbose=True,
-        cv=2,
-        population_size=standard_config.population_size,
-        gene_mutation_prob=standard_config.gene_mutation_prob,
-        tournament_size=standard_config.tournament_size,
-        generations_number=standard_config.generations_number,
-        n_jobs=multiprocessing.cpu_count())
+evolutionary_search = EvolutionaryAlgorithmSearchCV(
+    estimator=active_learner,
+    params=param_distribution_list,
+    verbose=True,
+    cv=2,
+    population_size=standard_config.population_size,
+    gene_mutation_prob=standard_config.gene_mutation_prob,
+    tournament_size=standard_config.tournament_size,
+    generations_number=standard_config.generations_number,
+    n_jobs=multiprocessing.cpu_count())
 
-    # @todo: remove cross validation
+# @todo: remove cross validation
 
-    #  search = grid.fit(iris.data, iris.target)
-    evolutionary_search.fit(X, Y)
+#  search = grid.fit(iris.data, iris.target)
+evolutionary_search.fit(X, Y)
 
-    print(evolutionary_search.best_params_)
-    print(evolutionary_search.best_score_)
-    print(
-        pd.DataFrame(evolutionary_search.cv_results_).sort_values(
-            "mean_test_score", ascending=False).head())
+print(evolutionary_search.best_params_)
+print(evolutionary_search.best_score_)
+print(
+    pd.DataFrame(evolutionary_search.cv_results_).sort_values(
+        "mean_test_score", ascending=False).head())

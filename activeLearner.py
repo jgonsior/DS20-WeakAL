@@ -1,3 +1,4 @@
+import logging
 import abc
 import argparse
 import collections
@@ -198,7 +199,7 @@ class ActiveLearner:
                     ]
                     recommended_labels = pd.DataFrame(recommended_labels,
                                                       index=certain_X.index)
-                    #  print("Cluster ", cluster_id, certain_indices)
+                    #  logging.info("Cluster ", cluster_id, certain_indices)
                     cluster_found = True
                     break
 
@@ -215,7 +216,7 @@ class ActiveLearner:
 
         #  for cluster_id, cluster_indices in X_train_unlabeled_cluster_indices.items(
         #  ):
-        #  print(
+        #  logging.info(
         #  "Selected cluster ", cluster_id, ":\t",
         #  self.cluster_strategy._entropy(
         #  self.data_storage.Y_train_unlabeled.loc[cluster_indices]))
@@ -320,8 +321,8 @@ class ActiveLearner:
             ]
 
             if len(weak_indices) > 0:
-                print("Snuba mit Klasse " + best_class)
-                #  print(weak_indices)
+                logging.info("Snuba mit Klasse " + best_class)
+                #  logging.info(weak_indices)
                 X_weak = self.data_storage.X_train_unlabeled.loc[weak_indices]
                 best_class_encoded = self.data_storage.label_encoder.transform(
                     [best_class])[0]
@@ -347,12 +348,12 @@ class ActiveLearner:
         uncertainty_recommendation_ratio=None,
         snuba_lite_minimum_heuristic_accuracy=None,
     ):
-        print(self.data_storage.label_encoder.classes_)
-        print("Used Hyperparams:")
-        print(vars(self))
-        print(locals())
+        logging.info(self.data_storage.label_encoder.classes_)
+        logging.info("Used Hyperparams:")
+        logging.info(vars(self))
+        logging.info(locals())
 
-        print(
+        logging.info(
             "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
             .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
                     "QS"))
@@ -406,8 +407,8 @@ class ActiveLearner:
                 if X_query is not None:
                     Y_query_strong = self.data_storage.Y_train_unlabeled.loc[
                         query_indices]
-                    #  print(Y_query_strong)
-                    #  print(Y_query)
+                    #  logging.info(Y_query_strong)
+                    #  logging.info(Y_query)
 
                 if early_stop_reached and X_query is None:
                     break
@@ -425,17 +426,17 @@ class ActiveLearner:
             self.data_storage.move_labeled_queries(X_query, Y_query,
                                                    query_indices)
 
-            #  print("Y_train_labeled", self.data_storage.Y_train_labeled.shape)
-            #  print("Y_train_unlabeled", self.data_storage.Y_train_unlabeled.shape)
-            #  print("Y_test", self.data_storage.Y_test.shape)
-            #  print("Y_query", Y_query.shape)
-            #  print("Y_train_strong_labels", self.data_storage.Y_train_strong_labels)
-            #  print("indices", query_indices)
+            #  logging.info("Y_train_labeled", self.data_storage.Y_train_labeled.shape)
+            #  logging.info("Y_train_unlabeled", self.data_storage.Y_train_unlabeled.shape)
+            #  logging.info("Y_test", self.data_storage.Y_test.shape)
+            #  logging.info("Y_query", Y_query.shape)
+            #  logging.info("Y_train_strong_labels", self.data_storage.Y_train_strong_labels)
+            #  logging.info("indices", query_indices)
 
-            #  print("X_train_labeled", self.data_storage.X_train_labeled.shape)
-            #  print("X_train_unlabeled", self.data_storage.X_train_unlabeled.shape)
-            #  print("X_test", self.data_storage.X_test.shape)
-            #  print("X_query", X_query.shape)
+            #  logging.info("X_train_labeled", self.data_storage.X_train_labeled.shape)
+            #  logging.info("X_train_unlabeled", self.data_storage.X_train_unlabeled.shape)
+            #  logging.info("X_test", self.data_storage.X_test.shape)
+            #  logging.info("X_query", X_query.shape)
 
             self.calculate_pre_metrics(X_query,
                                        Y_query,
@@ -463,7 +464,7 @@ class ActiveLearner:
                             self.metrics_per_al_cycle[
                                 'train_labeled_data_metrics'][0][-1][1])
 
-            print(
+            logging.info(
                 "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}"
                 .format(
                     i,
@@ -493,7 +494,7 @@ class ActiveLearner:
                                 'stop_certainty_list'][
                                     -1] < stopping_criteria_std:
                 early_stop_reached = True
-                print("Early stop")
+                logging.info("Early stop")
                 if not allow_recommendations_after_stop:
                     break
 

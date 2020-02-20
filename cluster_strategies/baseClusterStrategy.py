@@ -1,3 +1,4 @@
+import logging
 import abc
 import random
 from collections import defaultdict
@@ -58,7 +59,8 @@ class BaseClusterStrategy:
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
             self.data_storage.X_train_unlabeled)
 
-        print("Clustering into ", self.cluster_model.n_clusters, " cluster")
+        logging.info("Clustering into " + str(self.cluster_model.n_clusters) +
+                     " cluster")
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
             lambda: list())
@@ -75,7 +77,7 @@ class BaseClusterStrategy:
         #  ):
         #  cluster_labels = self.data_storage.Y_train_unlabeled.loc[
         #  X_train_indices][0].to_numpy()
-        #  print(self._entropy(cluster_labels), '\t', cluster_labels)
+        #  logging.info(self._entropy(cluster_labels), '\t', cluster_labels)
 
     def plot_dendrogram(self, **kwargs):
         self.cluster_model.fit(self.X_train_combined)
