@@ -197,6 +197,8 @@ for recommendation_param_distributions in powerset([
     ("with_cluster_recommendation", cluster_recommendation_grid)
 ]):
     param_distribution = {**standard_param_distribution}
+    if len(recommendation_param_distributions) == 0:
+        continue
     for recommendation_param_distribution in recommendation_param_distributions:
         param_distribution = {
             **param_distribution,
@@ -211,9 +213,12 @@ for recommendation_param_distributions in powerset([
         param_distribution['minimum_test_accuracy_before_recommendations'] = [
             1
         ]
-    param_distribution_list.append(param_distribution)
+    if param_distribution is not {**standard_param_distribution}:
+        param_distribution_list.append(param_distribution)
 
 # create estimater object
+
+print(param_distribution_list)
 
 
 class Estimator(BaseEstimator):
