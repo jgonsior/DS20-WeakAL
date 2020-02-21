@@ -43,6 +43,9 @@ db = get_db()
 best_result = ExperimentResult.select().order_by(
     ExperimentResult.fit_score.desc()).limit(10)
 
+print("{:>4} {:>25} {:>25} {:>4} {:>4} {:>2} {:>5} {:>6} {:>6}".format(
+    "Id", "Sampling", "Cluster", "#C", "#U", "A", "#q", "acc_te", "fit"))
+
 for result in best_result:
     metrics = loads(result.metrics_per_al_cycle)
 
@@ -55,10 +58,11 @@ for result in best_result:
         if recommendation == 'C':
             amount_of_clusters += 1
 
-    print("{:>25} {:>25} {:4,d} {:4,d} {:2,d} {:5,d} {:6.2%} {:6.2%}".format(
-        result.sampling, result.cluster, amount_of_clusters,
-        amount_of_certainties, result.allow_recommendations_after_stop,
-        result.amount_of_user_asked_queries, result.acc_test,
-        result.fit_score))
+    print("{:4,d} {:>25} {:>25} {:4,d} {:4,d} {:2,d} {:5,d} {:6.2%} {:6.2%}".
+          format(result.id_field, result.sampling, result.cluster,
+                 amount_of_clusters, amount_of_certainties,
+                 result.allow_recommendations_after_stop,
+                 result.amount_of_user_asked_queries, result.acc_test,
+                 result.fit_score))
 
 # print for best run all the metrics from active_learner.py
