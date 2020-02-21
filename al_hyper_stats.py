@@ -44,4 +44,5 @@ best_result = ExperimentResult.select().order_by(
     ExperimentResult.fit_score.desc()).limit(10)
 
 for result in best_result:
-    print(result.fit_score)
+    print("{:6,d} {:6.2%} {:6.2%}".format(result.amount_of_user_asked_queries,
+                                          result.acc_test, result.fit_score))
