@@ -35,13 +35,18 @@ from experiment_setup_lib import (ExperimentResult, Logger,
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
-standard_config = standard_config([])
+config = standard_config([
+    (['--limit'], {
+        'type': int,
+        'default': 10
+    }),
+])
 
-init_logging(standard_config.output_dir)
+init_logging(config.output_dir)
 db = get_db()
 
 best_result = ExperimentResult.select().order_by(
-    ExperimentResult.fit_score.desc()).limit(10)
+    ExperimentResult.fit_score.desc()).limit(config.limit)
 
 print("{:>4} {:>25} {:>25} {:>4} {:>4} {:>2} {:>5} {:>6} {:>6}".format(
     "Id", "Sampling", "Cluster", "#C", "#U", "A", "#q", "acc_te", "fit"))
