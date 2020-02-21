@@ -1,20 +1,21 @@
 import argparse
 import contextlib
+import datetime
 import io
 import json
+import logging
 import os
 import pickle
 import random
 import sys
-import logging
+
 import numpy as np
 import pandas as pd
+import peewee
 import sklearn.metrics
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
-import datetime
-import peewee
 
 db = peewee.SqliteDatabase('experiment_results.db')
 
@@ -78,15 +79,17 @@ def get_db():
     return db
 
 
-def init_logging(output_dir):
+def init_logging(output_dir, level=logging.INFO):
     logging_file_name = output_dir + "/" + str(
         datetime.datetime.now()) + "al_hyper_search.txt"
-
-    logging.basicConfig(
-        filename=logging_file_name,
-        filemode='a',
-        level=logging.INFO,
-        format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
+    if output_dir is not None:
+        logging.basicConfig(
+            filename=logging_file_name,
+            filemode='a',
+            level=level,
+            format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
+    else:
+        logging.basicConfig(level=level)
 
 
 def divide_data(test_fraction, start_set_size):
@@ -319,3 +322,40 @@ class Logger(object):
         if self.file != None:
             self.file.close()
             self.file = None
+
+
+def get_single_al_run_stats_table_header():
+    return "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}".format(
+        "I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR", "QS")
+
+
+def get_single_al_run_stats_row(i,
+                                amount_of_labeled,
+                                amount_of_unlabeled,
+                                metrics_per_al_cycle,
+                                index=-1):
+    if amount_of_labeled == None:
+        amount_of_labeled = 0
+        for query_length in metrics_per_al_cycle['query_length'][:index + 1]:
+            amount_of_labeled += query_length
+
+        amount_of_unlabeled = 2889
+        for query_length in metrics_per_al_cycle['query_length'][:index + 1]:
+            amount_of_unlabeled -= query_length
+
+    return "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}".format(
+        i,
+        amount_of_labeled,
+        amount_of_unlabeled,
+        metrics_per_al_cycle['query_length'][index],
+        metrics_per_al_cycle['test_data_metrics'][0][index][0]['accuracy'],
+        metrics_per_al_cycle['train_labeled_data_metrics'][0][index][0]
+        ['accuracy'],
+        metrics_per_al_cycle['train_unlabeled_data_metrics'][0][index][0]
+        ['accuracy'],
+        metrics_per_al_cycle['stop_certainty_list'][index],
+        metrics_per_al_cycle['stop_stddev_list'][index],
+        metrics_per_al_cycle['stop_query_weak_accuracy_list'][index],
+        metrics_per_al_cycle['recommendation'][index],
+        metrics_per_al_cycle['query_strong_accuracy_list'][index],
+    )

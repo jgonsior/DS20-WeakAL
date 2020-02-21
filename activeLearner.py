@@ -1,8 +1,8 @@
-import logging
 import abc
 import argparse
 import collections
 import itertools
+import logging
 import pickle
 import random
 import sys
@@ -21,7 +21,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
-from experiment_setup_lib import classification_report_and_confusion_matrix
+from experiment_setup_lib import (classification_report_and_confusion_matrix,
+                                  get_single_al_run_stats_row,
+                                  get_single_al_run_stats_table_header)
 
 
 class ActiveLearner:
@@ -353,10 +355,7 @@ class ActiveLearner:
         logging.info(vars(self))
         logging.info(locals())
 
-        logging.info(
-            "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}"
-            .format("I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR",
-                    "QS"))
+        logging.info(get_single_al_run_stats_table_header)
 
         self.start_set_size = len(self.data_storage.ground_truth_indices)
         early_stop_reached = False
@@ -465,26 +464,10 @@ class ActiveLearner:
                                 'train_labeled_data_metrics'][0][-1][1])
 
             logging.info(
-                "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}"
-                .format(
-                    i,
-                    self.data_storage.X_train_labeled.shape[0],
+                get_single_al_run_stats_row(
+                    i, self.data_storage.X_train_labeled.shape[0],
                     self.data_storage.X_train_unlabeled.shape[0],
-                    self.metrics_per_al_cycle['query_length'][-1],
-                    self.metrics_per_al_cycle['test_data_metrics'][0][-1][0]
-                    ['accuracy'],
-                    self.metrics_per_al_cycle['train_labeled_data_metrics'][0]
-                    [-1][0]['accuracy'],
-                    self.metrics_per_al_cycle['train_unlabeled_data_metrics']
-                    [0][-1][0]['accuracy'],
-                    self.metrics_per_al_cycle['stop_certainty_list'][-1],
-                    self.metrics_per_al_cycle['stop_stddev_list'][-1],
-                    self.metrics_per_al_cycle['stop_query_weak_accuracy_list']
-                    [-1],
-                    self.metrics_per_al_cycle['recommendation'][-1],
-                    self.metrics_per_al_cycle['query_strong_accuracy_list']
-                    [-1],
-                ))
+                    self.metrics_per_al_cycle))
 
             # checking stop criterias
             if self.metrics_per_al_cycle['stop_query_weak_accuracy_list'][
