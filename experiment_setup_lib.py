@@ -336,11 +336,11 @@ def get_single_al_run_stats_row(i,
                                 index=-1):
     if amount_of_labeled == None:
         amount_of_labeled = 0
-        for query_length in metrics_per_al_cycle['query_length'][:index + 1]:
+        for query_length in metrics_per_al_cycle['query_length'][:index]:
             amount_of_labeled += query_length
 
         amount_of_unlabeled = 2889
-        for query_length in metrics_per_al_cycle['query_length'][:index + 1]:
+        for query_length in metrics_per_al_cycle['query_length'][:index]:
             amount_of_unlabeled -= query_length
 
     return "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}".format(

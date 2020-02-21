@@ -86,6 +86,9 @@ else:
     result = ExperimentResult.get(ExperimentResult.id_field == config.id)
     metrics = loads(result.metrics_per_al_cycle)
 
-    for i in range(0, len(metrics['recommendation'])):
+    for key in metrics.keys():
+        print(len(metrics[key]), "\t", key)
+
+    for i in range(0, len(metrics['recommendation']) - 1):
         print(get_single_al_run_stats_row(i, None, None, metrics, index=i))
 # print for best run all the metrics from active_learner.py
