@@ -1,0 +1,21 @@
+#!/bin/bash
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 1&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 2&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 3&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 4&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 5&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 6&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 7&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1 --random_seed 8&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 9&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 10&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 11&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 12&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 13&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 14&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 15&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 16&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 17&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 18&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 19&
+python al_hyper_search.py --dataset_path ../datasets/dwtc/aft.csv --cores 1  --random_seed 20

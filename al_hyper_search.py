@@ -41,7 +41,7 @@ standard_config = standard_config([
     }),
     (['--population_size'], {
         'type': int,
-        'default': 20
+        'default': 100
     }),
     (['--tournament_size'], {
         'type': int,
@@ -49,11 +49,11 @@ standard_config = standard_config([
     }),
     (['--generations_number'], {
         'type': int,
-        'default': 100
+        'default': 1000
     }),
     (['--gene_mutation_prob'], {
         'type': float,
-        'default': 0.2
+        'default': 0.3
     }),
 ])
 
@@ -213,12 +213,8 @@ for recommendation_param_distributions in powerset([
         param_distribution['minimum_test_accuracy_before_recommendations'] = [
             1
         ]
-    if param_distribution is not {**standard_param_distribution}:
-        param_distribution_list.append(param_distribution)
-
-# create estimater object
-
-print(param_distribution_list)
+    #  if param_distribution is not {**standard_param_distribution}:
+    param_distribution_list.append(param_distribution)
 
 
 class Estimator(BaseEstimator):
@@ -425,30 +421,29 @@ X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
 for param_distribution in param_distribution_list:
     param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
-#  grid = RandomizedSearchCV(active_learner,
-#  param_distribution_list,
-#  n_iter=3,
+grid = RandomizedSearchCV(active_learner,
+                          param_distribution_list,
+                          n_iter=300000,
+                          cv=2,
+                          verbose=9999999999999999999999999999999999)
+#  n_jobs=multiprocessing.cpu_count())
+
+#  evolutionary_search = EvolutionaryAlgorithmSearchCV(
+#  estimator=active_learner,
+#  params=param_distribution_list,
+#  verbose=True,
 #  cv=2,
-#  verbose=9999999999999999999999999999999999)
+#  population_size=standard_config.population_size,
+#  gene_mutation_prob=standard_config.gene_mutation_prob,
+#  tournament_size=standard_config.tournament_size,
+#  generations_number=standard_config.generations_number,
+#  n_jobs=multiprocessing.cpu_count())
 
-evolutionary_search = EvolutionaryAlgorithmSearchCV(
-    estimator=active_learner,
-    params=param_distribution_list,
-    verbose=True,
-    cv=2,
-    population_size=standard_config.population_size,
-    gene_mutation_prob=standard_config.gene_mutation_prob,
-    tournament_size=standard_config.tournament_size,
-    generations_number=standard_config.generations_number,
-    n_jobs=multiprocessing.cpu_count())
+search = grid.fit(X, Y)
+#  search.fit(X, Y)
 
-# @todo: remove cross validation
-
-#  search = grid.fit(iris.data, iris.target)
-evolutionary_search.fit(X, Y)
-
-print(evolutionary_search.best_params_)
-print(evolutionary_search.best_score_)
+print(search.best_params_)
+print(search.best_score_)
 print(
-    pd.DataFrame(evolutionary_search.cv_results_).sort_values(
-        "mean_test_score", ascending=False).head())
+    pd.DataFrame(search.cv_results_).sort_values("mean_test_score",
+                                                 ascending=False).head())
