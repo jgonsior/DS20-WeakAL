@@ -30,7 +30,8 @@ from dataStorage import DataStorage
 from experiment_setup_lib import (Logger,
                                   classification_report_and_confusion_matrix,
                                   load_and_prepare_X_and_Y, standard_config,
-                                  store_pickle, store_result)
+                                  store_pickle, store_result, ExperimentResult,
+                                  get_db)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
@@ -122,62 +123,7 @@ cluster_recommendation_grid = {
     np.linspace(0.5, 1, num=51).astype(float)
 }
 
-# create databases for storing the results
-db = peewee.SqliteDatabase('experiment_results.db')
-
-
-class BaseModel(peewee.Model):
-    class Meta:
-        database = db
-
-
-class ExperimentResult(BaseModel):
-    id_field = peewee.AutoField()
-
-    # hyper params
-    dataset_path = peewee.TextField()
-    classifier = peewee.TextField()
-    cores = peewee.IntegerField()
-    output_dir = peewee.TextField()
-    test_fraction = peewee.FloatField()
-    sampling = peewee.TextField()
-    random_seed = peewee.IntegerField()
-    cluster = peewee.TextField()
-    nr_learning_iterations = peewee.IntegerField()
-    nr_queries_per_iteration = peewee.IntegerField()
-    start_set_size = peewee.FloatField()
-    with_uncertainty_recommendation = peewee.BooleanField()
-    with_cluster_recommendation = peewee.BooleanField()
-    with_snuba_lite = peewee.BooleanField()
-    uncertainty_recommendation_certainty_threshold = peewee.FloatField(
-        null=True)
-    uncertainty_recommendation_ratio = peewee.FloatField(null=True)
-    snuba_lite_minimum_heuristic_accuracy = peewee.FloatField(null=True)
-    cluster_recommendation_minimum_cluster_unity_size = peewee.FloatField(
-        null=True)
-    cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
-        null=True)
-    metrics_per_al_cycle = peewee.TextField()  # json string
-    amount_of_user_asked_queries = peewee.IntegerField()
-    allow_recommendations_after_stop = peewee.BooleanField()
-    stopping_criteria_uncertainty = peewee.FloatField()
-    stopping_criteria_acc = peewee.FloatField()
-    stopping_criteria_std = peewee.FloatField()
-
-    # information of hyperparam run
-    experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
-    fit_time = peewee.TextField()  # timedelta
-    confusion_matrix_test = peewee.TextField()  # json
-    confusion_matrix_train = peewee.TextField()  # json
-    classification_report_train = peewee.TextField()  # json
-    classification_report_test = peewee.TextField()  # json
-    acc_train = peewee.FloatField()
-    acc_test = peewee.FloatField()
-    fit_score = peewee.FloatField()
-
-
-db.connect()
-db.create_tables([ExperimentResult])
+db = get_db()
 
 
 # generate all possible combinations of the three recommendations
