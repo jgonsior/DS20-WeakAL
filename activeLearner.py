@@ -39,13 +39,15 @@ class ActiveLearner:
             np.random.seed(random_seed)
             random.seed(random_seed)
 
+            self.best_hyper_parameters = {
+                'random_state': random_seed,
+                'n_jobs': cores
+            }
+        else:
+            self.best_hyper_parameters = {'n_jobs': cores}
+
         self.nr_learning_iterations = nr_learning_iterations
         self.nr_queries_per_iteration = nr_queries_per_iteration
-
-        self.best_hyper_parameters = {
-            'random_state': random_seed,
-            'n_jobs': cores
-        }
 
         # it's a list because of committee (in all other cases it's just one classifier)
         self.clf_list = [RandomForestClassifier(**self.best_hyper_parameters)]
