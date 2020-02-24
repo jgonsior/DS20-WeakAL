@@ -27,23 +27,23 @@ class BaseModel(peewee.Model):
 
 
 class ExperimentResult(BaseModel):
-    id_field = peewee.AutoField()
+    id_field = peewee.AutoField(index=True)
 
     # hyper params
     dataset_path = peewee.TextField()
-    classifier = peewee.TextField()
+    classifier = peewee.TextField(index=True)
     cores = peewee.IntegerField()
     output_dir = peewee.TextField()
     test_fraction = peewee.FloatField()
-    sampling = peewee.TextField()
+    sampling = peewee.TextField(index=True)
     random_seed = peewee.IntegerField()
-    cluster = peewee.TextField()
+    cluster = peewee.TextField(index=True)
     nr_learning_iterations = peewee.IntegerField()
-    nr_queries_per_iteration = peewee.IntegerField()
-    start_set_size = peewee.FloatField()
-    with_uncertainty_recommendation = peewee.BooleanField()
-    with_cluster_recommendation = peewee.BooleanField()
-    with_snuba_lite = peewee.BooleanField()
+    nr_queries_per_iteration = peewee.IntegerField(index=True)
+    start_set_size = peewee.FloatField(index=True)
+    with_uncertainty_recommendation = peewee.BooleanField(index=True)
+    with_cluster_recommendation = peewee.BooleanField(index=True)
+    with_snuba_lite = peewee.BooleanField(index=True)
     uncertainty_recommendation_certainty_threshold = peewee.FloatField(
         null=True)
     uncertainty_recommendation_ratio = peewee.FloatField(null=True)
@@ -53,7 +53,7 @@ class ExperimentResult(BaseModel):
     cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
         null=True)
     metrics_per_al_cycle = BinaryJSONField()  # json string
-    amount_of_user_asked_queries = peewee.IntegerField()
+    amount_of_user_asked_queries = peewee.IntegerField(index=True)
     allow_recommendations_after_stop = peewee.BooleanField()
     stopping_criteria_uncertainty = peewee.FloatField()
     stopping_criteria_acc = peewee.FloatField()
@@ -66,9 +66,9 @@ class ExperimentResult(BaseModel):
     confusion_matrix_train = BinaryJSONField()  # json
     classification_report_train = BinaryJSONField()  # json
     classification_report_test = BinaryJSONField()  # json
-    acc_train = peewee.FloatField()
-    acc_test = peewee.FloatField()
-    fit_score = peewee.FloatField()
+    acc_train = peewee.FloatField(index=True)
+    acc_test = peewee.FloatField(index=True)
+    fit_score = peewee.FloatField(index=True)
 
 
 def get_db(db_name_or_type):
