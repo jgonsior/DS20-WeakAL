@@ -60,9 +60,9 @@ if config.id == -1:
         ExperimentResult.fit_score.desc()).limit(config.limit)
 
     print(
-        "{:>6} {:>25} {:>25} {:>4} {:>4} {:>4} {:>3} {:>5} {:>4} {:>6} {:>6} {:>6} {:>6}"
-        .format("Id", "Sampling", "Cluster", "#C", "#U", "#A", "AS", "SU",
-                "SS", "SA", "#q", "acc_te", "fit"))
+        "{:>6} {:>25} {:>25} {:>4} {:>4} {:>4} {:>3} {:>5} {:>6} {:>6} {:>6} {:>6} {:>6}"
+        .format("Id", "Sampling", "Cluster", "#C", "#U", "#A", "AS", "#q",
+                "SU", "SS", "SA", "acc_te", "fit"))
 
     for result in best_result:
         metrics = loads(result.metrics_per_al_cycle)
@@ -80,7 +80,7 @@ if config.id == -1:
                 amount_of_active += 1
 
         print(
-            "{:6,d} {:>25} {:>25} {:4,d} {:4,d} {:4,d} {:3,d} {:5,d} {:4,d} {:6.2%} {:6.2%} {:6.2%} {:6.2%}"
+            "{:6,d} {:>25} {:>25} {:4,d} {:4,d} {:4,d} {:3,d} {:5,d} {:6.2} {:6.2%} {:6.2%} {:6.2%} {:6.2%}"
             .format(
                 result.id_field,
                 result.sampling,
