@@ -9,20 +9,21 @@ import random
 import sys
 from itertools import chain, combinations
 from timeit import default_timer as timer
-#  import scipy.stats.distributions as dists
-import numpy.random
+
 import numpy as np
+#  import np.random.distributions as dists
+import numpy.random
 import pandas as pd
 import peewee
+import scipy
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps
-from scipy.stats import randint, uniform
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      RandomizedSearchCV, train_test_split)
 from sklearn.preprocessing import LabelEncoder
-import scipy
+
 from cluster_strategies import (DummyClusterStrategy,
                                 MostUncertainClusterStrategy,
                                 RandomClusterStrategy,
@@ -39,6 +40,10 @@ standard_config = standard_config([
     (['--nr_learning_iterations'], {
         'type': int,
         'default': 2000000
+    }),
+    (['--cv'], {
+        'type': int,
+        'default': 3
     }),
     (['--nr_random_runs'], {
         'type': int,
@@ -94,36 +99,36 @@ param_distribution = {
     "nr_learning_iterations": [standard_config.nr_learning_iterations],
     #  "nr_learning_iterations": [1],
     "nr_queries_per_iteration":
-    scipy.stats.uniform(1, 2000),
+    np.linspace(1, 2000, num=51).astype(int),
     "start_set_size":
-    scipy.stats.uniform(0.01, 0.2),
+    np.linspace(0.01, 0.2, num=10).astype(float),
     "stopping_criteria_uncertainty":
-    scipy.stats.uniform(0, 1),
+    np.linspace(0, 1, num=101).astype(float),
     "stopping_criteria_std":
-    scipy.stats.uniform(0, 1),
+    np.linspace(0, 1, num=101).astype(float),
     "stopping_criteria_acc":
-    scipy.stats.uniform(0, 1),
+    np.linspace(0, 1, num=101).astype(float),
     "allow_recommendations_after_stop": [True, False],
 
     #uncertainty_recommendation_grid = {
     "uncertainty_recommendation_certainty_threshold":
-    scipy.stats.uniform(0.5, 1),
+    np.linspace(0.5, 1, num=51).astype(float),
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
 
     #snuba_lite_grid = {
     "snuba_lite_minimum_heuristic_accuracy":
-    scipy.stats.uniform(0.5, 1),
+    np.linspace(0.5, 1, num=51).astype(float),
 
     #cluster_recommendation_grid = {
     "cluster_recommendation_minimum_cluster_unity_size":
-    scipy.stats.uniform(0.5, 1),
+    np.linspace(0.5, 1, num=51).astype(float),
     "cluster_recommendation_ratio_labeled_unlabeled":
-    scipy.stats.uniform(0.5, 1),
+    np.linspace(0.5, 1, num=51).astype(float),
     "with_uncertainty_recommendation": [True, False],
     "with_cluster_recommendation": [True, False],
     "with_snuba_lite": [False],
     "minimum_test_accuracy_before_recommendations":
-    scipy.stats.uniform(0.5, 1),
+    np.linspace(0.5, 1, num=51).astype(float),
 }
 
 db = get_db()
@@ -185,7 +190,6 @@ class Estimator(BaseEstimator):
         self.allow_recommendations_after_stop = allow_recommendations_after_stop
 
     def fit(self, X_train, Y_train, **kwargs):
-        print("train", X_train.index.tolist())
         self.len_train_data = len(Y_train)
         label_encoder = LabelEncoder()
         label_encoder.fit(self.label_encoder_classes)
@@ -271,7 +275,6 @@ class Estimator(BaseEstimator):
         self.active_learner = active_learner
 
     def score(self, X_test, Y_test):
-        print("test", X_test.index.tolist())
         # display quick results
         self.amount_of_user_asked_queries = self.active_learner.amount_of_user_asked_queries
 
@@ -334,29 +337,29 @@ X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
 
 param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
-grid = RandomizedSearchCV(active_learner,
-                          param_distribution,
-                          n_iter=standard_config.nr_random_runs,
-                          cv=2,
-                          verbose=9999999999999999999999999999999999)
+#  grid = RandomizedSearchCV(active_learner,
+#  param_distribution,
+#  n_iter=standard_config.nr_random_runs,
+#  cv=standard_config .cv,
+#  verbose=9999999999999999999999999999999999)
 #  n_jobs=multiprocessing.cpu_count())
 
-#  evolutionary_search = EvolutionaryAlgorithmSearchCV(
-#  estimator=active_learner,
-#  params=param_distribution_list,
-#  verbose=True,
-#  cv=2,
-#  population_size=standard_config.population_size,
-#  gene_mutation_prob=standard_config.gene_mutation_prob,
-#  tournament_size=standard_config.tournament_size,
-#  generations_number=standard_config.generations_number,
-#  n_jobs=multiprocessing.cpu_count())
+grid = EvolutionaryAlgorithmSearchCV(
+    estimator=active_learner,
+    params=param_distribution,
+    verbose=True,
+    cv=standard_config.cv,
+    population_size=standard_config.population_size,
+    gene_mutation_prob=standard_config.gene_mutation_prob,
+    tournament_size=standard_config.tournament_size,
+    generations_number=standard_config.generations_number,
+    n_jobs=multiprocessing.cpu_count())
 
-search = grid.fit(X, Y)
-#  search.fit(X, Y)
+#  search = grid.fit(X, Y)
+grid.fit(X, Y)
 
-print(search.best_params_)
-print(search.best_score_)
+print(grid.best_params_)
+print(grid.best_score_)
 print(
-    pd.DataFrame(search.cv_results_).sort_values("mean_test_score",
-                                                 ascending=False).head())
+    pd.DataFrame(grid.cv_results_).sort_values("mean_test_score",
+                                               ascending=False).head())
