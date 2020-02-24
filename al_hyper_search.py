@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import datetime
+import io
 import logging
 import multiprocessing
 import os
@@ -8,34 +9,30 @@ import random
 import sys
 from itertools import chain, combinations
 from timeit import default_timer as timer
-
+import scipy.stats.distributions as dists
 import numpy as np
-from scipy.stats import randint, uniform
-
 import pandas as pd
 import peewee
-from cluster_strategies import (DummyClusterStrategy,
-                                MostUncertainClusterStrategy,
-                                RandomClusterStrategy,
-                                RoundRobinClusterStrategy)
-from dataStorage import DataStorage
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
-from experiment_setup_lib import (ExperimentResult, Logger,
-                                  classification_report_and_confusion_matrix,
-                                  get_db, load_and_prepare_X_and_Y,
-                                  standard_config, store_pickle, store_result)
 from json_tricks import dumps
-from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
-                                 RandomSampler, UncertaintySampler)
+from scipy.stats import randint, uniform
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      RandomizedSearchCV, train_test_split)
 from sklearn.preprocessing import LabelEncoder
 
-ieport io
-
-
+from cluster_strategies import (DummyClusterStrategy,
+                                MostUncertainClusterStrategy,
+                                RandomClusterStrategy,
+                                RoundRobinClusterStrategy)
+from dataStorage import DataStorage
+from experiment_setup_lib import (ExperimentResult, Logger,
+                                  classification_report_and_confusion_matrix,
+                                  get_db, load_and_prepare_X_and_Y,
+                                  standard_config, store_pickle, store_result)
+from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
+                                 RandomSampler, UncertaintySampler)
 
 standard_config = standard_config([
     (['--nr_learning_iterations'], {
@@ -92,38 +89,36 @@ param_distribution = {
     "nr_learning_iterations": [standard_config.nr_learning_iterations],
     #  "nr_learning_iterations": [1],
     "nr_queries_per_iteration":
-    np.linspace(1, 2000, num=51).astype(int),
+    dists.uniform(1, 2000),
     "start_set_size":
-    np.linspace(0.01, 0.2, num=10).astype(float),
-    "with_uncertainty_recommendation": [False],
-    "with_cluster_recommendation": [False],
-    "with_snuba_lite": [False],
+    dists.uniform(0.01, 0.2),
     "stopping_criteria_uncertainty":
-    np.linspace(0, 1, num=101).astype(float),
+    dists.uniform(0, 1),
     "stopping_criteria_std":
-    np.linspace(0, 1, num=101).astype(float),
+    dists.uniform(0, 1),
     "stopping_criteria_acc":
-    np.linspace(0, 1, num=101).astype(float),
-    "allow_recommendations_after_stop": [True, False]
+    dists.uniform(0, 1),
+    "allow_recommendations_after_stop": [True, False],
 
     #uncertainty_recommendation_grid = {
     "uncertainty_recommendation_certainty_threshold":
-    np.linspace(0.5, 1, num=51).astype(float),
-    "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000]
+    dists.uniform(0.5, 1),
+    "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
 
     #snuba_lite_grid = {
     "snuba_lite_minimum_heuristic_accuracy":
-    np.linspace(0.5, 1, num=51).astype(float)
+    dists.uniform(0.5, 1),
 
     #cluster_recommendation_grid = {
     "cluster_recommendation_minimum_cluster_unity_size":
-    np.linspace(0.5, 1, num=51).astype(float),
+    dists.uniform(0.5, 1),
     "cluster_recommendation_ratio_labeled_unlabeled":
-    np.linspace(0.5, 1, num=51).astype(float)
+    dists.uniform(0.5, 1),
     "with_uncertainty_recommendation": [True, False],
     "with_cluster_recommendation": [True, False],
     "with_snuba_lite": [False],
-    "minimum_test_accuracy_before_recommendations": np.linspace(0.5,1, num=51).astype(float)
+    "minimum_test_accuracy_before_recommendations":
+    dists.uniform(0.5, 1),
 }
 
 db = get_db()
@@ -185,6 +180,7 @@ class Estimator(BaseEstimator):
         self.allow_recommendations_after_stop = allow_recommendations_after_stop
 
     def fit(self, X_train, Y_train, **kwargs):
+        print("train", X_train.index.tolist())
         self.len_train_data = len(Y_train)
         label_encoder = LabelEncoder()
         label_encoder.fit(self.label_encoder_classes)
@@ -270,6 +266,7 @@ class Estimator(BaseEstimator):
         self.active_learner = active_learner
 
     def score(self, X_test, Y_test):
+        print("test", X_train.index.tolist())
         # display quick results
         self.amount_of_user_asked_queries = self.active_learner.amount_of_user_asked_queries
 
@@ -330,11 +327,10 @@ active_learner = Estimator()
 
 X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
 
-for param_distribution in param_distribution_list:
-    param_distribution['label_encoder_classes'] = [label_encoder.classes_]
+param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
 grid = RandomizedSearchCV(active_learner,
-                          param_distribution_list,
+                          param_distribution,
                           n_iter=300000,
                           cv=2,
                           verbose=9999999999999999999999999999999999)
