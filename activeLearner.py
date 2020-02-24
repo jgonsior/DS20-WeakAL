@@ -35,9 +35,9 @@ class ActiveLearner:
                  nr_learning_iterations,
                  nr_queries_per_iteration,
                  with_test=True):
-
-        np.random.seed(random_seed)
-        random.seed(random_seed)
+        if random_seed != -1:
+            np.random.seed(random_seed)
+            random.seed(random_seed)
 
         self.nr_learning_iterations = nr_learning_iterations
         self.nr_queries_per_iteration = nr_queries_per_iteration

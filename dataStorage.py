@@ -13,8 +13,9 @@ from experiment_setup_lib import load_and_prepare_X_and_Y
 
 class DataStorage:
     def __init__(self, random_seed):
-        np.random.seed(random_seed)
-        random.seed(random_seed)
+        if random_seed != -1:
+            np.random.seed(random_seed)
+            random.seed(random_seed)
 
     def set_training_data(self,
                           X_train,

@@ -116,7 +116,10 @@ def standard_config(additional_parameters=None):
                         help="Supported types: RF, DTree, NB, SVM, Linear")
     parser.add_argument('--cores', type=int, default=-1)
     parser.add_argument('--output_dir', default='tmp')
-    parser.add_argument('--random_seed', type=int, default=42)
+    parser.add_argument('--random_seed',
+                        type=int,
+                        default=42,
+                        help="-1 Enables true Randomness")
     parser.add_argument('--test_fraction', type=float, default=0.5)
 
     if additional_parameters is not None:
@@ -130,8 +133,9 @@ def standard_config(additional_parameters=None):
         parser.print_help()
         parser.exit()
 
-    np.random.seed(config.random_seed)
-    random.seed(config.random_seed)
+    if config.random_seed != -1:
+        np.random.seed(config.random_seed)
+        random.seed(config.random_seed)
 
     return config
 
