@@ -70,6 +70,8 @@ class ExperimentResult(BaseModel):
     acc_test = peewee.FloatField(index=True)
     fit_score = peewee.FloatField(index=True)
 
+    param_list_id = peewee.TextField(index=True)
+
 
 def get_db(db_name_or_type):
     # create databases for storing the results
@@ -78,8 +80,8 @@ def get_db(db_name_or_type):
     else:
         db = PostgresqlExtDatabase(db_name_or_type)
     db.bind([ExperimentResult])
-    db.connect()
     db.create_tables([ExperimentResult])
+    #  db.connect()
 
     return db
 

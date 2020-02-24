@@ -1,6 +1,7 @@
 import argparse
 import contextlib
 import datetime
+import hashlib
 import io
 import logging
 import multiprocessing
@@ -299,6 +300,14 @@ class Estimator(BaseEstimator):
         score = 2 * percentage_user_asked_queries * test_acc / (
             percentage_user_asked_queries + test_acc)
 
+        # calculate based on params a unique id which should be the same across all similar cross validation splits
+        unique_params = ""
+
+        for k in param_distribution.keys():
+            unique_params += str(vars(self)[k])
+
+        param_list_id = hashlib.md5(unique_params.encode('utf-8')).hexdigest()
+
         experiment_result = ExperimentResult(
             **self.get_params(),
             amount_of_user_asked_queries=self.amount_of_user_asked_queries,
@@ -321,7 +330,8 @@ class Estimator(BaseEstimator):
             ['accuracy'],
             acc_test=classification_report_and_confusion_matrix_test[0]
             ['accuracy'],
-            fit_score=score)
+            fit_score=score,
+            param_list_id=param_list_id)
         experiment_result.save()
 
         return score
