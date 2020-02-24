@@ -45,6 +45,9 @@ config = standard_config([
         'type': int,
         'default': -1
     }),
+    (['--db'], {
+        'default': 'sqlite'
+    }),
 ])
 
 #  init_logging(None, level=logging.DEBUG)
@@ -53,7 +56,7 @@ logger = logging.getLogger('peewee')
 logger.addHandler(logging.StreamHandler())
 #  logger.setLevel(logging.DEBUG)
 
-db = get_db()
+db = get_db(db_name_or_type=config.db)
 
 if config.id == -1:
     best_result = ExperimentResult.select().order_by(

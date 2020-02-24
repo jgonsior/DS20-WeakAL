@@ -65,6 +65,9 @@ standard_config = standard_config([
         'type': float,
         'default': 0.3
     }),
+    (['--db'], {
+        'default': 'sqlite'
+    }),
 ])
 
 logging_file_name = standard_config.output_dir + "/" + str(
@@ -131,7 +134,7 @@ param_distribution = {
     np.linspace(0.5, 1, num=51).astype(float),
 }
 
-db = get_db()
+db = get_db(db_name_or_type=standard_config.db)
 
 
 class Estimator(BaseEstimator):
@@ -286,13 +289,6 @@ class Estimator(BaseEstimator):
             self.dataset_storage.X_train_labeled,
             self.dataset_storage.Y_train_labeled,
             self.dataset_storage.label_encoder)
-        #  classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix_train = [
-        #  {
-        #  'accuracy': 2
-        #  }, "lalala"
-        #  ]
-
-        #  metrics_per_al_cycle = "blabla"
 
         # normalize by start_set_size
         percentage_user_asked_queries = 1 - self.amount_of_user_asked_queries / self.len_train_data

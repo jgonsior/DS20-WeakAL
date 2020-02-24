@@ -20,6 +20,7 @@ openpyxl = "*"
 sklearn-deap = "*"
 peewee = "*"
 json-tricks = "*"
+psycopg2 = ">2.5"
 
 [requires]
 python_version = "3.8"

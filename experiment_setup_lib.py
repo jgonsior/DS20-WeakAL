@@ -1,3 +1,4 @@
+from playhouse.postgres_ext import *
 import argparse
 import contextlib
 import datetime
@@ -17,7 +18,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 
-db = peewee.SqliteDatabase('experiment_results.db')
+db = peewee.DatabaseProxy()
 
 
 class BaseModel(peewee.Model):
@@ -51,7 +52,7 @@ class ExperimentResult(BaseModel):
         null=True)
     cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
         null=True)
-    metrics_per_al_cycle = peewee.TextField()  # json string
+    metrics_per_al_cycle = BinaryJSONField()  # json string
     amount_of_user_asked_queries = peewee.IntegerField()
     allow_recommendations_after_stop = peewee.BooleanField()
     stopping_criteria_uncertainty = peewee.FloatField()
@@ -61,18 +62,22 @@ class ExperimentResult(BaseModel):
     # information of hyperparam run
     experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
     fit_time = peewee.TextField()  # timedelta
-    confusion_matrix_test = peewee.TextField()  # json
-    confusion_matrix_train = peewee.TextField()  # json
-    classification_report_train = peewee.TextField()  # json
-    classification_report_test = peewee.TextField()  # json
+    confusion_matrix_test = BinaryJSONField()  # json
+    confusion_matrix_train = BinaryJSONField()  # json
+    classification_report_train = BinaryJSONField()  # json
+    classification_report_test = BinaryJSONField()  # json
     acc_train = peewee.FloatField()
     acc_test = peewee.FloatField()
     fit_score = peewee.FloatField()
 
 
-def get_db():
+def get_db(db_name_or_type):
     # create databases for storing the results
-
+    if db_name_or_type == 'sqlite':
+        db = peewee.SqliteDatabase('experiment_results.db')
+    else:
+        db = PostgresqlExtDatabase(db_name_or_type)
+    db.bind([ExperimentResult])
     db.connect()
     db.create_tables([ExperimentResult])
 
