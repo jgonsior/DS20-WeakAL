@@ -1,7 +1,6 @@
 import argparse
 import contextlib
 import datetime
-import io
 import logging
 import multiprocessing
 import os
@@ -11,29 +10,32 @@ from itertools import chain, combinations
 from timeit import default_timer as timer
 
 import numpy as np
+from scipy.stats import randint, uniform
+
 import pandas as pd
 import peewee
+from cluster_strategies import (DummyClusterStrategy,
+                                MostUncertainClusterStrategy,
+                                RandomClusterStrategy,
+                                RoundRobinClusterStrategy)
+from dataStorage import DataStorage
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
+from experiment_setup_lib import (ExperimentResult, Logger,
+                                  classification_report_and_confusion_matrix,
+                                  get_db, load_and_prepare_X_and_Y,
+                                  standard_config, store_pickle, store_result)
 from json_tricks import dumps
-from scipy.stats import randint, uniform
+from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
+                                 RandomSampler, UncertaintySampler)
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      RandomizedSearchCV, train_test_split)
 from sklearn.preprocessing import LabelEncoder
 
-from cluster_strategies import (DummyClusterStrategy,
-                                MostUncertainClusterStrategy,
-                                RandomClusterStrategy,
-                                RoundRobinClusterStrategy)
-from dataStorage import DataStorage
-from experiment_setup_lib import (Logger,
-                                  classification_report_and_confusion_matrix,
-                                  load_and_prepare_X_and_Y, standard_config,
-                                  store_pickle, store_result, ExperimentResult,
-                                  get_db)
-from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
-                                 RandomSampler, UncertaintySampler)
+ieport io
+
+
 
 standard_config = standard_config([
     (['--nr_learning_iterations'], {
@@ -69,7 +71,7 @@ logging.basicConfig(
 
 param_distribution = {}
 
-standard_param_distribution = {
+param_distribution = {
     "dataset_path": [standard_config.dataset_path],
     "classifier": [standard_config.classifier],
     "cores": [standard_config.cores],
@@ -103,64 +105,28 @@ standard_param_distribution = {
     "stopping_criteria_acc":
     np.linspace(0, 1, num=101).astype(float),
     "allow_recommendations_after_stop": [True, False]
-}
 
-uncertainty_recommendation_grid = {
+    #uncertainty_recommendation_grid = {
     "uncertainty_recommendation_certainty_threshold":
     np.linspace(0.5, 1, num=51).astype(float),
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000]
-}
 
-snuba_lite_grid = {
+    #snuba_lite_grid = {
     "snuba_lite_minimum_heuristic_accuracy":
     np.linspace(0.5, 1, num=51).astype(float)
-}
 
-cluster_recommendation_grid = {
+    #cluster_recommendation_grid = {
     "cluster_recommendation_minimum_cluster_unity_size":
     np.linspace(0.5, 1, num=51).astype(float),
     "cluster_recommendation_ratio_labeled_unlabeled":
     np.linspace(0.5, 1, num=51).astype(float)
+    "with_uncertainty_recommendation": [True, False],
+    "with_cluster_recommendation": [True, False],
+    "with_snuba_lite": [False],
+    "minimum_test_accuracy_before_recommendations": np.linspace(0.5,1, num=51).astype(float)
 }
 
 db = get_db()
-
-
-# generate all possible combinations of the three recommendations
-def powerset(iterable):
-    """
-    powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)
-    """
-    xs = list(iterable)
-    # note we return an iterator rather than a list
-    return chain.from_iterable(combinations(xs, n) for n in range(len(xs) + 1))
-
-
-param_distribution_list = []
-
-for recommendation_param_distributions in powerset([
-    ("with_uncertainty_recommendation", uncertainty_recommendation_grid),
-    ("with_cluster_recommendation", cluster_recommendation_grid)
-]):
-    param_distribution = {**standard_param_distribution}
-    if len(recommendation_param_distributions) == 0:
-        continue
-    for recommendation_param_distribution in recommendation_param_distributions:
-        param_distribution = {
-            **param_distribution,
-            **recommendation_param_distribution[1]
-        }
-        param_distribution[recommendation_param_distribution[0]] = [True]
-        param_distribution[
-            "minimum_test_accuracy_before_recommendations"] = np.random.uniform(
-                0.5, 1, size=100)
-    if 'minimum_test_accuracy_before_recommendations' not in param_distribution.keys(
-    ):
-        param_distribution['minimum_test_accuracy_before_recommendations'] = [
-            1
-        ]
-    #  if param_distribution is not {**standard_param_distribution}:
-    param_distribution_list.append(param_distribution)
 
 
 class Estimator(BaseEstimator):

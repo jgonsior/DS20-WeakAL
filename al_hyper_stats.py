@@ -59,28 +59,33 @@ if config.id == -1:
     best_result = ExperimentResult.select().order_by(
         ExperimentResult.fit_score.desc()).limit(config.limit)
 
-    print("{:>6} {:>25} {:>25} {:>4} {:>4} {:>2} {:>5} {:>6} {:>6}".format(
-        "Id", "Sampling", "Cluster", "#C", "#U", "A", "#q", "acc_te", "fit"))
+    print(
+        "{:>6} {:>25} {:>25} {:>4} {:>4} {:>4} {:>3} {:>5} {:>6} {:>6}".format(
+            "Id", "Sampling", "Cluster", "#C", "#U", "A", "AS", "#q", "acc_te",
+            "fit"))
 
     for result in best_result:
         metrics = loads(result.metrics_per_al_cycle)
 
         amount_of_clusters = 0
         amount_of_certainties = 0
+        amount_of_active = 0
         for recommendation, query_length in zip(metrics['recommendation'],
                                                 metrics['query_length']):
             if recommendation == 'U':
                 amount_of_certainties += 1
             if recommendation == 'C':
                 amount_of_clusters += 1
+            if recommendation == 'A':
+                amount_of_active += 1
 
         print(
-            "{:6,d} {:>25} {:>25} {:4,d} {:4,d} {:2,d} {:5,d} {:6.2%} {:6.2%}".
-            format(result.id_field, result.sampling, result.cluster,
-                   amount_of_clusters, amount_of_certainties,
-                   result.allow_recommendations_after_stop,
-                   result.amount_of_user_asked_queries, result.acc_test,
-                   result.fit_score))
+            "{:6,d} {:>25} {:>25} {:4,d} {:4,d} {:4,d} {:3,d} {:5,d} {:6.2%} {:6.2%}"
+            .format(result.id_field, result.sampling, result.cluster,
+                    amount_of_clusters, amount_of_certainties,
+                    amount_of_active, result.allow_recommendations_after_stop,
+                    result.amount_of_user_asked_queries, result.acc_test,
+                    result.fit_score))
 else:
     print(get_single_al_run_stats_table_header())
     result = ExperimentResult.get(ExperimentResult.id_field == config.id)
