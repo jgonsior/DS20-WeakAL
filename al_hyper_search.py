@@ -69,6 +69,9 @@ standard_config = standard_config([
     (['--db'], {
         'default': 'sqlite'
     }),
+    (['--hyper_search_type'], {
+        'default': 'random'
+    }),
 ])
 
 logging_file_name = standard_config.output_dir + "/" + str(
@@ -386,23 +389,24 @@ X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
 for param_distribution in param_distribution_list:
     param_distribution['label_encoder_classes'] = [label_encoder.classes_]
 
-#  grid = RandomizedSearchCV(active_learner,
-#  param_distribution_list,
-#  n_iter=standard_config.nr_random_runs,
-#  cv=standard_config.cv,
-#  verbose=9999999999999999999999999999999999,
-#  n_jobs=multiprocessing.cpu_count())
-
-grid = EvolutionaryAlgorithmSearchCV(
-    estimator=active_learner,
-    params=param_distribution,
-    verbose=True,
-    cv=standard_config.cv,
-    population_size=standard_config.population_size,
-    gene_mutation_prob=standard_config.gene_mutation_prob,
-    tournament_size=standard_config.tournament_size,
-    generations_number=standard_config.generations_number,
-    n_jobs=multiprocessing.cpu_count())
+if standard_config.hyper_search_type == 'random':
+    grid = RandomizedSearchCV(active_learner,
+                              param_distribution_list,
+                              n_iter=standard_config.nr_random_runs,
+                              cv=standard_config.cv,
+                              verbose=9999999999999999999999999999999999,
+                              n_jobs=multiprocessing.cpu_count())
+elif standard_config.hyper_search_type == 'evo':
+    grid = EvolutionaryAlgorithmSearchCV(
+        estimator=active_learner,
+        params=param_distribution_list,
+        verbose=True,
+        cv=standard_config.cv,
+        population_size=standard_config.population_size,
+        gene_mutation_prob=standard_config.gene_mutation_prob,
+        tournament_size=standard_config.tournament_size,
+        generations_number=standard_config.generations_number,
+        n_jobs=multiprocessing.cpu_count())
 
 grid = grid.fit(X, Y)
 #  grid.fit(X, Y)
