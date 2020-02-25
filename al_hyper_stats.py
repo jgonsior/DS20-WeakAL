@@ -59,10 +59,10 @@ logger.addHandler(logging.StreamHandler())
 db = get_db(db_name_or_type=config.db)
 
 if config.id == -1:
-    #  best_result = ExperimentResult.select().order_by(
-    #  ExperimentResult.fit_score.desc()).limit(config.limit)
-    best_result = ExperimentResult.select().order_by(
-        ExperimentResult.param_list_id.desc()).limit(config.limit)
+    best_result = (ExperimentResult.select(
+        ExperimentResult.param_list_id,
+        peewee.fn.AVG(ExperimentResult.param_list_id)).group_by(
+            ExperimentResult.param_list_id).limit(config.limit))
 
     print(
         "{:>20} {:>6} {:>25} {:>25} {:>4} {:>4} {:>4} {:>3} {:>5} {:>6} {:>6} {:>6} {:>6} {:>6}"

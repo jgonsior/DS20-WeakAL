@@ -72,6 +72,9 @@ class ExperimentResult(BaseModel):
 
     param_list_id = peewee.TextField(index=True)
 
+    cv_fit_score_mean = peewee.FloatField(null=True)
+    cv_fit_score_std = peewee.FloatField(null=True)
+
 
 def get_db(db_name_or_type):
     # create databases for storing the results
