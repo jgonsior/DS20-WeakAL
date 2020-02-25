@@ -83,6 +83,7 @@ logging.basicConfig(
 param_distribution = {}
 
 standard_param_distribution = {
+    "db_name_or_type": [standard_config.db],
     "dataset_path": [standard_config.dataset_path],
     "classifier": [standard_config.classifier],
     "cores": [standard_config.cores],
@@ -173,8 +174,6 @@ for recommendation_param_distributions in powerset([
     #  if param_distribution is not {**standard_param_distribution}:
     param_distribution_list.append(param_distribution)
 
-db = get_db(db_name_or_type=standard_config.db)
-
 
 class Estimator(BaseEstimator):
     def __init__(self,
@@ -203,7 +202,8 @@ class Estimator(BaseEstimator):
                  stopping_criteria_uncertainty=None,
                  stopping_criteria_std=None,
                  stopping_criteria_acc=None,
-                 allow_recommendations_after_stop=None):
+                 allow_recommendations_after_stop=None,
+                 db_name_or_type=None):
         self.label_encoder_classes = label_encoder_classes
         self.dataset_path = dataset_path
         self.classifier = classifier
@@ -231,7 +231,10 @@ class Estimator(BaseEstimator):
         self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
         self.allow_recommendations_after_stop = allow_recommendations_after_stop
 
+        self.db_name_or_type = db_name_or_type
+
     def fit(self, X_train, Y_train, **kwargs):
+        self.db = get_db(db_name_or_type=self.db_name_or_type)
         self.len_train_data = len(Y_train)
         label_encoder = LabelEncoder()
         label_encoder.fit(self.label_encoder_classes)

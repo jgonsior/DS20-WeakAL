@@ -27,10 +27,11 @@ class BaseModel(peewee.Model):
 
 
 class ExperimentResult(BaseModel):
-    id_field = peewee.AutoField(index=True)
+    id_field = peewee.AutoField()
 
     # hyper params
     dataset_path = peewee.TextField()
+    db_name_or_type = peewee.TextField()
     classifier = peewee.TextField(index=True)
     cores = peewee.IntegerField()
     output_dir = peewee.TextField()
