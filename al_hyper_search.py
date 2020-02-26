@@ -46,6 +46,10 @@ standard_config = standard_config([
         'type': int,
         'default': 3
     }),
+    (['--n_jobs'], {
+        'type': int,
+        'default': multiprocessing.cpu_count()
+    }),
     (['--nr_random_runs'], {
         'type': int,
         'default': 200000
@@ -134,6 +138,7 @@ param_distribution = {
     "with_snuba_lite": [False],
     "minimum_test_accuracy_before_recommendations":
     np.linspace(0.5, 1, num=51).astype(float),
+    "db_name_or_type": [standard_config.db],
 }
 
 
@@ -196,7 +201,6 @@ class Estimator(BaseEstimator):
         self.db_name_or_type = db_name_or_type
 
     def fit(self, X_train, Y_train, **kwargs):
-        self.db = get_db(db_name_or_type=self.db_name_or_type)
         self.len_train_data = len(Y_train)
         label_encoder = LabelEncoder()
         label_encoder.fit(self.label_encoder_classes)
@@ -311,6 +315,8 @@ class Estimator(BaseEstimator):
 
         param_list_id = hashlib.md5(unique_params.encode('utf-8')).hexdigest()
 
+        db = get_db(db_name_or_type=self.db_name_or_type)
+
         experiment_result = ExperimentResult(
             **self.get_params(),
             amount_of_user_asked_queries=self.amount_of_user_asked_queries,
@@ -336,7 +342,7 @@ class Estimator(BaseEstimator):
             fit_score=score,
             param_list_id=param_list_id)
         experiment_result.save()
-        self.db.close()
+        db.close()
 
         return score
 
@@ -354,6 +360,7 @@ if standard_config.hyper_search_type == 'random':
                               cv=standard_config.cv,
                               verbose=9999999999999999999999999999999999,
                               n_jobs=multiprocessing.cpu_count())
+    grid = grid.fit(X, Y)
 elif standard_config.hyper_search_type == 'evo':
     grid = EvolutionaryAlgorithmSearchCV(
         estimator=active_learner,
@@ -364,10 +371,8 @@ elif standard_config.hyper_search_type == 'evo':
         gene_mutation_prob=standard_config.gene_mutation_prob,
         tournament_size=standard_config.tournament_size,
         generations_number=standard_config.generations_number,
-        n_jobs=multiprocessing.cpu_count())
-
-grid = grid.fit(X, Y)
-#  grid.fit(X, Y)
+        n_jobs=standard_config.n_jobs)
+    grid.fit(X, Y)
 
 print(grid.best_params_)
 print(grid.best_score_)
