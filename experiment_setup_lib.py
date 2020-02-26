@@ -358,6 +358,10 @@ def get_single_al_run_stats_row(i,
         for query_length in metrics_per_al_cycle['query_length'][:index]:
             amount_of_unlabeled -= query_length
 
+    if 'accuracy' not in metrics_per_al_cycle['test_data_metrics'][0][index][
+            0].keys():
+        return "No test accuracy found"
+
     return "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}".format(
         i,
         amount_of_labeled,
