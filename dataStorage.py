@@ -8,8 +8,6 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from experiment_setup_lib import load_and_prepare_X_and_Y
-
 
 class DataStorage:
     def __init__(self, random_seed):

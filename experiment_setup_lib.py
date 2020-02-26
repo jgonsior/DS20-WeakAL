@@ -1,23 +1,33 @@
-from playhouse.postgres_ext import *
 import argparse
 import contextlib
 import datetime
+import hashlib
 import io
 import json
 import logging
+import multiprocessing
 import os
 import pickle
 import random
 import sys
+from itertools import chain, combinations
+from timeit import default_timer as timer
 
 import numpy as np
+#  import np.random.distributions as dists
+import numpy.random
 import pandas as pd
 import peewee
+import scipy
 import sklearn.metrics
+from evolutionary_search import EvolutionaryAlgorithmSearchCV
+from json_tricks import dumps
+from playhouse.postgres_ext import *
+from sklearn.base import BaseEstimator
+from sklearn.datasets import load_iris
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
-
+from sklearn.model_selection import train_test_split
 db = peewee.DatabaseProxy()
 
 
@@ -103,7 +113,7 @@ def init_logging(output_dir, level=logging.INFO):
         logging.basicConfig(level=level)
 
 
-def divide_data(test_fraction, start_set_size):
+def divide_data(X, Y, test_fraction):
     # split data
     X_train, X_test, Y_train, Y_test = train_test_split(
         X, Y, test_size=test_fraction)

@@ -22,7 +22,8 @@ from json_tricks import dumps
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
-                                     RandomizedSearchCV, train_test_split)
+                                     RandomizedSearchCV, ShuffleSplit,
+                                     train_test_split)
 from sklearn.preprocessing import LabelEncoder
 
 from cluster_strategies import (DummyClusterStrategy,
@@ -34,13 +35,14 @@ from experiment_setup_lib import (ExperimentResult, Logger,
                                   classification_report_and_confusion_matrix,
                                   get_db, load_and_prepare_X_and_Y,
                                   standard_config, store_pickle, store_result)
+from al_cycle_wrapper import train_and_eval_dataset
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
 standard_config = standard_config([
     (['--nr_learning_iterations'], {
         'type': int,
-        'default': 2000000
+        'default': 100
     }),
     (['--cv'], {
         'type': int,
@@ -60,7 +62,7 @@ standard_config = standard_config([
     }),
     (['--tournament_size'], {
         'type': int,
-        'default': 3
+        'default': 100
     }),
     (['--generations_number'], {
         'type': int,
@@ -82,8 +84,8 @@ logging_file_name = standard_config.output_dir + "/" + str(
     datetime.datetime.now()) + "al_hyper_search.txt"
 
 logging.basicConfig(
-    filename=logging_file_name,
-    filemode='a',
+    #  filename=logging_file_name,
+    #  filemode='a',
     level=logging.INFO,
     format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
@@ -144,7 +146,6 @@ param_distribution = {
 
 class Estimator(BaseEstimator):
     def __init__(self,
-                 label_encoder_classes=None,
                  dataset_path=None,
                  classifier=None,
                  cores=None,
@@ -171,7 +172,6 @@ class Estimator(BaseEstimator):
                  stopping_criteria_acc=None,
                  allow_recommendations_after_stop=None,
                  db_name_or_type=None):
-        self.label_encoder_classes = label_encoder_classes
         self.dataset_path = dataset_path
         self.classifier = classifier
         self.cores = cores
@@ -200,164 +200,44 @@ class Estimator(BaseEstimator):
 
         self.db_name_or_type = db_name_or_type
 
-    def fit(self, X_train, Y_train, **kwargs):
-        self.len_train_data = len(Y_train)
-        label_encoder = LabelEncoder()
-        label_encoder.fit(self.label_encoder_classes)
-        self.dataset_storage = DataStorage(self.random_seed)
-        self.dataset_storage.set_training_data(X_train, Y_train, label_encoder,
-                                               self.test_fraction,
-                                               self.start_set_size)
+    def fit(self, datasets, Y_not_used, **kwargs):
+        self.scores = []
+        for dataset in datasets:
+            dataset_path, X, Y, label_encoder_classes = dataset
+            self.scores.append(
+                train_and_eval_dataset(dataset_path, X, Y,
+                                       label_encoder_classes, self,
+                                       param_distribution))
 
-        if self.cluster == 'dummy':
-            cluster_strategy = DummyClusterStrategy()
-        elif self.cluster == 'random':
-            cluster_strategy = RandomClusterStrategy()
-        elif self.cluster == "MostUncertain_lc":
-            cluster_strategy = MostUncertainClusterStrategy()
-            cluster_strategy.set_uncertainty_strategy('least_confident')
-        elif self.cluster == "MostUncertain_max_margin":
-            cluster_strategy = MostUncertainClusterStrategy()
-            cluster_strategy.set_uncertainty_strategy('max_margin')
-        elif self.cluster == "MostUncertain_entropy":
-            cluster_strategy = MostUncertainClusterStrategy()
-            cluster_strategy.set_uncertainty_strategy('entropy')
-        elif self.cluster == 'RoundRobin':
-            cluster_strategy = RoundRobinClusterStrategy()
-
-        cluster_strategy.set_data_storage(self.dataset_storage)
-
-        active_learner_params = {
-            'dataset_storage': self.dataset_storage,
-            'cluster_strategy': cluster_strategy,
-            'cores': self.cores,
-            'random_seed': self.random_seed,
-            'nr_learning_iterations': self.nr_learning_iterations,
-            'nr_queries_per_iteration': self.nr_queries_per_iteration,
-            'with_test': False,
-        }
-
-        if self.sampling == 'random':
-            active_learner = RandomSampler(**active_learner_params)
-        elif self.sampling == 'boundary':
-            active_learner = BoundaryPairSampler(**active_learner_params)
-        elif self.sampling == 'uncertainty_lc':
-            active_learner = UncertaintySampler(**active_learner_params)
-            active_learner.set_uncertainty_strategy('least_confident')
-        elif self.sampling == 'uncertainty_max_margin':
-            active_learner = UncertaintySampler(**active_learner_params)
-            active_learner.set_uncertainty_strategy('max_margin')
-        elif self.sampling == 'uncertainty_entropy':
-            active_learner = UncertaintySampler(**active_learner_params)
-            active_learner.set_uncertainty_strategy('entropy')
-        #  elif self.sampling == 'committee':
-        #  active_learner = CommitteeSampler(self.random_seed, self.cores, self.nr_learning_iterations)
-        else:
-            logging.error("No Active Learning Strategy specified")
-
-        start = timer()
-        trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-            minimum_test_accuracy_before_recommendations=self.
-            minimum_test_accuracy_before_recommendations,
-            with_cluster_recommendation=self.with_cluster_recommendation,
-            with_uncertainty_recommendation=self.
-            with_uncertainty_recommendation,
-            with_snuba_lite=self.with_snuba_lite,
-            cluster_recommendation_minimum_cluster_unity_size=self.
-            cluster_recommendation_minimum_cluster_unity_size,
-            cluster_recommendation_minimum_ratio_labeled_unlabeled=self.
-            cluster_recommendation_ratio_labeled_unlabeled,
-            uncertainty_recommendation_certainty_threshold=self.
-            uncertainty_recommendation_certainty_threshold,
-            uncertainty_recommendation_ratio=self.
-            uncertainty_recommendation_ratio,
-            snuba_lite_minimum_heuristic_accuracy=self.
-            snuba_lite_minimum_heuristic_accuracy,
-            stopping_criteria_uncertainty=self.stopping_criteria_uncertainty,
-            stopping_criteria_acc=self.stopping_criteria_acc,
-            stopping_criteria_std=self.stopping_criteria_std,
-            allow_recommendations_after_stop=self.
-            allow_recommendations_after_stop)
-        end = timer()
-
-        self.trained_active_clf_list = trained_active_clf_list
-        self.fit_time = end - start
-        self.metrics_per_al_cycle = metrics_per_al_cycle
-        self.active_learner = active_learner
-
-    def score(self, X_test, Y_test):
-        # display quick results
-        self.amount_of_user_asked_queries = self.active_learner.amount_of_user_asked_queries
-
-        classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
-            self.trained_active_clf_list[0], X_test, Y_test,
-            self.dataset_storage.label_encoder)
-        classification_report_and_confusion_matrix_train = classification_report_and_confusion_matrix(
-            self.trained_active_clf_list[0],
-            self.dataset_storage.X_train_labeled,
-            self.dataset_storage.Y_train_labeled,
-            self.dataset_storage.label_encoder)
-
-        # normalize by start_set_size
-        percentage_user_asked_queries = 1 - self.amount_of_user_asked_queries / self.len_train_data
-        test_acc = classification_report_and_confusion_matrix_test[0][
-            'accuracy']
-
-        # score is harmonic mean
-        score = 2 * percentage_user_asked_queries * test_acc / (
-            percentage_user_asked_queries + test_acc)
-
-        # calculate based on params a unique id which should be the same across all similar cross validation splits
-        unique_params = ""
-
-        for k in param_distribution.keys():
-            unique_params += str(vars(self)[k])
-
-        param_list_id = hashlib.md5(unique_params.encode('utf-8')).hexdigest()
-
-        db = get_db(db_name_or_type=self.db_name_or_type)
-
-        experiment_result = ExperimentResult(
-            **self.get_params(),
-            amount_of_user_asked_queries=self.amount_of_user_asked_queries,
-            metrics_per_al_cycle=dumps(self.metrics_per_al_cycle,
-                                       allow_nan=True),
-            fit_time=str(self.fit_time),
-            confusion_matrix_test=dumps(
-                classification_report_and_confusion_matrix_test[1],
-                allow_nan=True),
-            confusion_matrix_train=dumps(
-                classification_report_and_confusion_matrix_train[1],
-                allow_nan=True),
-            classification_report_test=dumps(
-                classification_report_and_confusion_matrix_test[0],
-                allow_nan=True),
-            classification_report_train=dumps(
-                classification_report_and_confusion_matrix_train[0],
-                allow_nan=True),
-            acc_train=classification_report_and_confusion_matrix_train[0]
-            ['accuracy'],
-            acc_test=classification_report_and_confusion_matrix_test[0]
-            ['accuracy'],
-            fit_score=score,
-            param_list_id=param_list_id)
-        experiment_result.save()
-        db.close()
-
-        return score
+    def score(self, datasets, Y_not_used):
+        for dataset in datasets:
+            dataset_path, X, Y, label_encoder_classes = dataset
+            self.scores.append(
+                train_and_eval_dataset(dataset_path, X, Y,
+                                       label_encoder_classes, self,
+                                       param_distribution))
+        return sum(self.scores) / len(self.scores)
 
 
 active_learner = Estimator()
 
-X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
+#  X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
 
-param_distribution['label_encoder_classes'] = [label_encoder.classes_]
+X = []
+Y = []
+for dataset_path in [
+        standard_config.dataset_path, standard_config.dataset_path,
+        standard_config.dataset_path
+]:
+    X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(dataset_path)
+    X.append([dataset_path, X_data, Y_data, label_encoder.classes_])
+    Y.append(None)
 
 if standard_config.hyper_search_type == 'random':
     grid = RandomizedSearchCV(active_learner,
                               param_distribution,
                               n_iter=standard_config.nr_random_runs,
-                              cv=standard_config.cv,
+                              cv=2,
                               verbose=9999999999999999999999999999999999,
                               n_jobs=multiprocessing.cpu_count())
     grid = grid.fit(X, Y)
@@ -366,7 +246,8 @@ elif standard_config.hyper_search_type == 'evo':
         estimator=active_learner,
         params=param_distribution,
         verbose=True,
-        cv=standard_config.cv,
+        cv=ShuffleSplit(test_size=0.20, n_splits=1,
+                        random_state=0),  # fake CV=1 split
         population_size=standard_config.population_size,
         gene_mutation_prob=standard_config.gene_mutation_prob,
         tournament_size=standard_config.tournament_size,

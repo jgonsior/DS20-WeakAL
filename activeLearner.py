@@ -385,8 +385,8 @@ class ActiveLearner:
             else:
                 X_query = None
 
-                if self.metrics_per_al_cycle['test_data_metrics'][0][-1][0][
-                        'accuracy'] > minimum_test_accuracy_before_recommendations:
+                if self.metrics_per_al_cycle['stop_query_weak_accuracy_list'][
+                        -1] > minimum_test_accuracy_before_recommendations:
                     if X_query is None and with_cluster_recommendation:
                         X_query, Y_query, query_indices = self.cluster_recommendation(
                             cluster_recommendation_minimum_cluster_unity_size,
