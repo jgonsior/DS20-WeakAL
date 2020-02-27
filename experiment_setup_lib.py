@@ -26,8 +26,9 @@ from playhouse.postgres_ext import *
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
+
 db = peewee.DatabaseProxy()
 
 
@@ -389,3 +390,58 @@ def get_single_al_run_stats_row(i,
         metrics_per_al_cycle['recommendation'][index],
         metrics_per_al_cycle['query_strong_accuracy_list'][index],
     )
+
+
+def get_toy_datasets(dataset_path):
+    return None
+
+
+def get_all_datasets(dataset_path):
+    X = []
+    Y = []
+    X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(dataset_path +
+                                                             '/dwtc/aft.csv')
+    X_train, X_test, Y_train, Y_test = divide_data(X_data,
+                                                   Y_data,
+                                                   test_fraction=0.5)
+
+    X.append(
+        ['dwtc', X_train, X_test, Y_train, Y_test, label_encoder.classes_])
+    Y.append(None)
+
+    for dataset_name, train_num in zip(
+        ['ibn_sina', 'hiva', 'nova', 'orange', 'sylva', 'zebra'],
+        [10361, 21339, 9733, 2500, 72626, 30744]):
+        df = pd.read_csv(dataset_path + '/' + dataset_name + '.data',
+                         header=None,
+                         sep=" ")
+
+        labels = pd.read_csv(dataset_path + '/' + dataset_name + '.label',
+                             header=None)
+        Y_temp = labels[0].to_numpy()
+        label_encoder = LabelEncoder()
+        Y_temp = label_encoder.fit_transform(Y_temp)
+        X_temp = df.to_numpy()
+
+        scaler = RobustScaler()
+        X_temp = scaler.fit_transform(X_temp)
+
+        scaler = MinMaxScaler()
+        X_temp = scaler.fit_transform(X_temp)
+
+        X_temp = pd.DataFrame(X_temp, dtype=float)
+        Y_temp = pd.DataFrame(Y_temp, dtype=int)
+
+        X_train = X_temp[:train_num]
+        X_test = X_temp[train_num:]
+
+        Y_train = Y_temp[:train_num]
+        Y_test = Y_temp[train_num:]
+
+        X.append([
+            dataset_name, X_train, X_test, Y_train, Y_test,
+            label_encoder.classes_
+        ])
+        Y.append(None)
+
+    return X, Y

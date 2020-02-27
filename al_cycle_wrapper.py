@@ -205,10 +205,9 @@ Takes a dataset_path, X, Y, label_encoder and does the following steps:
 '''
 
 
-def train_and_eval_dataset(dataset_path, X, Y, label_encoder_classes,
-                           hyper_parameters, param_distribution):
-    X_train, X_test, Y_train, Y_test = divide_data(X, Y, test_fraction=0.4)
-
+def train_and_eval_dataset(dataset_path, X_train, X_test, Y_train, Y_test,
+                           label_encoder_classes, hyper_parameters,
+                           param_distribution):
     label_encoder = LabelEncoder()
     label_encoder.fit(label_encoder_classes)
 

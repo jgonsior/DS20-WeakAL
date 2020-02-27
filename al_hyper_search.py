@@ -34,7 +34,8 @@ from dataStorage import DataStorage
 from experiment_setup_lib import (ExperimentResult, Logger,
                                   classification_report_and_confusion_matrix,
                                   get_db, load_and_prepare_X_and_Y,
-                                  standard_config, store_pickle, store_result)
+                                  divide_data, standard_config, store_pickle,
+                                  store_result, get_all_datasets)
 from al_cycle_wrapper import train_and_eval_dataset
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
@@ -203,35 +204,25 @@ class Estimator(BaseEstimator):
     def fit(self, datasets, Y_not_used, **kwargs):
         self.scores = []
         for dataset in datasets:
-            dataset_path, X, Y, label_encoder_classes = dataset
+            dataset_path, X_train, X_test, Y_train, Y_test, label_encoder_classes = dataset
             self.scores.append(
-                train_and_eval_dataset(dataset_path, X, Y,
-                                       label_encoder_classes, self,
+                train_and_eval_dataset(dataset_path, X_train, X_test, Y_train,
+                                       Y_test, label_encoder_classes, self,
                                        param_distribution))
 
     def score(self, datasets, Y_not_used):
         for dataset in datasets:
-            dataset_path, X, Y, label_encoder_classes = dataset
+            dataset_path, X_train, X_test, Y_train, Y_test, label_encoder_classes = dataset
             self.scores.append(
-                train_and_eval_dataset(dataset_path, X, Y,
-                                       label_encoder_classes, self,
+                train_and_eval_dataset(dataset_path, X_train, X_test, Y_train,
+                                       Y_test, label_encoder_classes, self,
                                        param_distribution))
         return sum(self.scores) / len(self.scores)
 
 
 active_learner = Estimator()
 
-#  X, Y, label_encoder = load_and_prepare_X_and_Y(standard_config.dataset_path)
-
-X = []
-Y = []
-for dataset_path in [
-        standard_config.dataset_path, standard_config.dataset_path,
-        standard_config.dataset_path
-]:
-    X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(dataset_path)
-    X.append([dataset_path, X_data, Y_data, label_encoder.classes_])
-    Y.append(None)
+X, Y = get_all_datasets(standard_config.dataset_path)
 
 if standard_config.hyper_search_type == 'random':
     grid = RandomizedSearchCV(active_learner,
