@@ -412,7 +412,8 @@ def get_all_datasets(dataset_path):
     for dataset_name, train_num in zip(
         ['ibn_sina', 'hiva', 'nova', 'orange', 'sylva', 'zebra'],
         [10361, 21339, 9733, 2500, 72626, 30744]):
-        df = pd.read_csv(dataset_path + '/' + dataset_name + '.data',
+        df = pd.read_csv(dataset_path + '/al_challenge/' + dataset_name +
+                         '.data',
                          header=None,
                          sep=" ")
 
