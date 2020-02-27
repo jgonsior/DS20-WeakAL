@@ -80,6 +80,7 @@ class ExperimentResult(BaseModel):
     acc_train = peewee.FloatField(index=True)
     acc_test = peewee.FloatField(index=True)
     fit_score = peewee.FloatField(index=True)
+    roc_auc = peewee.FloatField(index=True)
 
     param_list_id = peewee.TextField(index=True)
 

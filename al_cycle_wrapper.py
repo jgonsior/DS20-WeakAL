@@ -12,7 +12,7 @@ import random
 import sys
 from itertools import chain, combinations
 from timeit import default_timer as timer
-
+from sklearn.metrics import roc_auc_score
 import numpy as np
 #  import np.random.distributions as dists
 import numpy.random
@@ -144,6 +144,14 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     percentage_user_asked_queries = 1 - hyper_parameters.amount_of_user_asked_queries / hyper_parameters.len_train_data
     test_acc = classification_report_and_confusion_matrix_test[0]['accuracy']
 
+    Y_scores = np.array(trained_active_clf_list[0].predict_proba(X_test))
+    Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
+
+    roc_auc = roc_auc_score(Y_test,
+                            Y_scores,
+                            multi_class='ovo',
+                            average='macro')
+
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
         percentage_user_asked_queries + test_acc)
@@ -181,6 +189,7 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         acc_test=classification_report_and_confusion_matrix_test[0]
         ['accuracy'],
         fit_score=score,
+        roc_auc=roc_auc,
         param_list_id=param_list_id)
     experiment_result.save()
     db.close()
