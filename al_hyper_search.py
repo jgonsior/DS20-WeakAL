@@ -92,6 +92,9 @@ init_logging(standard_config.output_dir, level=logging.INFO)
 #  level=logging.INFO,
 #  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
+#  param_size = 50
+param_size = 2
+
 param_distribution = {
     "dataset_path": [standard_config.dataset_path],
     "classifier": [standard_config.classifier],
@@ -113,36 +116,36 @@ param_distribution = {
     "nr_learning_iterations": [standard_config.nr_learning_iterations],
     #  "nr_learning_iterations": [1],
     "nr_queries_per_iteration":
-    np.linspace(1, 2000, num=51).astype(int),
+    np.linspace(1, 150, num=param_size + 1).astype(int),
     "start_set_size":
     np.linspace(0.01, 0.2, num=10).astype(float),
     "stopping_criteria_uncertainty":
-    np.linspace(0, 1, num=101).astype(float),
+    np.linspace(0, 1, num=param_size * 2 + 1).astype(float),
     "stopping_criteria_std":
-    np.linspace(0, 1, num=101).astype(float),
+    np.linspace(0, 1, num=param_size * 2 + 1).astype(float),
     "stopping_criteria_acc":
-    np.linspace(0, 1, num=101).astype(float),
+    np.linspace(0, 1, num=param_size * 2 + 1).astype(float),
     "allow_recommendations_after_stop": [True, False],
 
     #uncertainty_recommendation_grid = {
     "uncertainty_recommendation_certainty_threshold":
-    np.linspace(0.5, 1, num=51).astype(float),
+    np.linspace(0.5, 1, num=param_size + 1).astype(float),
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
 
     #snuba_lite_grid = {
     "snuba_lite_minimum_heuristic_accuracy":
-    np.linspace(0.5, 1, num=51).astype(float),
+    np.linspace(0.5, 1, num=param_size + 1).astype(float),
 
     #cluster_recommendation_grid = {
     "cluster_recommendation_minimum_cluster_unity_size":
-    np.linspace(0.5, 1, num=51).astype(float),
+    np.linspace(0.5, 1, num=param_size + 1).astype(float),
     "cluster_recommendation_ratio_labeled_unlabeled":
-    np.linspace(0.5, 1, num=51).astype(float),
+    np.linspace(0.5, 1, num=param_size + 1).astype(float),
     "with_uncertainty_recommendation": [True, False],
     "with_cluster_recommendation": [True, False],
     "with_snuba_lite": [False],
     "minimum_test_accuracy_before_recommendations":
-    np.linspace(0.5, 1, num=51).astype(float),
+    np.linspace(0.5, 1, num=param_size + 1).astype(float),
     "db_name_or_type": [standard_config.db],
 }
 
