@@ -214,8 +214,8 @@ def load_and_prepare_X_and_Y(dataset_path):
     X = pd.DataFrame(X, dtype=float)
     Y = pd.DataFrame(Y, dtype=int)
 
-    X = pd.to_numeric(X, downcast='float')
-    Y = pd.to_numeric(Y, downcast='integer')
+    X = X.apply(pd.to_numeric, downcast='float', errors='ignore')
+    Y = Y.apply(pd.to_numeric, downcast='integer', errors='ignore')
 
     return X, Y, label_encoder
 
@@ -445,8 +445,10 @@ def get_all_datasets(dataset_path):
         X_temp = pd.DataFrame(X_temp, dtype=float)
         Y_temp = pd.DataFrame(Y_temp, dtype=int)
 
-        X_temp = pd.to_numeric(X_temp, downcast='float')
-        Y_tmep = pd.to_numeric(Y_temp, downcast='integer')
+        X_temp = X_temp.apply(pd.to_numeric, downcast='float', errors='ignore')
+        Y_temp = Y_temp.apply(pd.to_numeric,
+                              downcast='integer',
+                              errors='ignore')
 
         X_train = X_temp[:train_num]
         X_test = X_temp[train_num:]
