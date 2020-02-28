@@ -92,8 +92,8 @@ init_logging(standard_config.output_dir, level=logging.INFO)
 #  level=logging.INFO,
 #  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
-#  param_size = 50
-param_size = 2
+param_size = 50
+#  param_size = 2
 
 param_distribution = {
     "dataset_path": [standard_config.dataset_path],
