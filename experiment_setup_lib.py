@@ -411,18 +411,27 @@ def get_all_datasets(dataset_path):
 
     for dataset_name, train_num in zip(
         ['ibn_sina', 'hiva', 'nova', 'orange', 'sylva', 'zebra'],
+            #  ['ibn_sina'],
         [10361, 21339, 9733, 2500, 72626, 30744]):
+
         df = pd.read_csv(dataset_path + '/al_challenge/' + dataset_name +
                          '.data',
                          header=None,
                          sep=" ")
+        df = df.replace([np.inf, -np.inf], np.nan)
+        df = df.fillna(0)
 
-        labels = pd.read_csv(dataset_path + '/' + dataset_name + '.label',
+        labels = pd.read_csv(dataset_path + '/al_challenge/' + dataset_name +
+                             '.label',
                              header=None)
+
+        labels = labels.replace([-1], 'A')
+        labels = labels.replace([1], 'B')
+
         Y_temp = labels[0].to_numpy()
         label_encoder = LabelEncoder()
         Y_temp = label_encoder.fit_transform(Y_temp)
-        X_temp = df.to_numpy()
+        X_temp = df.to_numpy().astype(np.float)
 
         scaler = RobustScaler()
         X_temp = scaler.fit_transform(X_temp)

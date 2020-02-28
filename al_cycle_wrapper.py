@@ -12,7 +12,7 @@ import random
 import sys
 from itertools import chain, combinations
 from timeit import default_timer as timer
-from sklearn.metrics import roc_auc_score
+
 import numpy as np
 #  import np.random.distributions as dists
 import numpy.random
@@ -25,7 +25,8 @@ from json_tricks import dumps
 from playhouse.postgres_ext import *
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import (classification_report, confusion_matrix,
+                             make_scorer, roc_auc_score)
 from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      RandomizedSearchCV, ShuffleSplit,
                                      train_test_split)
@@ -130,7 +131,7 @@ def train_al(X_train, Y_train, label_encoder, hyper_parameters):
 
 def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
             metrics_per_al_cycle, param_distribution, dataset_storage,
-            active_learner, hyper_parameters):
+            active_learner, hyper_parameters, dataset_path):
     hyper_parameters.amount_of_user_asked_queries = active_learner.amount_of_user_asked_queries
 
     classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
@@ -144,14 +145,20 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     percentage_user_asked_queries = 1 - hyper_parameters.amount_of_user_asked_queries / hyper_parameters.len_train_data
     test_acc = classification_report_and_confusion_matrix_test[0]['accuracy']
 
-    Y_scores = np.array(trained_active_clf_list[0].predict_proba(X_test))
-    Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
+    if len(label_encoder.classes_) > 2:
+        Y_scores = np.array(trained_active_clf_list[0].predict_proba(X_test))
+        Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
 
-    roc_auc = roc_auc_score(Y_test,
-                            Y_scores,
-                            multi_class='ovo',
-                            average='macro')
-
+        roc_auc = roc_auc_score(Y_test,
+                                Y_scores,
+                                multi_class='ovo',
+                                average='macro')
+    else:
+        Y_scores = trained_active_clf_list[0].predict_proba(X_test)[:, 1]
+        #  print(Y_test.shape)
+        Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
+        roc_auc = roc_auc_score(Y_test, Y_scores)
+    print(roc_auc)
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
         percentage_user_asked_queries + test_acc)
@@ -165,9 +172,10 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     param_list_id = hashlib.md5(unique_params.encode('utf-8')).hexdigest()
 
     db = get_db(db_name_or_type=hyper_parameters.db_name_or_type)
-
+    params = hyper_parameters.get_params()
+    params['dataset_path'] = dataset_path
     experiment_result = ExperimentResult(
-        **hyper_parameters.get_params(),
+        **params,
         amount_of_user_asked_queries=hyper_parameters.
         amount_of_user_asked_queries,
         metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),
@@ -216,5 +224,6 @@ def train_and_eval_dataset(dataset_path, X_train, X_test, Y_train, Y_test,
 
     fit_score = eval_al(X_test, Y_test, label_encoder, trained_active_clf_list,
                         fit_time, metrics_per_al_cycle, param_distribution,
-                        dataStorage, active_learner, hyper_parameters)
+                        dataStorage, active_learner, hyper_parameters,
+                        dataset_path)
     return fit_score

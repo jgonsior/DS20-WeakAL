@@ -1,4 +1,5 @@
 import argparse
+import gc
 import contextlib
 import datetime
 import hashlib
@@ -35,7 +36,7 @@ from experiment_setup_lib import (ExperimentResult, Logger,
                                   classification_report_and_confusion_matrix,
                                   get_db, load_and_prepare_X_and_Y,
                                   divide_data, standard_config, store_pickle,
-                                  store_result, get_all_datasets)
+                                  store_result, get_all_datasets, init_logging)
 from al_cycle_wrapper import train_and_eval_dataset
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
@@ -81,14 +82,15 @@ standard_config = standard_config([
     }),
 ])
 
-logging_file_name = standard_config.output_dir + "/" + str(
-    datetime.datetime.now()) + "al_hyper_search.txt"
+init_logging(standard_config.output_dir, level=logging.INFO)
+#  logging_file_name = standard_config.output_dir + "/" + str(
+#  datetime.datetime.now()) + "al_hyper_search.txt"
 
-logging.basicConfig(
-    #  filename=logging_file_name,
-    #  filemode='a',
-    level=logging.INFO,
-    format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
+#  logging.basicConfig(
+#  #  filename=logging_file_name,
+#  #  filemode='a',
+#  level=logging.INFO,
+#  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
 param_distribution = {
     "dataset_path": [standard_config.dataset_path],
@@ -202,6 +204,7 @@ class Estimator(BaseEstimator):
         self.db_name_or_type = db_name_or_type
 
     def fit(self, datasets, Y_not_used, **kwargs):
+        gc.collect()
         self.scores = []
         for dataset in datasets:
             dataset_path, X_train, X_test, Y_train, Y_test, label_encoder_classes = dataset
@@ -217,6 +220,7 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_path, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
+        gc.collect()
         return sum(self.scores) / len(self.scores)
 
 
