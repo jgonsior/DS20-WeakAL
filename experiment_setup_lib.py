@@ -395,36 +395,37 @@ def get_single_al_run_stats_row(i,
     )
 
 
-def get_toy_datasets(dataset_path):
-    return None
+def get_dataset(datasets_path, dataset_name):
+    logging.info("Loading " + dataset_name)
+    if dataset_name == 'dwtc':
+        X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(
+            datasets_path + '/dwtc/aft.csv')
+        X_train, X_test, Y_train, Y_test = divide_data(X_data,
+                                                       Y_data,
+                                                       test_fraction=0.5)
 
+        logging.info("Loaded " + dataset_name)
+        return X_train, X_test, Y_train, Y_test, label_encoder.classes_
+    else:
+        train_indices = {
+            'ibn_sina': 10361,
+            'hiva': 21339,
+            'nova': 9733,
+            'orange': 25000,
+            'sylva': 72626,
+            'zebra': 30744,
+        }
 
-def get_all_datasets(dataset_path):
-    X = []
-    Y = []
-    X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(dataset_path +
-                                                             '/dwtc/aft.csv')
-    X_train, X_test, Y_train, Y_test = divide_data(X_data,
-                                                   Y_data,
-                                                   test_fraction=0.5)
+        train_num = train_indices[dataset_name]
 
-    X.append(
-        ['dwtc', X_train, X_test, Y_train, Y_test, label_encoder.classes_])
-    Y.append(None)
-
-    for dataset_name, train_num in zip(
-        ['ibn_sina', 'hiva', 'nova', 'orange', 'sylva', 'zebra'],
-            #  ['ibn_sina'],
-        [10361, 21339, 9733, 2500, 72626, 30744]):
-
-        df = pd.read_csv(dataset_path + '/al_challenge/' + dataset_name +
+        df = pd.read_csv(datasets_path + '/al_challenge/' + dataset_name +
                          '.data',
                          header=None,
                          sep=" ")
         df = df.replace([np.inf, -np.inf], np.nan)
         df = df.fillna(0)
 
-        labels = pd.read_csv(dataset_path + '/al_challenge/' + dataset_name +
+        labels = pd.read_csv(datasets_path + '/al_challenge/' + dataset_name +
                              '.label',
                              header=None)
 
@@ -456,10 +457,5 @@ def get_all_datasets(dataset_path):
         Y_train = Y_temp[:train_num]
         Y_test = Y_temp[train_num:]
 
-        X.append([
-            dataset_name, X_train, X_test, Y_train, Y_test,
-            label_encoder.classes_
-        ])
-        Y.append(None)
-
-    return X, Y
+        logging.info("Loaded " + dataset_name)
+        return X_train, X_test, Y_train, Y_test, label_encoder.classes_

@@ -36,7 +36,7 @@ from experiment_setup_lib import (ExperimentResult, Logger,
                                   classification_report_and_confusion_matrix,
                                   get_db, load_and_prepare_X_and_Y,
                                   divide_data, standard_config, store_pickle,
-                                  store_result, get_all_datasets, init_logging)
+                                  store_result, get_dataset, init_logging)
 from al_cycle_wrapper import train_and_eval_dataset
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
@@ -206,21 +206,30 @@ class Estimator(BaseEstimator):
 
         self.db_name_or_type = db_name_or_type
 
-    def fit(self, datasets, Y_not_used, **kwargs):
-        gc.collect()
+    def fit(self, dataset_names, Y_not_used, **kwargs):
+
         self.scores = []
-        for dataset in datasets:
-            dataset_path, X_train, X_test, Y_train, Y_test, label_encoder_classes = dataset
+        for dataset_name in dataset_names:
+            gc.collect()
+
+            X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
+                standard_config.dataset_path, dataset_name)
+
             self.scores.append(
-                train_and_eval_dataset(dataset_path, X_train, X_test, Y_train,
+                train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
+            gc.collect()
 
-    def score(self, datasets, Y_not_used):
-        for dataset in datasets:
-            dataset_path, X_train, X_test, Y_train, Y_test, label_encoder_classes = dataset
+    def score(self, dataset_names, Y_not_used):
+        for dataset_name in dataset_names:
+            gc.collect()
+
+            X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
+                standard_config.dataset_path, dataset_name)
+
             self.scores.append(
-                train_and_eval_dataset(dataset_path, X_train, X_test, Y_train,
+                train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
         gc.collect()
@@ -229,7 +238,8 @@ class Estimator(BaseEstimator):
 
 active_learner = Estimator()
 
-X, Y = get_all_datasets(standard_config.dataset_path)
+X = ['dwtc', 'ibn_sina', 'hiva', 'nova', 'orange', 'sylva', 'zebra']
+Y = [None] * 7
 
 if standard_config.hyper_search_type == 'random':
     grid = RandomizedSearchCV(active_learner,
