@@ -400,7 +400,7 @@ def prettify_bytes(bytes):
     simplified version of https://pypi.python.org/pypi/hurry.filesize/
     """
     # bytes pretty-printing
-    UNITS_MAPPING = [
+    units = [
         (1 << 50, ' PB'),
         (1 << 40, ' TB'),
         (1 << 30, ' GB'),
