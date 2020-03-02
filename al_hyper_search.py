@@ -240,7 +240,8 @@ class Estimator(BaseEstimator):
 
 active_learner = Estimator()
 
-X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+#  X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+X = ['sylva', 'zebra']
 Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':
