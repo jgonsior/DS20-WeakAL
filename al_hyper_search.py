@@ -219,6 +219,7 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
+            X_train = X_test = Y_train = Y_test = label_encoder_classes = None
             gc.collect()
 
     def score(self, dataset_names, Y_not_used):
@@ -232,14 +233,15 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
-        gc.collect()
+            X_train = X_test = Y_train = Y_test = label_encoder_classes = None
+            gc.collect()
         return sum(self.scores) / len(self.scores)
 
 
 active_learner = Estimator()
 
-X = ['dwtc', 'ibn_sina', 'hiva', 'nova', 'orange', 'sylva', 'zebra']
-Y = [None] * 7
+X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':
     grid = RandomizedSearchCV(active_learner,
