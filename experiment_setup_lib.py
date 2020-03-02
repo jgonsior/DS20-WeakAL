@@ -458,4 +458,6 @@ def get_dataset(datasets_path, dataset_name):
         Y_test = Y_temp[train_num:]
 
         logging.info("Loaded " + dataset_name)
+        print("Size X ", sys.getsizeof(X_temp), " \t Y ",
+              sys.getsizeof(Y_temp))
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_

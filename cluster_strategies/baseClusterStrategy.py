@@ -1,3 +1,4 @@
+import sys
 import logging
 import abc
 import random
@@ -73,6 +74,12 @@ class BaseClusterStrategy:
             self.data_storage.X_train_unlabeled_cluster_indices[
                 cluster_index].append(X_train_index)
 
+        print("cluster_model ", sys.getsizeof(self.cluster_model))
+        print(
+            "X_train_unlabeled_cluster_indices ",
+            sys.getsizeof(self.data_storage.X_train_unlabeled_cluster_indices))
+        print("X_train_unlabeled ",
+              sys.getsizeof(self.data_storage.X_train_unlabeled))
         #  for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
         #  ):
         #  cluster_labels = self.data_storage.Y_train_unlabeled.loc[
