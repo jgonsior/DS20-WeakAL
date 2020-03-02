@@ -395,6 +395,33 @@ def get_single_al_run_stats_row(i,
     )
 
 
+def prettify_bytes(bytes):
+    """Get human-readable file sizes.
+    simplified version of https://pypi.python.org/pypi/hurry.filesize/
+    """
+    # bytes pretty-printing
+    UNITS_MAPPING = [
+        (1 << 50, ' PB'),
+        (1 << 40, ' TB'),
+        (1 << 30, ' GB'),
+        (1 << 20, ' MB'),
+        (1 << 10, ' KB'),
+        (1, (' byte', ' bytes')),
+    ]
+    for factor, suffix in units:
+        if bytes >= factor:
+            break
+    amount = int(bytes / factor)
+
+    if isinstance(suffix, tuple):
+        singular, multiple = suffix
+        if amount == 1:
+            suffix = singular
+        else:
+            suffix = multiple
+    return str(amount) + suffix
+
+
 def get_dataset(datasets_path, dataset_name):
     logging.info("Loading " + dataset_name)
     if dataset_name == 'dwtc':
@@ -458,6 +485,6 @@ def get_dataset(datasets_path, dataset_name):
         Y_test = Y_temp[train_num:]
 
         logging.info("Loaded " + dataset_name)
-        print("Size X ", sys.getsizeof(X_temp), " \t Y ",
-              sys.getsizeof(Y_temp))
+        print("Size X ", prettify_bytes(sys.getsizeof(X_temp)), " \t Y ",
+              prettify_bytes(sys.getsizeof(Y_temp)))
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_

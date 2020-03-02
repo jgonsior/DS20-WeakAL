@@ -15,6 +15,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from sklearn import metrics
 from math import log, e
+from experiment_setup_lib import prettify_bytes
 
 
 class BaseClusterStrategy:
@@ -77,9 +78,12 @@ class BaseClusterStrategy:
         print("cluster_model ", sys.getsizeof(self.cluster_model))
         print(
             "X_train_unlabeled_cluster_indices ",
-            sys.getsizeof(self.data_storage.X_train_unlabeled_cluster_indices))
-        print("X_train_unlabeled ",
-              sys.getsizeof(self.data_storage.X_train_unlabeled))
+            prettify_bytes(
+                sys.getsizeof(
+                    self.data_storage.X_train_unlabeled_cluster_indices)))
+        print(
+            "X_train_unlabeled ",
+            prettify_bytes(sys.getsizeof(self.data_storage.X_train_unlabeled)))
         #  for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
         #  ):
         #  cluster_labels = self.data_storage.Y_train_unlabeled.loc[
