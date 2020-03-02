@@ -1,20 +1,20 @@
-import sys
-import logging
 import abc
+import logging
 import random
+import sys
 from collections import defaultdict
+from math import e, log
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram
+from sklearn import metrics
 from sklearn.cluster import (DBSCAN, OPTICS, AgglomerativeClustering, Birch,
-                             KMeans)
+                             KMeans, MiniBatchKMeans)
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
-from sklearn import metrics
-from math import log, e
 from experiment_setup_lib import prettify_bytes
 
 
@@ -49,11 +49,18 @@ class BaseClusterStrategy:
         self.X_train_combined = X_train_combined
 
         # then cluster it
-        self.cluster_model = AgglomerativeClustering(
-            n_clusters=int(X_train_combined.shape[1] / 5)
-        )  #distance_threshold=0,                                                     n_clusters=None)
+        #  self.cluster_model = AgglomerativeClustering(
+        #  n_clusters=int(X_train_combined.shape[1] / 5)
+        #  )  #distance_threshold=0,                                                     n_clusters=None)
         #  self.plot_cluster()
         #  self.plot_dendrogram()
+
+        n_samples, n_features = X_train_combined.shape
+
+        self.cluster_model = MiniBatchKMeans(n_clusters=int(n_features / 5),
+                                             batch_size=min(
+                                                 int(n_samples / 100),
+                                                 int(n_features / 5) * 10))
 
         self.data_storage = data_storage
 
@@ -62,7 +69,9 @@ class BaseClusterStrategy:
             self.data_storage.X_train_unlabeled)
 
         logging.info("Clustering into " + str(self.cluster_model.n_clusters) +
-                     " cluster")
+                     " cluster with batch_size " +
+                     str(min(int(n_samples / 100),
+                             int(n_features / 5) * 10)))
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
             lambda: list())
