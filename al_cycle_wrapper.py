@@ -151,12 +151,12 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         Y_scores = np.array(trained_active_clf_list[0].predict_proba(X_test))
         Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
 
-        roc_auc = roc_auc_score(Y_test,
-                                Y_scores,
-                                multi_class='ovo',
-                                average='macro',
-                                labels=label_encoder.classes_)
-        #  labels=[i for i in range(len(label_encoder.classes_))])
+        roc_auc = roc_auc_score(
+            Y_test,
+            Y_scores,
+            multi_class='ovo',
+            average='macro',
+            labels=[i for i in range(len(label_encoder.classes_))])
     else:
         Y_scores = trained_active_clf_list[0].predict_proba(X_test)[:, 1]
         #  print(Y_test.shape)

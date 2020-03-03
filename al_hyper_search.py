@@ -247,9 +247,10 @@ class Estimator(BaseEstimator):
 active_learner = Estimator()
 
 #  X = ['forest_covtype', 'forest_covtype']
-X = ['dwtc', 'hiva', 'sylva', 'zebra']
-#  X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+#  X = ['dwtc', 'hiva', 'sylva', 'zebra']
+X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
 #  X = ['sylva', 'zebra']
+#  X = ['dwtc', 'dwtc']
 Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':
