@@ -1,7 +1,7 @@
 import argparse
-import gc
 import contextlib
 import datetime
+import gc
 import hashlib
 import io
 import logging
@@ -27,6 +27,7 @@ from sklearn.model_selection import (GridSearchCV, ParameterGrid,
                                      train_test_split)
 from sklearn.preprocessing import LabelEncoder
 
+from al_cycle_wrapper import train_and_eval_dataset
 from cluster_strategies import (DummyClusterStrategy,
                                 MostUncertainClusterStrategy,
                                 RandomClusterStrategy,
@@ -34,10 +35,9 @@ from cluster_strategies import (DummyClusterStrategy,
 from dataStorage import DataStorage
 from experiment_setup_lib import (ExperimentResult, Logger,
                                   classification_report_and_confusion_matrix,
-                                  get_db, load_and_prepare_X_and_Y,
-                                  divide_data, standard_config, store_pickle,
-                                  store_result, get_dataset, init_logging)
-from al_cycle_wrapper import train_and_eval_dataset
+                                  divide_data, get_dataset, get_db,
+                                  init_logging, load_and_prepare_X_and_Y,
+                                  standard_config, store_pickle, store_result)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
@@ -219,8 +219,7 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
-
-            X_train = X_test = Y_train = Y_test = label_encoder_classes = None
+            logging.info(dataset_name, " done with ", self.scores[-1])
             gc.collect()
 
     def score(self, dataset_names, Y_not_used):
@@ -234,15 +233,16 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
-            X_train = X_test = Y_train = Y_test = label_encoder_classes = None
+            logging.info(dataset_name, " done with ", self.scores[-1])
             gc.collect()
         return sum(self.scores) / len(self.scores)
 
 
 active_learner = Estimator()
 
-#  X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
-X = ['forest_covtype', 'forest_covtype']
+#  X = ['forest_covtype', 'forest_covtype']
+X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+#  X = ['sylva', 'zebra']
 Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':
