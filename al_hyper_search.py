@@ -246,8 +246,8 @@ class Estimator(BaseEstimator):
 
 active_learner = Estimator()
 
-#  X = ['forest_covtype', 'forest_covtype']
-X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+X = ['forest_covtype', 'forest_covtype']
+#  X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
 #  X = ['sylva', 'zebra']
 Y = [None] * len(X)
 
