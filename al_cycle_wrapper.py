@@ -223,7 +223,7 @@ def train_and_eval_dataset(dataset_path, X_train, X_test, Y_train, Y_test,
     label_encoder.fit(label_encoder_classes)
 
     trained_active_clf_list, fit_time, metrics_per_al_cycle, dataStorage, active_learner = train_al(
-        X_train, Y_train, X_tet, Y_test, label_encoder, hyper_parameters)
+        X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters)
 
     fit_score = eval_al(X_test, Y_test, label_encoder, trained_active_clf_list,
                         fit_time, metrics_per_al_cycle, param_distribution,

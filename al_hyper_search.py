@@ -68,7 +68,7 @@ standard_config = standard_config([
     }),
     (['--generations_number'], {
         'type': int,
-        'default': 10
+        'default': 100
     }),
     (['--gene_mutation_prob'], {
         'type': float,
@@ -207,7 +207,11 @@ class Estimator(BaseEstimator):
         self.db_name_or_type = db_name_or_type
 
     def fit(self, dataset_names, Y_not_used, **kwargs):
-
+        #  unique_params = ""
+        #  for k in param_distribution.keys():
+        #  unique_params += str(vars(self)[k])
+        #  print(unique_params)
+        #  return
         self.scores = []
         for dataset_name in dataset_names:
             gc.collect()
@@ -223,6 +227,8 @@ class Estimator(BaseEstimator):
             gc.collect()
 
     def score(self, dataset_names, Y_not_used):
+        #  print(dataset_names)
+        #  return 4
         for dataset_name in dataset_names:
             gc.collect()
 
