@@ -219,6 +219,7 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
+
             X_train = X_test = Y_train = Y_test = label_encoder_classes = None
             gc.collect()
 
@@ -241,7 +242,7 @@ class Estimator(BaseEstimator):
 active_learner = Estimator()
 
 #  X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
-X = ['sylva', 'zebra']
+X = ['forest_covtype', 'forest_covtype']
 Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':

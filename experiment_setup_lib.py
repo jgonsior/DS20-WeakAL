@@ -1,3 +1,4 @@
+from sklearn.datasets import fetch_covtype
 import argparse
 import contextlib
 import datetime
@@ -433,6 +434,7 @@ def get_dataset(datasets_path, dataset_name):
 
         logging.info("Loaded " + dataset_name)
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_
+
     else:
         train_indices = {
             'ibn_sina': 10361,
@@ -443,21 +445,27 @@ def get_dataset(datasets_path, dataset_name):
             'zebra': 30744,
         }
 
-        train_num = train_indices[dataset_name]
+        if dataset_name != 'forest_covtype':
+            train_num = train_indices[dataset_name]
 
-        df = pd.read_csv(datasets_path + '/al_challenge/' + dataset_name +
-                         '.data',
-                         header=None,
-                         sep=" ")
-        df = df.replace([np.inf, -np.inf], np.nan)
-        df = df.fillna(0)
+            df = pd.read_csv(datasets_path + '/al_challenge/' + dataset_name +
+                             '.data',
+                             header=None,
+                             sep=" ")
+            df = df.replace([np.inf, -np.inf], np.nan)
+            df = df.fillna(0)
 
-        labels = pd.read_csv(datasets_path + '/al_challenge/' + dataset_name +
-                             '.label',
-                             header=None)
+            labels = pd.read_csv(datasets_path + '/al_challenge/' +
+                                 dataset_name + '.label',
+                                 header=None)
 
-        labels = labels.replace([-1], 'A')
-        labels = labels.replace([1], 'B')
+            labels = labels.replace([-1], 'A')
+            labels = labels.replace([1], 'B')
+        elif dataset_name == 'forest_covtype':
+            X, labels = fetch_covtype(data_home=datasets_path, return_X_y=True)
+            train_num = len(labels) / 2
+            df = pd.DataFrame(X)
+            labels = pd.DataFrame(labels)
 
         Y_temp = labels[0].to_numpy()
         label_encoder = LabelEncoder()
@@ -485,6 +493,6 @@ def get_dataset(datasets_path, dataset_name):
         Y_test = Y_temp[train_num:]
 
         logging.info("Loaded " + dataset_name)
-        print("Size X ", prettify_bytes(sys.getsizeof(X_temp)), " \t Y ",
-              prettify_bytes(sys.getsizeof(Y_temp)))
+        #  print("Size X ", prettify_bytes(sys.getsizeof(X_temp)), " \t Y ",
+        #  prettify_bytes(sys.getsizeof(Y_temp)))
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_

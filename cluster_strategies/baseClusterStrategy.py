@@ -60,7 +60,7 @@ class BaseClusterStrategy:
         self.cluster_model = MiniBatchKMeans(n_clusters=int(n_features / 5),
                                              batch_size=min(
                                                  int(n_samples / 100),
-                                                 int(n_features / 5) * 10))
+                                                 int(n_features / 5) * 5))
 
         self.data_storage = data_storage
 
@@ -71,7 +71,7 @@ class BaseClusterStrategy:
         logging.info("Clustering into " + str(self.cluster_model.n_clusters) +
                      " cluster with batch_size " +
                      str(min(int(n_samples / 100),
-                             int(n_features / 5) * 10)))
+                             int(n_features / 5) * 5)))
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
             lambda: list())
@@ -84,15 +84,15 @@ class BaseClusterStrategy:
             self.data_storage.X_train_unlabeled_cluster_indices[
                 cluster_index].append(X_train_index)
 
-        print("cluster_model ", sys.getsizeof(self.cluster_model))
-        print(
-            "X_train_unlabeled_cluster_indices ",
-            prettify_bytes(
-                sys.getsizeof(
-                    self.data_storage.X_train_unlabeled_cluster_indices)))
-        print(
-            "X_train_unlabeled ",
-            prettify_bytes(sys.getsizeof(self.data_storage.X_train_unlabeled)))
+        #  print("cluster_model ", sys.getsizeof(self.cluster_model))
+        #  print(
+        #  "X_train_unlabeled_cluster_indices ",
+        #  prettify_bytes(
+        #  sys.getsizeof(
+        #  self.data_storage.X_train_unlabeled_cluster_indices)))
+        #  print(
+        #  "X_train_unlabeled ",
+        #  prettify_bytes(sys.getsizeof(self.data_storage.X_train_unlabeled)))
         #  for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
         #  ):
         #  cluster_labels = self.data_storage.Y_train_unlabeled.loc[
