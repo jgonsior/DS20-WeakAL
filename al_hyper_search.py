@@ -68,7 +68,7 @@ standard_config = standard_config([
     }),
     (['--generations_number'], {
         'type': int,
-        'default': 1000
+        'default': 10
     }),
     (['--gene_mutation_prob'], {
         'type': float,
@@ -219,7 +219,7 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
-            logging.info(dataset_name, " done with ", self.scores[-1])
+            logging.info(dataset_name + " done with " + str(self.scores[-1]))
             gc.collect()
 
     def score(self, dataset_names, Y_not_used):
@@ -233,7 +233,7 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
-            logging.info(dataset_name, " done with ", self.scores[-1])
+            logging.info(dataset_name + " done with " + str(self.scores[-1]))
             gc.collect()
         return sum(self.scores) / len(self.scores)
 
