@@ -357,7 +357,7 @@ class ActiveLearner:
         logging.info(vars(self))
         logging.info(locals())
 
-        logging.info(get_single_al_run_stats_table_header)
+        logging.info(get_single_al_run_stats_table_header())
 
         self.start_set_size = len(self.data_storage.ground_truth_indices)
         early_stop_reached = False
