@@ -152,13 +152,14 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         roc_auc = roc_auc_score(Y_test,
                                 Y_scores,
                                 multi_class='ovo',
-                                average='macro')
+                                average='macro',
+                                labels=label_encoder.classes_)
+        #  labels=[i for i in range(len(label_encoder.classes_))])
     else:
         Y_scores = trained_active_clf_list[0].predict_proba(X_test)[:, 1]
         #  print(Y_test.shape)
         Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
         roc_auc = roc_auc_score(Y_test, Y_scores)
-    print(roc_auc)
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
         percentage_user_asked_queries + test_acc)
