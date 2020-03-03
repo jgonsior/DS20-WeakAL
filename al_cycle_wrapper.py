@@ -46,12 +46,14 @@ from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
 
-def train_al(X_train, Y_train, label_encoder, hyper_parameters):
+def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
+             hyper_parameters):
     hyper_parameters.len_train_data = len(Y_train)
     dataset_storage = DataStorage(hyper_parameters.random_seed)
     dataset_storage.set_training_data(X_train, Y_train, label_encoder,
                                       hyper_parameters.test_fraction,
-                                      hyper_parameters.start_set_size)
+                                      hyper_parameters.start_set_size, X_test,
+                                      Y_test)
 
     if hyper_parameters.cluster == 'dummy':
         cluster_strategy = DummyClusterStrategy()
@@ -78,7 +80,7 @@ def train_al(X_train, Y_train, label_encoder, hyper_parameters):
         'random_seed': hyper_parameters.random_seed,
         'nr_learning_iterations': hyper_parameters.nr_learning_iterations,
         'nr_queries_per_iteration': hyper_parameters.nr_queries_per_iteration,
-        'with_test': False,
+        'with_test': True,
     }
 
     if hyper_parameters.sampling == 'random':
@@ -221,7 +223,7 @@ def train_and_eval_dataset(dataset_path, X_train, X_test, Y_train, Y_test,
     label_encoder.fit(label_encoder_classes)
 
     trained_active_clf_list, fit_time, metrics_per_al_cycle, dataStorage, active_learner = train_al(
-        X_train, Y_train, label_encoder, hyper_parameters)
+        X_train, Y_train, X_tet, Y_test, label_encoder, hyper_parameters)
 
     fit_score = eval_al(X_test, Y_test, label_encoder, trained_active_clf_list,
                         fit_time, metrics_per_al_cycle, param_distribution,
