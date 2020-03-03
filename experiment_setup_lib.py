@@ -463,7 +463,7 @@ def get_dataset(datasets_path, dataset_name):
             labels = labels.replace([1], 'B')
         elif dataset_name == 'forest_covtype':
             X, labels = fetch_covtype(data_home=datasets_path, return_X_y=True)
-            train_num = len(labels) / 2
+            train_num = int(len(labels) / 2)
             df = pd.DataFrame(X)
             labels = pd.DataFrame(labels)
 
