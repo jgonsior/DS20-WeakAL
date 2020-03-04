@@ -1,3 +1,4 @@
+import math
 import argparse
 import contextlib
 import datetime
@@ -147,15 +148,26 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     percentage_user_asked_queries = 1 - hyper_parameters.amount_of_user_asked_queries / hyper_parameters.len_train_data
     test_acc = classification_report_and_confusion_matrix_test[0]['accuracy']
 
-    # normalise roc_auc somehow
-    ALC = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
-    print(ALC)
-    #  Amax = ?
-    #  Arand = ?
-    global_score = (ALC - Arand)(Amax - Arand)
+    # normalise roc_auc, for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
+    ALCs = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
+    amount_of_labels_per_alcs = metrics_per_al_cycle['query_length']
+
+    rectangles = []
+    triangles = []
+
+    for ALC, amount_of_labels_per_alc, past_ALC in zip(
+            ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
+        amount_of_labels_per_alc = math.log2(amount_of_labels_per_alc)
+        rectangles.append(ALC * amount_of_labels_per_alc)
+        triangles.append(abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
+
+    square = sum(rectangles) + sum(triangles)
+    Amax = math.log2(amount_of_labels_per_alcs[-1])
+    Arand = Amax * 0.5
+    global_score = (square - Arand) / (Amax - Arand)
 
     # score is harmonic mean
-    test_score = 2 * percentage_user_asked_queries * test_acc / (
+    score = 2 * percentage_user_asked_queries * test_acc / (
         percentage_user_asked_queries + test_acc)
 
     # calculate based on params a unique id which should be the same across all similar cross validation splits
@@ -192,7 +204,8 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         acc_test=classification_report_and_confusion_matrix_test[0]
         ['accuracy'],
         fit_score=score,
-        roc_auc=roc_auc,
+        roc_auc=metrics_per_al_cycle['all_unlabeled_roc_auc_score'][-1],
+        global_score=global_score,
         param_list_id=param_list_id)
     experiment_result.save()
     db.close()

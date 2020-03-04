@@ -184,10 +184,10 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
 
-            self.metrics_per_al_cycle[
-                'all_unlabeled_roc_auc_score'] = calculate_roc_auc(
-                    self.data_storage.label_encoder, total_unqueried_data_X,
-                    total_unqueried_data_Y, self.clf_list[0])
+            self.metrics_per_al_cycle['all_unlabeled_roc_auc_score'].append(
+                calculate_roc_auc(self.data_storage.label_encoder,
+                                  total_unqueried_data_X,
+                                  total_unqueried_data_Y, self.clf_list[0]))
 
     def cluster_recommendation(self, minimum_cluster_unity_size,
                                minimum_ratio_labeled_unlabeled):

@@ -83,6 +83,7 @@ class ExperimentResult(BaseModel):
     acc_test = peewee.FloatField(index=True)
     fit_score = peewee.FloatField(index=True)
     roc_auc = peewee.FloatField(index=True)
+    global_score = peewee.FloatField(index=True)
 
     param_list_id = peewee.TextField(index=True)
 
@@ -506,7 +507,7 @@ def get_dataset(datasets_path, dataset_name):
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_
 
 
-def calcuate_roc_auc(label_encoder, X_test, Y_test, clf):
+def calculate_roc_auc(label_encoder, X_test, Y_test, clf):
 
     if len(label_encoder.classes_) > 2:
         Y_scores = np.array(clf.predict_proba(X_test))
@@ -519,7 +520,7 @@ def calcuate_roc_auc(label_encoder, X_test, Y_test, clf):
             average='macro',
             labels=[i for i in range(len(label_encoder.classes_))])
     else:
-        Y_scores = trained_active_clf_list[0].predict_proba(X_test)[:, 1]
+        Y_scores = clf.predict_proba(X_test)[:, 1]
         #  print(Y_test.shape)
         Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
         return roc_auc_score(Y_test, Y_scores)
