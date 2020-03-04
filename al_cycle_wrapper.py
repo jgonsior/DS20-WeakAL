@@ -147,23 +147,15 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     percentage_user_asked_queries = 1 - hyper_parameters.amount_of_user_asked_queries / hyper_parameters.len_train_data
     test_acc = classification_report_and_confusion_matrix_test[0]['accuracy']
 
-    if len(label_encoder.classes_) > 2:
-        Y_scores = np.array(trained_active_clf_list[0].predict_proba(X_test))
-        Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
+    # normalise roc_auc somehow
+    ALC = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
+    print(ALC)
+    #  Amax = ?
+    #  Arand = ?
+    global_score = (ALC - Arand)(Amax - Arand)
 
-        roc_auc = roc_auc_score(
-            Y_test,
-            Y_scores,
-            multi_class='ovo',
-            average='macro',
-            labels=[i for i in range(len(label_encoder.classes_))])
-    else:
-        Y_scores = trained_active_clf_list[0].predict_proba(X_test)[:, 1]
-        #  print(Y_test.shape)
-        Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
-        roc_auc = roc_auc_score(Y_test, Y_scores)
     # score is harmonic mean
-    score = 2 * percentage_user_asked_queries * test_acc / (
+    test_score = 2 * percentage_user_asked_queries * test_acc / (
         percentage_user_asked_queries + test_acc)
 
     # calculate based on params a unique id which should be the same across all similar cross validation splits

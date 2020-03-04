@@ -26,7 +26,7 @@ from json_tricks import dumps
 from playhouse.postgres_ext import *
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 
@@ -496,3 +496,22 @@ def get_dataset(datasets_path, dataset_name):
         #  print("Size X ", prettify_bytes(sys.getsizeof(X_temp)), " \t Y ",
         #  prettify_bytes(sys.getsizeof(Y_temp)))
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_
+
+
+def calcuate_roc_auc(label_encoder, X_test, Y_test, clf):
+
+    if len(label_encoder.classes_) > 2:
+        Y_scores = np.array(clf.predict_proba(X_test))
+        Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
+
+        return roc_auc_score(
+            Y_test,
+            Y_scores,
+            multi_class='ovo',
+            average='macro',
+            labels=[i for i in range(len(label_encoder.classes_))])
+    else:
+        Y_scores = trained_active_clf_list[0].predict_proba(X_test)[:, 1]
+        #  print(Y_test.shape)
+        Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
+        return roc_auc_score(Y_test, Y_scores)

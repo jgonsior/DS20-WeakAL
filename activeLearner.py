@@ -23,7 +23,8 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 from experiment_setup_lib import (classification_report_and_confusion_matrix,
                                   get_single_al_run_stats_row,
-                                  get_single_al_run_stats_table_header)
+                                  get_single_al_run_stats_table_header,
+                                  calculate_roc_auc)
 
 
 class ActiveLearner:
@@ -65,7 +66,8 @@ class ActiveLearner:
             'stop_query_weak_accuracy_list': [],
             'query_strong_accuracy_list': [],
             'query_length': [],
-            'recommendation': []
+            'recommendation': [],
+            'all_unlabeled_roc_auc_score': []
         }
 
         self.with_test = with_test
@@ -117,6 +119,13 @@ class ActiveLearner:
             self.query_weak_accuracy_list.append(1)
 
     def calculate_post_metrics(self, X_query, Y_query, Y_query_strong=None):
+        total_unqueried_data_X = pd.concat(
+            [self.data_storage.X_test, self.data_storage.X_train_unlabeled],
+            copy=False)
+        total_unqueried_data_Y = pd.concat(
+            [self.data_storage.Y_test, self.data_storage.Y_train_unlabeled],
+            copy=False)
+
         if Y_query_strong is not None:
             self.metrics_per_al_cycle['query_strong_accuracy_list'].append(
                 accuracy_score(Y_query_strong, Y_query))
@@ -138,8 +147,10 @@ class ActiveLearner:
             if self.with_test:
                 metrics = classification_report_and_confusion_matrix(
                     clf,
-                    self.data_storage.X_test,
-                    self.data_storage.Y_test,
+                    total_unqueried_data_X,
+                    total_unqueried_data_Y,
+                    #  self.data_storage.X_test,
+                    #  self.data_storage.Y_test,
                     self.data_storage.label_encoder,
                     output_dict=True)
 
@@ -172,6 +183,11 @@ class ActiveLearner:
 
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
+
+            self.metrics_per_al_cycle[
+                'all_unlabeled_roc_auc_score'] = calculate_roc_auc(
+                    self.data_storage.label_encoder, total_unqueried_data_X,
+                    total_unqueried_data_Y, self.clf_list[0])
 
     def cluster_recommendation(self, minimum_cluster_unity_size,
                                minimum_ratio_labeled_unlabeled):
