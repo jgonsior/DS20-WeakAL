@@ -1,4 +1,5 @@
 import argparse
+import scipy
 import contextlib
 import datetime
 import gc
@@ -44,7 +45,7 @@ from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
 standard_config = standard_config([
     (['--nr_learning_iterations'], {
         'type': int,
-        'default': 100
+        'default': 1000000
     }),
     (['--cv'], {
         'type': int,
@@ -92,8 +93,19 @@ init_logging(standard_config.output_dir, level=logging.INFO)
 #  level=logging.INFO,
 #  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
-param_size = 50
-#  param_size = 2
+if standard_config.hyper_search_type == 'random':
+    zero_to_one = scipy.stats.uniform(loc=0, scale=1)
+    half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
+    nr_queries_per_iteration = scipy.stats.randint(1, 151)
+    start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
+else:
+    param_size = 50
+    #  param_size = 2
+    zero_to_one = np.linspace(0, 1, num=param_size * 2 + 1).astype(float)
+    half_to_one = np.linspace(0.5, 1, num=param_size + 1).astype(float)
+    nr_queries_per_iteration = np.linspace(1, 150,
+                                           num=param_size + 1).astype(int)
+    start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
 
 param_distribution = {
     "dataset_path": [standard_config.dataset_path],
@@ -116,36 +128,36 @@ param_distribution = {
     "nr_learning_iterations": [standard_config.nr_learning_iterations],
     #  "nr_learning_iterations": [1],
     "nr_queries_per_iteration":
-    np.linspace(1, 150, num=param_size + 1).astype(int),
+    nr_queries_per_iteration,
     "start_set_size":
-    np.linspace(0.01, 0.2, num=10).astype(float),
+    start_set_size,
     "stopping_criteria_uncertainty":
-    np.linspace(0, 1, num=param_size * 2 + 1).astype(float),
+    zero_to_one,
     "stopping_criteria_std":
-    np.linspace(0, 1, num=param_size * 2 + 1).astype(float),
+    zero_to_one,
     "stopping_criteria_acc":
-    np.linspace(0, 1, num=param_size * 2 + 1).astype(float),
+    zero_to_one,
     "allow_recommendations_after_stop": [True, False],
 
     #uncertainty_recommendation_grid = {
     "uncertainty_recommendation_certainty_threshold":
-    np.linspace(0.5, 1, num=param_size + 1).astype(float),
+    half_to_one,
     "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
 
     #snuba_lite_grid = {
-    "snuba_lite_minimum_heuristic_accuracy":
-    np.linspace(0.5, 1, num=param_size + 1).astype(float),
+    "snuba_lite_minimum_heuristic_accuracy": [0],
+    #  half_to_one,
 
     #cluster_recommendation_grid = {
     "cluster_recommendation_minimum_cluster_unity_size":
-    np.linspace(0.5, 1, num=param_size + 1).astype(float),
+    half_to_one,
     "cluster_recommendation_ratio_labeled_unlabeled":
-    np.linspace(0.5, 1, num=param_size + 1).astype(float),
+    half_to_one,
     "with_uncertainty_recommendation": [True, False],
     "with_cluster_recommendation": [True, False],
     "with_snuba_lite": [False],
     "minimum_test_accuracy_before_recommendations":
-    np.linspace(0.5, 1, num=param_size + 1).astype(float),
+    half_to_one,
     "db_name_or_type": [standard_config.db],
 }
 
@@ -252,12 +264,16 @@ X = ['forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
 Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':
-    grid = RandomizedSearchCV(active_learner,
-                              param_distribution,
-                              n_iter=standard_config.nr_random_runs,
-                              cv=2,
-                              verbose=9999999999999999999999999999999999,
-                              n_jobs=multiprocessing.cpu_count())
+    grid = RandomizedSearchCV(
+        active_learner,
+        param_distribution,
+        n_iter=standard_config.nr_random_runs,
+        pre_dispatch=standard_config.n_jobs,
+        return_train_score=True,
+        cv=ShuffleSplit(test_size=0.20, n_splits=1,
+                        random_state=0),  # fake CV=1 split
+        verbose=9999999999999999999999999999999999,
+        n_jobs=standard_config.n_jobs)
     grid = grid.fit(X, Y)
 elif standard_config.hyper_search_type == 'evo':
     grid = EvolutionaryAlgorithmSearchCV(
