@@ -378,6 +378,14 @@ def get_single_al_run_stats_row(i,
             0].keys():
         return "No test accuracy found"
 
+    if 'accuracy' not in metrics_per_al_cycle['train_labeled_data_metrics'][0][
+            index][0].keys():
+        return "No train_labeled accuracy found"
+
+    if 'accuracy' not in metrics_per_al_cycle['train_unlabeled_data_metrics'][
+            0][index][0].keys():
+        return "No train_unlabeled_data_metrics accuracy found"
+
     return "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}".format(
         i,
         amount_of_labeled,

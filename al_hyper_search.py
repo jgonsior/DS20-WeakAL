@@ -92,7 +92,7 @@ init_logging(standard_config.output_dir, level=logging.INFO)
 #  level=logging.INFO,
 #  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
-param_size = 50
+param_size = 30
 #  param_size = 2
 
 param_distribution = {
@@ -252,12 +252,14 @@ X = ['forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
 Y = [None] * len(X)
 
 if standard_config.hyper_search_type == 'random':
-    grid = RandomizedSearchCV(active_learner,
-                              param_distribution,
-                              n_iter=standard_config.nr_random_runs,
-                              cv=2,
-                              verbose=9999999999999999999999999999999999,
-                              n_jobs=multiprocessing.cpu_count())
+    grid = RandomizedSearchCV(
+        active_learner,
+        param_distribution,
+        n_iter=standard_config.nr_random_runs,
+        cv=ShuffleSplit(test_size=0.20, n_splits=1,
+                        random_state=0),  # fake CV=1 split
+        verbose=9999999999999999999999999999999999,
+        n_jobs=standard_config.n_jobs)
     grid = grid.fit(X, Y)
 elif standard_config.hyper_search_type == 'evo':
     grid = EvolutionaryAlgorithmSearchCV(
