@@ -4,7 +4,6 @@ import datetime
 import hashlib
 import io
 import json
-import logging
 import math
 import multiprocessing
 import os
@@ -38,11 +37,11 @@ from cluster_strategies import (DummyClusterStrategy,
                                 RandomClusterStrategy,
                                 RoundRobinClusterStrategy)
 from dataStorage import DataStorage
-from experiment_setup_lib import (ExperimentResult, Logger,
+from experiment_setup_lib import (ExperimentResult,
                                   classification_report_and_confusion_matrix,
                                   divide_data, get_db,
                                   load_and_prepare_X_and_Y, standard_config,
-                                  store_pickle, store_result)
+                                  store_pickle, store_result, log_it)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
@@ -100,7 +99,7 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
     #  elif hyper_parameters.sampling == 'committee':
     #  active_learner = CommitteeSampler(hyper_parameters.random_seed, hyper_parameters.cores, hyper_parameters.nr_learning_iterations)
     else:
-        logging.error("No Active Learning Strategy specified")
+        logger.error("No Active Learning Strategy specified")
 
     start = timer()
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(

@@ -1,3 +1,4 @@
+import threading
 from sklearn.datasets import fetch_covtype
 import argparse
 import contextlib
@@ -104,17 +105,35 @@ def get_db(db_name_or_type):
     return db
 
 
-def init_logging(output_dir, level=logging.INFO):
-    logging_file_name = output_dir + "/" + str(
-        datetime.datetime.now()) + "al_hyper_search.txt"
-    if output_dir is not None:
-        logging.basicConfig(
-            filename=logging_file_name,
-            filemode='a',
-            level=level,
-            format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
-    else:
-        logging.basicConfig(level=level)
+#  def init_logging(output_dir, level=logging.INFO):
+#  logging_file_name = output_dir + "/" + str(
+#  datetime.datetime.now()) + "al_hyper_search.txt"
+#  if output_dir is not None:
+
+#  logging.basicConfig(
+#  filename=logging_file_name,
+#  filemode='a',
+#  level=level,
+#  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
+#  else:
+#  logging.basicConfig(level=level)
+
+
+def log_it(message):
+    with open('tmp/log.txt', 'a') as f:
+        f.write("[" + str(threading.get_ident()) + "] [" +
+                str(datetime.datetime.now().time()) + "] " + str(message) +
+                "\n")
+
+
+#  def get_logger():
+#  logger = logging.getLogger('al_logger')
+#  formatter = logging.Formatter(
+#  "[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
+#  handler = logging.FileHandler("tmp/log.txt")
+#  handler.setFormatter(formatter)
+#  logger.addHandler(handler)
+#  return logger
 
 
 def divide_data(X, Y, test_fraction):

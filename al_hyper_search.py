@@ -33,11 +33,11 @@ from cluster_strategies import (DummyClusterStrategy,
                                 RandomClusterStrategy,
                                 RoundRobinClusterStrategy)
 from dataStorage import DataStorage
-from experiment_setup_lib import (ExperimentResult, Logger,
+from experiment_setup_lib import (ExperimentResult,
                                   classification_report_and_confusion_matrix,
                                   divide_data, get_dataset, get_db,
-                                  init_logging, load_and_prepare_X_and_Y,
-                                  standard_config, store_pickle, store_result)
+                                  load_and_prepare_X_and_Y, standard_config,
+                                  store_pickle, store_result, log_it)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
@@ -81,16 +81,6 @@ standard_config = standard_config([
         'default': 'random'
     }),
 ])
-
-init_logging(standard_config.output_dir, level=logging.INFO)
-#  logging_file_name = standard_config.output_dir + "/" + str(
-#  datetime.datetime.now()) + "al_hyper_search.txt"
-
-#  logging.basicConfig(
-#  #  filename=logging_file_name,
-#  #  filemode='a',
-#  level=logging.INFO,
-#  format="[%(process)d] [%(asctime)s] %(levelname)s: %(message)s")
 
 if standard_config.hyper_search_type == 'random':
     zero_to_one = scipy.stats.uniform(loc=0, scale=1)
@@ -218,10 +208,13 @@ class Estimator(BaseEstimator):
         self.db_name_or_type = db_name_or_type
 
     def fit(self, dataset_names, Y_not_used, **kwargs):
+        #  print("fit", dataset_names)
         self.scores = []
 
         for dataset_name in dataset_names:
-            gc.collect()
+            if dataset_name is None:
+                continue
+            #  gc.collect()
 
             X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
                 standard_config.dataset_path, dataset_name)
@@ -230,20 +223,19 @@ class Estimator(BaseEstimator):
                 train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
                                        Y_test, label_encoder_classes, self,
                                        param_distribution))
-            logging.info(dataset_name + " done with " + str(self.scores[-1]))
-            gc.collect()
+
+            log_it(dataset_name + " done with " + str(self.scores[-1]))
+            #  gc.collect()
 
     def score(self, dataset_names_should_be_none, Y_not_used):
+        #  print("score", dataset_names_should_be_none)
         return sum(self.scores) / len(self.scores)
 
 
 active_learner = Estimator()
 
 if standard_config.nr_learning_iterations == 3:
-    X = [
-        'forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva',
-        'zebra'
-    ]
+    X = ['dwtc', 'ibn_sina']
 else:
     X = [
         'forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva',
@@ -280,8 +272,8 @@ if standard_config.hyper_search_type == 'random':
         pre_dispatch=standard_config.n_jobs,
         return_train_score=False,
         cv=NoCvCvSplit(n_splits=1),
-        #  verbose=9999999999999999999999999999999999,
-        verbose=0,
+        verbose=9999999999999999999999999999999999,
+        #  verbose=0,
         n_jobs=standard_config.n_jobs)
     grid = grid.fit(X, Y)
 elif standard_config.hyper_search_type == 'evo':
