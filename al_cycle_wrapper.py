@@ -157,7 +157,7 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     for ALC, amount_of_labels_per_alc, past_ALC in zip(
             ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
         amount_of_labels_per_alc = math.log2(amount_of_labels_per_alc)
-        rectangles.append(ALC * amount_of_labels_per_alc)
+        rectangles.append(past_ALC * amount_of_labels_per_alc)
         triangles.append(abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
 
     square = sum(rectangles) + sum(triangles)
