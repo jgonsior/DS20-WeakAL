@@ -87,8 +87,8 @@ if standard_config.hyper_search_type == 'random':
     half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
     nr_queries_per_iteration = scipy.stats.randint(1, 151)
     #  start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
-    #  start_set_size = [1, 10, 25, 50, 100]
-    start_set_size = [50]
+    start_set_size = [1, 10, 25, 50, 100]
+    #  start_set_size = [50]
 else:
     param_size = 50
     #  param_size = 2
@@ -246,7 +246,7 @@ else:
         'hiva',
         'orange',
         'sylva',
-        #  'forest_covtype',
+        'forest_covtype',
         'zebra',
     ]
 

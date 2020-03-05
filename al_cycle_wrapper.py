@@ -1,5 +1,4 @@
 import argparse
-import threading
 import contextlib
 import datetime
 import hashlib
@@ -11,6 +10,7 @@ import os
 import pickle
 import random
 import sys
+import threading
 from itertools import chain, combinations
 from timeit import default_timer as timer
 
@@ -41,8 +41,8 @@ from dataStorage import DataStorage
 from experiment_setup_lib import (ExperimentResult,
                                   classification_report_and_confusion_matrix,
                                   divide_data, get_db,
-                                  load_and_prepare_X_and_Y, standard_config,
-                                  store_pickle, store_result, log_it)
+                                  load_and_prepare_X_and_Y, log_it,
+                                  standard_config, store_pickle, store_result)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
@@ -150,6 +150,8 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
 
     # normalise roc_auc, for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
     ALCs = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
+
+    # prepare yourself for a lot of unrefactored copy and paste code
     if len(ALCs) > 1:
         amount_of_labels_per_alcs = [
             math.log2(m) for m in metrics_per_al_cycle['query_length']
@@ -183,22 +185,28 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         Arand = Amax * 0.5
         global_score = (square - Arand) / (Amax - Arand)
 
-        if global_score > 1 or square < Arand:
-            print("ALCs: ", ALCs)
-            print("#q: ", amount_of_labels_per_alcs)
-            print("rect: ", rectangles)
-            print("tria: ", triangles)
-            print("Ama: ", Amax)
-            print("Ara: ", Arand)
-            print("squ: ", square)
-            print("glob: ", global_score)
+        #  if global_score > 1 or square < Arand:
+        #  print("ALCs: ", ALCs)
+        #  print("#q: ", amount_of_labels_per_alcs)
+        #  print("rect: ", rectangles)
+        #  print("tria: ", triangles)
+        #  print("Ama: ", Amax)
+        #  print("Ara: ", Arand)
+        #  print("squ: ", square)
+        #  print("glob: ", global_score)
     else:
-        global_score_norm = sum([
-            math.log2(m) for m in metrics_per_al_cycle['query_length']
-        ]) * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
-        global_score = sum(
+        square_norm = math.log2(
             metrics_per_al_cycle['query_length']
-        ) * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
+            [0]) * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
+        square = metrics_per_al_cycle['query_length'][
+            0] * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
+
+        Amax = metrics_per_al_cycle['query_length'][0]
+        Arand = Amax * 0.5
+        global_score = (square - Arand) / (Amax - Arand)
+        Amax = math.log2(Amax)
+        Arand = Amax * 0.5
+        global_score_norm = (square_norm - Arand) / (Amax - Arand)
 
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
@@ -215,6 +223,7 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     db = get_db(db_name_or_type=hyper_parameters.db_name_or_type)
     params = hyper_parameters.get_params()
     params['dataset_path'] = dataset_path
+
     experiment_result = ExperimentResult(
         **params,
         amount_of_user_asked_queries=hyper_parameters.
