@@ -86,7 +86,9 @@ if standard_config.hyper_search_type == 'random':
     zero_to_one = scipy.stats.uniform(loc=0, scale=1)
     half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
     nr_queries_per_iteration = scipy.stats.randint(1, 151)
-    start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
+    #  start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
+    #  start_set_size = [1, 10, 25, 50, 100]
+    start_set_size = [50]
 else:
     param_size = 50
     #  param_size = 2
@@ -94,7 +96,8 @@ else:
     half_to_one = np.linspace(0.5, 1, num=param_size + 1).astype(float)
     nr_queries_per_iteration = np.linspace(1, 150,
                                            num=param_size + 1).astype(int)
-    start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
+    #  start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
+    start_set_size = [1, 10, 25, 50, 100]
 
 param_distribution = {
     "dataset_path": [standard_config.dataset_path],
@@ -243,7 +246,7 @@ else:
         'hiva',
         'orange',
         'sylva',
-        'forest_covtype',
+        #  'forest_covtype',
         'zebra',
     ]
 

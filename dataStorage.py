@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
 from experiment_setup_lib import log_it
 
 
@@ -24,8 +25,35 @@ class DataStorage:
                           X_test=None,
                           Y_test=None):
         # split training data into labeled and unlabeled dataset
+        # ensure that at least one sample of each label is present!
         self.X_train_labeled, self.X_train_unlabeled, self.Y_train_labeled, self.Y_train_unlabeled = train_test_split(
-            X_train, Y_train, test_size=1 - start_set_size)
+            X_train, Y_train, train_size=start_set_size)
+
+        Y_train_labeled_set = set(self.Y_train_labeled[0].to_numpy())
+
+        if len(Y_train_labeled_set) < len(label_encoder.classes_):
+            # move more data here from the classes not present
+            for class_not_present in range(0, len(label_encoder.classes_)):
+                if class_not_present in Y_train_labeled_set:
+                    continue
+                Y_not_present = self.Y_train_unlabeled[
+                    self.Y_train_unlabeled[0] == class_not_present].iloc[0:1]
+                #  print(Y_not_present)
+                #  print(Y_not_present.index)
+                X_not_present = self.X_train_unlabeled.loc[Y_not_present.index]
+
+                #  print(Y_not_present)
+                #  print(X_not_present)
+
+                self.X_train_labeled = self.X_train_labeled.append(
+                    X_not_present)
+                self.X_train_unlabeled = self.X_train_unlabeled.drop(
+                    X_not_present.index)
+
+                self.Y_train_labeled = self.Y_train_labeled.append(
+                    Y_not_present)
+                self.Y_train_unlabeled = self.Y_train_unlabeled.drop(
+                    Y_not_present.index)
 
         self._print_data_segmentation()
 

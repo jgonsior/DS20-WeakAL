@@ -6,7 +6,6 @@ import pickle
 import random
 import sys
 from collections import defaultdict
-from pprint import pprint
 
 import matplotlib
 import matplotlib.pyplot as plt

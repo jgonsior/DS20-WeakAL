@@ -1,5 +1,5 @@
-import threading
 from sklearn.datasets import fetch_covtype
+import threading
 import argparse
 import contextlib
 import datetime
@@ -85,11 +85,15 @@ class ExperimentResult(BaseModel):
     fit_score = peewee.FloatField(index=True)
     roc_auc = peewee.FloatField(index=True)
     global_score = peewee.FloatField(index=True)
+    global_score_norm = peewee.FloatField(index=True)
 
     param_list_id = peewee.TextField(index=True)
 
     cv_fit_score_mean = peewee.FloatField(null=True)
     cv_fit_score_std = peewee.FloatField(null=True)
+
+    thread_id = peewee.BigIntegerField(index=True)
+    end_time = peewee.DateTimeField(index=True)
 
 
 def get_db(db_name_or_type):
@@ -120,10 +124,10 @@ def get_db(db_name_or_type):
 
 
 def log_it(message):
+    #  print(message)
     with open('tmp/log.txt', 'a') as f:
         f.write("[" + str(threading.get_ident()) + "] [" +
-                str(datetime.datetime.now().time()) + "] " + str(message) +
-                "\n")
+                str(datetime.datetime.now()) + "] " + str(message) + "\n")
 
 
 #  def get_logger():
@@ -527,9 +531,10 @@ def get_dataset(datasets_path, dataset_name):
 
 
 def calculate_roc_auc(label_encoder, X_test, Y_test, clf):
-
+    #  print(set(Y_test[0].to_numpy()))
     if len(label_encoder.classes_) > 2:
         Y_scores = np.array(clf.predict_proba(X_test))
+        #  print(Y_scores)
         Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
 
         return roc_auc_score(

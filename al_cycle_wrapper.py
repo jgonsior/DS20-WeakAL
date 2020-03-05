@@ -1,4 +1,5 @@
 import argparse
+import threading
 import contextlib
 import datetime
 import hashlib
@@ -150,6 +151,23 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     # normalise roc_auc, for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
     ALCs = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
     if len(ALCs) > 1:
+        amount_of_labels_per_alcs = [
+            math.log2(m) for m in metrics_per_al_cycle['query_length']
+        ]
+
+        rectangles = []
+        triangles = []
+
+        for ALC, amount_of_labels_per_alc, past_ALC in zip(
+                ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
+            rectangles.append(past_ALC * amount_of_labels_per_alc)
+            triangles.append(
+                abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
+        square = sum(rectangles) + sum(triangles)
+        Amax = sum(amount_of_labels_per_alcs)
+        Arand = Amax * 0.5
+        global_score_norm = (square - Arand) / (Amax - Arand)
+
         amount_of_labels_per_alcs = metrics_per_al_cycle['query_length']
 
         rectangles = []
@@ -157,7 +175,6 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
 
         for ALC, amount_of_labels_per_alc, past_ALC in zip(
                 ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
-            amount_of_labels_per_alc = amount_of_labels_per_alc
             rectangles.append(past_ALC * amount_of_labels_per_alc)
             triangles.append(
                 abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
@@ -166,8 +183,22 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         Arand = Amax * 0.5
         global_score = (square - Arand) / (Amax - Arand)
 
+        if global_score > 1 or square < Arand:
+            print("ALCs: ", ALCs)
+            print("#q: ", amount_of_labels_per_alcs)
+            print("rect: ", rectangles)
+            print("tria: ", triangles)
+            print("Ama: ", Amax)
+            print("Ara: ", Arand)
+            print("squ: ", square)
+            print("glob: ", global_score)
     else:
-        global_score = 0
+        global_score_norm = sum([
+            math.log2(m) for m in metrics_per_al_cycle['query_length']
+        ]) * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
+        global_score = sum(
+            metrics_per_al_cycle['query_length']
+        ) * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
 
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
@@ -209,7 +240,10 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         fit_score=score,
         roc_auc=metrics_per_al_cycle['all_unlabeled_roc_auc_score'][-1],
         global_score=global_score,
-        param_list_id=param_list_id)
+        global_score_norm=global_score_norm,
+        param_list_id=param_list_id,
+        thread_id=threading.get_ident(),
+        end_time=datetime.datetime.now())
     experiment_result.save()
     db.close()
     return score
