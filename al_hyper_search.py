@@ -261,10 +261,11 @@ active_learner = Estimator()
 if standard_config.nr_learning_iterations == 3:
     X = ['dwtc', 'ibn_sina']
 else:
-    X = [
-        'forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva',
-        'zebra'
-    ]
+    X = ['dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva', 'zebra']
+    #  X = [
+    #  'forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva',
+    #  'zebra'
+    #  ]
 #  X = ['sylva', 'zebra']
 #  X = ['dwtc', 'dwtc']
 Y = [None] * len(X)
