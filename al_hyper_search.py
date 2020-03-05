@@ -243,8 +243,6 @@ else:
     ]
 
 X.append(None)
-#  X = ['sylva', 'zebra']
-#  X = ['dwtc', 'dwtc']
 Y = [None] * len(X)
 
 
