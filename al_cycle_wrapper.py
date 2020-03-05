@@ -1,4 +1,3 @@
-import math
 import argparse
 import contextlib
 import datetime
@@ -6,6 +5,7 @@ import hashlib
 import io
 import json
 import logging
+import math
 import multiprocessing
 import os
 import pickle

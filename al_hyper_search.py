@@ -1,5 +1,4 @@
 import argparse
-import scipy
 import contextlib
 import datetime
 import gc
@@ -219,12 +218,8 @@ class Estimator(BaseEstimator):
         self.db_name_or_type = db_name_or_type
 
     def fit(self, dataset_names, Y_not_used, **kwargs):
-        #  unique_params = ""
-        #  for k in param_distribution.keys():
-        #  unique_params += str(vars(self)[k])
-        #  print(unique_params)
-        #  return
         self.scores = []
+
         for dataset_name in dataset_names:
             gc.collect()
 
@@ -238,36 +233,44 @@ class Estimator(BaseEstimator):
             logging.info(dataset_name + " done with " + str(self.scores[-1]))
             gc.collect()
 
-    def score(self, dataset_names, Y_not_used):
-        #  print(dataset_names)
-        #  return 4
-        for dataset_name in dataset_names:
-            gc.collect()
-
-            X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
-                standard_config.dataset_path, dataset_name)
-
-            self.scores.append(
-                train_and_eval_dataset(dataset_name, X_train, X_test, Y_train,
-                                       Y_test, label_encoder_classes, self,
-                                       param_distribution))
-            logging.info(dataset_name + " done with " + str(self.scores[-1]))
-            gc.collect()
+    def score(self, dataset_names_should_be_none, Y_not_used):
         return sum(self.scores) / len(self.scores)
 
 
 active_learner = Estimator()
 
 if standard_config.nr_learning_iterations == 3:
-    X = ['dwtc', 'ibn_sina']
+    X = [
+        'forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva',
+        'zebra'
+    ]
 else:
     X = [
         'forest_covtype', 'dwtc', 'ibn_sina', 'hiva', 'orange', 'sylva',
         'zebra'
     ]
+
+X.append(None)
 #  X = ['sylva', 'zebra']
 #  X = ['dwtc', 'dwtc']
 Y = [None] * len(X)
+
+
+# fake our own stupid cv=1 split
+class NoCvCvSplit:
+    def __init__(self, n_splits=3, **kwargs):
+        self.n_splits = n_splits
+        pass
+
+    def get_n_splits(self, X, y, groups=None):
+        return self.n_splits
+
+    def split(self, dataset_names, y=None, groups=None, split_quota=None):
+        # everything goes into train once
+        train_idx = [i for i in range(0, len(dataset_names) - 1)]
+
+        yield train_idx, [len(dataset_names) - 1]
+
 
 if standard_config.hyper_search_type == 'random':
     grid = RandomizedSearchCV(
@@ -275,10 +278,10 @@ if standard_config.hyper_search_type == 'random':
         param_distribution,
         n_iter=standard_config.nr_random_runs,
         pre_dispatch=standard_config.n_jobs,
-        return_train_score=True,
-        cv=ShuffleSplit(test_size=0.20, n_splits=1,
-                        random_state=0),  # fake CV=1 split
-        verbose=9999999999999999999999999999999999,
+        return_train_score=False,
+        cv=NoCvCvSplit(n_splits=1),
+        #  verbose=9999999999999999999999999999999999,
+        verbose=0,
         n_jobs=standard_config.n_jobs)
     grid = grid.fit(X, Y)
 elif standard_config.hyper_search_type == 'evo':
