@@ -149,21 +149,25 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
 
     # normalise roc_auc, for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
     ALCs = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
-    amount_of_labels_per_alcs = metrics_per_al_cycle['query_length']
+    if len(ALCs) > 1:
+        amount_of_labels_per_alcs = metrics_per_al_cycle['query_length']
 
-    rectangles = []
-    triangles = []
+        rectangles = []
+        triangles = []
 
-    for ALC, amount_of_labels_per_alc, past_ALC in zip(
-            ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
-        amount_of_labels_per_alc = math.log2(amount_of_labels_per_alc)
-        rectangles.append(past_ALC * amount_of_labels_per_alc)
-        triangles.append(abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
+        for ALC, amount_of_labels_per_alc, past_ALC in zip(
+                ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
+            amount_of_labels_per_alc = amount_of_labels_per_alc
+            rectangles.append(past_ALC * amount_of_labels_per_alc)
+            triangles.append(
+                abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
+        square = sum(rectangles) + sum(triangles)
+        Amax = sum(amount_of_labels_per_alcs)
+        Arand = Amax * 0.5
+        global_score = (square - Arand) / (Amax - Arand)
 
-    square = sum(rectangles) + sum(triangles)
-    Amax = math.log2(amount_of_labels_per_alcs[-1])
-    Arand = Amax * 0.5
-    global_score = (square - Arand) / (Amax - Arand)
+    else:
+        global_score = 0
 
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
