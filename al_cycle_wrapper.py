@@ -175,7 +175,9 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
     param_list_id = hashlib.md5(unique_params.encode('utf-8')).hexdigest()
 
     db = get_db(db_name_or_type=hyper_parameters['db_name_or_type'])
-    print(hyper_parameters.keys())
+
+    hyper_parameters['dataset_name'] = dataset_name
+
     experiment_result = ExperimentResult(
         **hyper_parameters,
         metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),

@@ -513,9 +513,15 @@ def calculate_global_score(alcs, amount_of_labels_per_alcs):
     return global_score
 
 
-def get_param_distribution(hyper_search_type, datasets_path, classifier, cores,
-                           random_seed, test_fraction, nr_learning_iterations,
-                           db_name_or_type, **kwargs):
+def get_param_distribution(hyper_search_type=None,
+                           datasets_path=None,
+                           classifier=None,
+                           cores=None,
+                           random_seed=None,
+                           test_fraction=None,
+                           nr_learning_iterations=None,
+                           db_name_or_type=None,
+                           **kwargs):
     if hyper_search_type == 'random':
         zero_to_one = scipy.stats.uniform(loc=0, scale=1)
         half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)

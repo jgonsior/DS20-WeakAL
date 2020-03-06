@@ -75,7 +75,7 @@ standard_config = standard_config([
         'type': float,
         'default': 0.3
     }),
-    (['--db'], {
+    (['--db_name_or_type'], {
         'default': 'sqlite'
     }),
     (['--hyper_search_type'], {
@@ -83,64 +83,68 @@ standard_config = standard_config([
     }),
 ])
 
-param_distribution = get_param_distribution(**standard_config)
+param_distribution = get_param_distribution(**vars(standard_config))
 
 
 class Estimator(BaseEstimator):
-    def __init__(self, **kwargs):
-        #  datasets_path=None,
-        #  classifier=None,
-        #  cores=None,
-        #  random_seed=None,
-        #  test_fraction=None,
-        #  sampling=None,
-        #  cluster=None,
-        #  nr_learning_iterations=None,
-        #  nr_queries_per_iteration=None,
-        #  start_set_size=None,
-        #  minimum_test_accuracy_before_recommendations=None,
-        #  uncertainty_recommendation_certainty_threshold=None,
-        #  uncertainty_recommendation_ratio=None,
-        #  snuba_lite_minimum_heuristic_accuracy=None,
-        #  cluster_recommendation_minimum_cluster_unity_size=None,
-        #  cluster_recommendation_ratio_labeled_unlabeled=None,
-        #  with_uncertainty_recommendation=None,
-        #  with_cluster_recommendation=None,
-        #  with_snuba_lite=None,
-        #  plot=None,
-        #  stopping_criteria_uncertainty=None,
-        #  stopping_criteria_std=None,
-        #  stopping_criteria_acc=None,
-        #  allow_recommendations_after_stop=None,
-        #  db_name_or_type=None):
-        #  self.datasets_path = datasets_path
-        #  self.classifier = classifier
-        #  self.cores = cores
-        #  self.random_seed = random_seed
-        #  self.test_fraction = test_fraction
-        #  self.sampling = sampling
-        #  self.cluster = cluster
-        #  self.nr_learning_iterations = nr_learning_iterations
-        #  self.nr_queries_per_iteration = nr_queries_per_iteration
-        #  self.start_set_size = start_set_size
-        #  self.minimum_test_accuracy_before_recommendations = minimum_test_accuracy_before_recommendations
-        #  self.uncertainty_recommendation_certainty_threshold = uncertainty_recommendation_certainty_threshold
-        #  self.uncertainty_recommendation_ratio = uncertainty_recommendation_ratio
-        #  self.snuba_lite_minimum_heuristic_accuracy = snuba_lite_minimum_heuristic_accuracy
-        #  self.cluster_recommendation_minimum_cluster_unity_size = cluster_recommendation_minimum_cluster_unity_size
-        #  self.cluster_recommendation_ratio_labeled_unlabeled = cluster_recommendation_ratio_labeled_unlabeled
-        #  self.with_uncertainty_recommendation = with_uncertainty_recommendation
-        #  self.with_cluster_recommendation = with_cluster_recommendation
-        #  self.with_snuba_lite = with_snuba_lite
-        #  self.plot = plot
-        #  self.stopping_criteria_acc = stopping_criteria_acc
-        #  self.stopping_criteria_std = stopping_criteria_std
-        #  self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
-        #  self.allow_recommendations_after_stop = allow_recommendations_after_stop
+    def __init__(self,
+                 datasets_path=None,
+                 classifier=None,
+                 cores=None,
+                 random_seed=None,
+                 test_fraction=None,
+                 sampling=None,
+                 cluster=None,
+                 nr_learning_iterations=None,
+                 nr_queries_per_iteration=None,
+                 start_set_size=None,
+                 minimum_test_accuracy_before_recommendations=None,
+                 uncertainty_recommendation_certainty_threshold=None,
+                 uncertainty_recommendation_ratio=None,
+                 snuba_lite_minimum_heuristic_accuracy=None,
+                 cluster_recommendation_minimum_cluster_unity_size=None,
+                 cluster_recommendation_ratio_labeled_unlabeled=None,
+                 with_uncertainty_recommendation=None,
+                 with_cluster_recommendation=None,
+                 with_snuba_lite=None,
+                 plot=None,
+                 stopping_criteria_uncertainty=None,
+                 stopping_criteria_std=None,
+                 stopping_criteria_acc=None,
+                 allow_recommendations_after_stop=None,
+                 db_name_or_type=None):
+        self.datasets_path = datasets_path
+        self.classifier = classifier
+        self.cores = cores
+        self.random_seed = random_seed
+        self.test_fraction = test_fraction
+        self.sampling = sampling
+        self.cluster = cluster
+        self.nr_learning_iterations = nr_learning_iterations
+        self.nr_queries_per_iteration = nr_queries_per_iteration
+        self.start_set_size = start_set_size
+        self.minimum_test_accuracy_before_recommendations = minimum_test_accuracy_before_recommendations
+        self.uncertainty_recommendation_certainty_threshold = uncertainty_recommendation_certainty_threshold
+        self.uncertainty_recommendation_ratio = uncertainty_recommendation_ratio
+        self.snuba_lite_minimum_heuristic_accuracy = snuba_lite_minimum_heuristic_accuracy
+        self.cluster_recommendation_minimum_cluster_unity_size = cluster_recommendation_minimum_cluster_unity_size
+        self.cluster_recommendation_ratio_labeled_unlabeled = cluster_recommendation_ratio_labeled_unlabeled
+        self.with_uncertainty_recommendation = with_uncertainty_recommendation
+        self.with_cluster_recommendation = with_cluster_recommendation
+        self.with_snuba_lite = with_snuba_lite
+        self.plot = plot
+        self.stopping_criteria_acc = stopping_criteria_acc
+        self.stopping_criteria_std = stopping_criteria_std
+        self.stopping_criteria_uncertainty = stopping_criteria_uncertainty
+        self.allow_recommendations_after_stop = allow_recommendations_after_stop
 
-        #  self.db_name_or_type = db_name_or_type
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        self.db_name_or_type = db_name_or_type
+        #  if len(kwargs) == 0:
+        #  for k in get_param_distribution().keys():
+        #  setattr(self, k, None)
+        #  else:
+        #  for k, v in kwargs.items():
+        #  setattr(self, k, v)
 
     def fit(self, dataset_names, Y_not_used, **kwargs):
         #  print("fit", dataset_names)
