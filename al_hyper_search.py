@@ -218,8 +218,8 @@ if standard_config.hyper_search_type == 'random':
         pre_dispatch=standard_config.n_jobs,
         return_train_score=False,
         cv=NoCvCvSplit(n_splits=1),
-        #  verbose=9999999999999999999999999999999999,
-        verbose=0,
+         verbose=9999999999999999999999999999999999,
+        # verbose=0,
         n_jobs=standard_config.n_jobs)
     grid = grid.fit(X, Y)
 elif standard_config.hyper_search_type == 'evo':

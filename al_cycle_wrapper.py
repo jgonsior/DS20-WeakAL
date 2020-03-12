@@ -20,10 +20,8 @@ import numpy.random
 import pandas as pd
 import peewee
 import scipy
-import sklearn.metrics
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps
-from playhouse.postgres_ext import *
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.metrics import (classification_report, confusion_matrix,
@@ -101,7 +99,7 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
     #  elif hyper_parameters['sampling'] == 'committee':
     #  active_learner = CommitteeSampler(hyper_parameters['random_seed, hyper_parameters.cores, hyper_parameters.nr_learning_iterations)
     else:
-        logger.error("No Active Learning Strategy specified")
+        ("No Active Learning Strategy specified")
 
     start = timer()
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(

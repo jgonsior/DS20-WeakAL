@@ -20,7 +20,6 @@ import numpy.random
 import pandas as pd
 import peewee
 import scipy
-import sklearn.metrics
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps
 from playhouse.postgres_ext import *
@@ -101,7 +100,11 @@ def get_db(db_name_or_type):
     if db_name_or_type == 'sqlite':
         db = peewee.SqliteDatabase('experiment_results.db')
     else:
-        db = PostgresqlExtDatabase(db_name_or_type)
+        db = PostgresqlExtDatabase(db_name_or_type,
+                                   host="localhost",
+                                   port=1111,
+                                   password='test',
+                                   user=db_name_or_type)
     db.bind([ExperimentResult])
     db.create_tables([ExperimentResult])
     #  db.connect()
@@ -153,7 +156,7 @@ def divide_data(X, Y, test_fraction):
 
 def standard_config(additional_parameters=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--datasets_path', required=True)
+    parser.add_argument('--datasets_path', default="../datasets/")
     parser.add_argument('--classifier',
                         default="RF",
                         help="Supported types: RF, DTree, NB, SVM, Linear")
