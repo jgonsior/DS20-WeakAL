@@ -1,5 +1,3 @@
-from sklearn.datasets import fetch_covtype
-import threading
 import argparse
 import contextlib
 import datetime
@@ -12,6 +10,7 @@ import os
 import pickle
 import random
 import sys
+import threading
 from itertools import chain, combinations
 from timeit import default_timer as timer
 
@@ -21,13 +20,13 @@ import numpy.random
 import pandas as pd
 import peewee
 import scipy
-import sklearn.metrics
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps
 from playhouse.postgres_ext import *
 from sklearn.base import BaseEstimator
-from sklearn.datasets import load_iris
-from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
+from sklearn.datasets import fetch_covtype, load_iris
+from sklearn.metrics import (classification_report, confusion_matrix,
+                             roc_auc_score)
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
 
@@ -43,11 +42,11 @@ class ExperimentResult(BaseModel):
     id_field = peewee.AutoField()
 
     # hyper params
-    dataset_path = peewee.TextField()
+    datasets_path = peewee.TextField()
+    dataset_name = peewee.TextField()
     db_name_or_type = peewee.TextField()
     classifier = peewee.TextField(index=True)
     cores = peewee.IntegerField()
-    output_dir = peewee.TextField()
     test_fraction = peewee.FloatField()
     sampling = peewee.TextField(index=True)
     random_seed = peewee.IntegerField()
@@ -101,7 +100,11 @@ def get_db(db_name_or_type):
     if db_name_or_type == 'sqlite':
         db = peewee.SqliteDatabase('experiment_results.db')
     else:
-        db = PostgresqlExtDatabase(db_name_or_type)
+        db = PostgresqlExtDatabase(db_name_or_type,
+                                   host="localhost",
+                                   port=1111,
+                                   password='test',
+                                   user=db_name_or_type)
     db.bind([ExperimentResult])
     db.create_tables([ExperimentResult])
     #  db.connect()
@@ -153,12 +156,11 @@ def divide_data(X, Y, test_fraction):
 
 def standard_config(additional_parameters=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset_path', required=True)
+    parser.add_argument('--datasets_path', default="../datasets/")
     parser.add_argument('--classifier',
                         default="RF",
                         help="Supported types: RF, DTree, NB, SVM, Linear")
     parser.add_argument('--cores', type=int, default=-1)
-    parser.add_argument('--output_dir', default='tmp')
     parser.add_argument('--random_seed',
                         type=int,
                         default=42,
@@ -245,52 +247,11 @@ def load_and_prepare_X_and_Y(dataset_path):
     return X, Y, label_encoder
 
 
-def train_and_evaluate(clf, X_train, Y_train, X_test, Y_test, label_encoder):
-    training_times = train(clf, X_train, Y_train)
-    classification_report_and_confusion_matrix(clf,
-                                               X_test,
-                                               Y_test,
-                                               label_encoder,
-                                               output_dict=False,
-                                               store=True,
-                                               training_times=training_times)
-
-
-def train(clf, X_train, Y_train):
-    f = io.StringIO()
-
-    with contextlib.redirect_stdout(f):
-        clf.fit(X_train, Y_train)
-
-    training_times = f.getvalue()
-    return training_times
-
-
-def store_result(filename, content, output_dir):
-    # create output folder if not existent
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    with open(output_dir + '/' + filename, 'w') as f:
-        f.write(content)
-
-
-def store_pickle(filename, content, output_dir):
-    # create output folder if not existent
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    with open(output_dir + '/' + filename, 'wb') as f:
-        pickle.dump(content, f)
-
-
 def classification_report_and_confusion_matrix(clf,
                                                X,
                                                Y,
                                                label_encoder,
-                                               output_dir=None,
                                                output_dict=True,
-                                               store=False,
                                                training_times=""):
     Y_pred = clf.predict(X)
     clf_report = classification_report(
@@ -315,33 +276,6 @@ def classification_report_and_confusion_matrix(clf,
         logging.info(conf_matrix)
     else:
         return clf_report, conf_matrix
-
-    if store:
-        # create output folder if not existent
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-
-        # save Y_pred
-        Y_df = pd.DataFrame(Y_pred)
-        Y_df.columns = ['Y_pred']
-        Y_df.insert(1, 'Y_test', Y)
-        Y_df.to_csv(output_dir + '/Y_pred.csv', index=None)
-
-        # save classification_report
-        file_string = json.dumps(
-            label_encoder.inverse_transform(
-                [i for i in range(len(label_encoder.classes_))]).tolist())
-        file_string += "\n" + "#" * 100 + "\n"
-        file_string += clf_report_string
-        file_string += "\n" + "#" * 100 + "\n"
-        file_string += json.dumps(clf_report)
-        file_string += "\n" + "#" * 100 + "\n"
-        file_string += json.dumps(conf_matrix.tolist())
-        file_string += "\n" + "#" * 100 + "\n"
-        file_string += training_times
-
-        store_result("results.txt", file_string, output_dir)
-        store_pickle("clf.pickle", clf, output_dir)
 
 
 class Logger(object):
@@ -548,3 +482,119 @@ def calculate_roc_auc(label_encoder, X_test, Y_test, clf):
         #  print(Y_test.shape)
         Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
         return roc_auc_score(Y_test, Y_scores)
+
+
+# for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
+def calculate_global_score(alcs, amount_of_labels_per_alcs):
+    if len(alcs) > 1:
+        rectangles = []
+        triangles = []
+
+        for alc, amount_of_labels_per_alc, past_alc in zip(
+                alcs[1:], amount_of_labels_per_alcs[1:], alcs[:-1]):
+            rectangles.append(past_alc * amount_of_labels_per_alc)
+            triangles.append(
+                abs(amount_of_labels_per_alc * (alc - past_alc) / 2))
+        square = sum(rectangles) + sum(triangles)
+    else:
+        square = alcs[0] * amount_of_labels_per_alcs[0]
+
+    amax = sum(amount_of_labels_per_alcs)
+    arand = amax * 0.5
+    global_score = (square - arand) / (amax - arand)
+
+    if global_score > 1 or square < arand:
+        print("alcs: ", alcs)
+        print("#q: ", amount_of_labels_per_alcs)
+        #  print("rect: ", rectangles)
+        #  print("tria: ", triangles)
+        print("ama: ", amax)
+        print("ara: ", arand)
+        print("squ: ", square)
+        print("glob: ", global_score)
+
+    return global_score
+
+
+def get_param_distribution(hyper_search_type=None,
+                           datasets_path=None,
+                           classifier=None,
+                           cores=None,
+                           random_seed=None,
+                           test_fraction=None,
+                           nr_learning_iterations=None,
+                           db_name_or_type=None,
+                           **kwargs):
+    if hyper_search_type == 'random':
+        zero_to_one = scipy.stats.uniform(loc=0, scale=1)
+        half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
+        #  nr_queries_per_iteration = scipy.stats.randint(1, 151)
+        nr_queries_per_iteration = [10]
+        #  start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
+        #  start_set_size = [1, 10, 25, 50, 100]
+        start_set_size = [1]
+    else:
+        param_size = 50
+        #  param_size = 2
+        zero_to_one = np.linspace(0, 1, num=param_size * 2 + 1).astype(float)
+        half_to_one = np.linspace(0.5, 1, num=param_size + 1).astype(float)
+        nr_queries_per_iteration = np.linspace(1, 150,
+                                               num=param_size + 1).astype(int)
+        #  start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
+        start_set_size = [1, 10, 25, 50, 100]
+
+    param_distribution = {
+        "datasets_path": [datasets_path],
+        "classifier": [classifier],
+        "cores": [cores],
+        "random_seed": [random_seed],
+        "test_fraction": [test_fraction],
+        "sampling": [
+            'random',
+            'uncertainty_lc',
+            'uncertainty_max_margin',
+            'uncertainty_entropy',
+        ],
+        "cluster": [
+            'dummy', 'random', 'MostUncertain_lc', 'MostUncertain_max_margin',
+            'MostUncertain_entropy'
+            #  'dummy',
+        ],
+        "nr_learning_iterations": [nr_learning_iterations],
+        #  "nr_learning_iterations": [1],
+        "nr_queries_per_iteration":
+        nr_queries_per_iteration,
+        "start_set_size":
+        start_set_size,
+        "stopping_criteria_uncertainty":
+        zero_to_one,
+        "stopping_criteria_std":
+        zero_to_one,
+        "stopping_criteria_acc":
+        zero_to_one,
+        "allow_recommendations_after_stop": [True, False],
+
+        #uncertainty_recommendation_grid = {
+        "uncertainty_recommendation_certainty_threshold":
+        half_to_one,
+        "uncertainty_recommendation_ratio":
+        [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
+
+        #snuba_lite_grid = {
+        "snuba_lite_minimum_heuristic_accuracy": [0],
+        #  half_to_one,
+
+        #cluster_recommendation_grid = {
+        "cluster_recommendation_minimum_cluster_unity_size":
+        half_to_one,
+        "cluster_recommendation_ratio_labeled_unlabeled":
+        half_to_one,
+        "with_uncertainty_recommendation": [True, False],
+        "with_cluster_recommendation": [True, False],
+        "with_snuba_lite": [False],
+        "minimum_test_accuracy_before_recommendations":
+        half_to_one,
+        "db_name_or_type": [db_name_or_type],
+    }
+
+    return param_distribution

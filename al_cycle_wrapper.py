@@ -20,10 +20,8 @@ import numpy.random
 import pandas as pd
 import peewee
 import scipy
-import sklearn.metrics
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps
-from playhouse.postgres_ext import *
 from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
 from sklearn.metrics import (classification_report, confusion_matrix,
@@ -38,38 +36,38 @@ from cluster_strategies import (DummyClusterStrategy,
                                 RandomClusterStrategy,
                                 RoundRobinClusterStrategy)
 from dataStorage import DataStorage
-from experiment_setup_lib import (ExperimentResult,
+from experiment_setup_lib import (ExperimentResult, calculate_global_score,
                                   classification_report_and_confusion_matrix,
-                                  divide_data, get_db,
+                                  divide_data, get_db, get_param_distribution,
                                   load_and_prepare_X_and_Y, log_it,
-                                  standard_config, store_pickle, store_result)
+                                  standard_config)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
 
 def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
              hyper_parameters):
-    hyper_parameters.len_train_data = len(Y_train)
-    dataset_storage = DataStorage(hyper_parameters.random_seed)
+    hyper_parameters['len_train_data'] = len(Y_train)
+    dataset_storage = DataStorage(hyper_parameters['random_seed'])
     dataset_storage.set_training_data(X_train, Y_train, label_encoder,
-                                      hyper_parameters.test_fraction,
-                                      hyper_parameters.start_set_size, X_test,
-                                      Y_test)
+                                      hyper_parameters['test_fraction'],
+                                      hyper_parameters['start_set_size'],
+                                      X_test, Y_test)
 
-    if hyper_parameters.cluster == 'dummy':
+    if hyper_parameters['cluster'] == 'dummy':
         cluster_strategy = DummyClusterStrategy()
-    elif hyper_parameters.cluster == 'random':
+    elif hyper_parameters['cluster'] == 'random':
         cluster_strategy = RandomClusterStrategy()
-    elif hyper_parameters.cluster == "MostUncertain_lc":
+    elif hyper_parameters['cluster'] == "MostUncertain_lc":
         cluster_strategy = MostUncertainClusterStrategy()
         cluster_strategy.set_uncertainty_strategy('least_confident')
-    elif hyper_parameters.cluster == "MostUncertain_max_margin":
+    elif hyper_parameters['cluster'] == "MostUncertain_max_margin":
         cluster_strategy = MostUncertainClusterStrategy()
         cluster_strategy.set_uncertainty_strategy('max_margin')
-    elif hyper_parameters.cluster == "MostUncertain_entropy":
+    elif hyper_parameters['cluster'] == "MostUncertain_entropy":
         cluster_strategy = MostUncertainClusterStrategy()
         cluster_strategy.set_uncertainty_strategy('entropy')
-    elif hyper_parameters.cluster == 'RoundRobin':
+    elif hyper_parameters['cluster'] == 'RoundRobin':
         cluster_strategy = RoundRobinClusterStrategy()
 
     cluster_strategy.set_data_storage(dataset_storage)
@@ -77,65 +75,68 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
     active_learner_params = {
         'dataset_storage': dataset_storage,
         'cluster_strategy': cluster_strategy,
-        'cores': hyper_parameters.cores,
-        'random_seed': hyper_parameters.random_seed,
-        'nr_learning_iterations': hyper_parameters.nr_learning_iterations,
-        'nr_queries_per_iteration': hyper_parameters.nr_queries_per_iteration,
+        'cores': hyper_parameters['cores'],
+        'random_seed': hyper_parameters['random_seed'],
+        'nr_learning_iterations': hyper_parameters['nr_learning_iterations'],
+        'nr_queries_per_iteration':
+        hyper_parameters['nr_queries_per_iteration'],
         'with_test': True,
     }
 
-    if hyper_parameters.sampling == 'random':
+    if hyper_parameters['sampling'] == 'random':
         active_learner = RandomSampler(**active_learner_params)
-    elif hyper_parameters.sampling == 'boundary':
+    elif hyper_parameters['sampling'] == 'boundary':
         active_learner = BoundaryPairSampler(**active_learner_params)
-    elif hyper_parameters.sampling == 'uncertainty_lc':
+    elif hyper_parameters['sampling'] == 'uncertainty_lc':
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy('least_confident')
-    elif hyper_parameters.sampling == 'uncertainty_max_margin':
+    elif hyper_parameters['sampling'] == 'uncertainty_max_margin':
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy('max_margin')
-    elif hyper_parameters.sampling == 'uncertainty_entropy':
+    elif hyper_parameters['sampling'] == 'uncertainty_entropy':
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy('entropy')
-    #  elif hyper_parameters.sampling == 'committee':
-    #  active_learner = CommitteeSampler(hyper_parameters.random_seed, hyper_parameters.cores, hyper_parameters.nr_learning_iterations)
+    #  elif hyper_parameters['sampling'] == 'committee':
+    #  active_learner = CommitteeSampler(hyper_parameters['random_seed, hyper_parameters.cores, hyper_parameters.nr_learning_iterations)
     else:
-        logger.error("No Active Learning Strategy specified")
+        ("No Active Learning Strategy specified")
 
     start = timer()
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-        minimum_test_accuracy_before_recommendations=hyper_parameters.
-        minimum_test_accuracy_before_recommendations,
-        with_cluster_recommendation=hyper_parameters.
-        with_cluster_recommendation,
-        with_uncertainty_recommendation=hyper_parameters.
-        with_uncertainty_recommendation,
-        with_snuba_lite=hyper_parameters.with_snuba_lite,
-        cluster_recommendation_minimum_cluster_unity_size=hyper_parameters.
-        cluster_recommendation_minimum_cluster_unity_size,
-        cluster_recommendation_minimum_ratio_labeled_unlabeled=hyper_parameters
-        .cluster_recommendation_ratio_labeled_unlabeled,
-        uncertainty_recommendation_certainty_threshold=hyper_parameters.
-        uncertainty_recommendation_certainty_threshold,
-        uncertainty_recommendation_ratio=hyper_parameters.
-        uncertainty_recommendation_ratio,
-        snuba_lite_minimum_heuristic_accuracy=hyper_parameters.
-        snuba_lite_minimum_heuristic_accuracy,
-        stopping_criteria_uncertainty=hyper_parameters.
-        stopping_criteria_uncertainty,
-        stopping_criteria_acc=hyper_parameters.stopping_criteria_acc,
-        stopping_criteria_std=hyper_parameters.stopping_criteria_std,
-        allow_recommendations_after_stop=hyper_parameters.
-        allow_recommendations_after_stop)
+        **hyper_parameters)
+    #  minimum_test_accuracy_before_recommendations=hyper_parameters['
+    #  minimum_test_accuracy_before_recommendations,
+    #  with_cluster_recommendation=hyper_parameters['
+    #  with_cluster_recommendation,
+    #  with_uncertainty_recommendation=hyper_parameters['
+    #  with_uncertainty_recommendation,
+    #  with_snuba_lite=hyper_parameters['with_snuba_lite,
+    #  cluster_recommendation_minimum_cluster_unity_size=hyper_parameters['
+    #  cluster_recommendation_minimum_cluster_unity_size,
+    #  cluster_recommendation_minimum_ratio_labeled_unlabeled=hyper_parameters
+    #  .cluster_recommendation_ratio_labeled_unlabeled,
+    #  uncertainty_recommendation_certainty_threshold=hyper_parameters['
+    #  uncertainty_recommendation_certainty_threshold,
+    #  uncertainty_recommendation_ratio=hyper_parameters['
+    #  uncertainty_recommendation_ratio,
+    #  snuba_lite_minimum_heuristic_accuracy=hyper_parameters['
+    #  snuba_lite_minimum_heuristic_accuracy,
+    #  stopping_criteria_uncertainty=hyper_parameters['
+    #  stopping_criteria_uncertainty,
+    #  stopping_criteria_acc=hyper_parameters['stopping_criteria_acc,
+    #  stopping_criteria_std=hyper_parameters['stopping_criteria_std,
+    #  allow_recommendations_after_stop=hyper_parameters['
+    #  allow_recommendations_after_stop)
     end = timer()
 
     return trained_active_clf_list, end - start, metrics_per_al_cycle, dataset_storage, active_learner
 
 
 def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
-            metrics_per_al_cycle, param_distribution, dataset_storage,
-            active_learner, hyper_parameters, dataset_path):
-    hyper_parameters.amount_of_user_asked_queries = active_learner.amount_of_user_asked_queries
+            metrics_per_al_cycle, dataset_storage, active_learner,
+            hyper_parameters, dataset_name):
+    hyper_parameters[
+        'amount_of_user_asked_queries'] = active_learner.amount_of_user_asked_queries
 
     classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
         trained_active_clf_list[0], X_test, Y_test,
@@ -145,89 +146,38 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         dataset_storage.Y_train_labeled, dataset_storage.label_encoder)
 
     # normalize by start_set_size
-    percentage_user_asked_queries = 1 - hyper_parameters.amount_of_user_asked_queries / hyper_parameters.len_train_data
+    percentage_user_asked_queries = 1 - hyper_parameters[
+        'amount_of_user_asked_queries'] / hyper_parameters['len_train_data']
     test_acc = classification_report_and_confusion_matrix_test[0]['accuracy']
-
-    # normalise roc_auc, for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
-    ALCs = metrics_per_al_cycle['all_unlabeled_roc_auc_score']
-
-    # prepare yourself for a lot of unrefactored copy and paste code
-    if len(ALCs) > 1:
-        amount_of_labels_per_alcs = [
-            math.log2(m) for m in metrics_per_al_cycle['query_length']
-        ]
-
-        rectangles = []
-        triangles = []
-
-        for ALC, amount_of_labels_per_alc, past_ALC in zip(
-                ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
-            rectangles.append(past_ALC * amount_of_labels_per_alc)
-            triangles.append(
-                abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
-        square = sum(rectangles) + sum(triangles)
-        Amax = sum(amount_of_labels_per_alcs)
-        Arand = Amax * 0.5
-        global_score_norm = (square - Arand) / (Amax - Arand)
-
-        amount_of_labels_per_alcs = metrics_per_al_cycle['query_length']
-
-        rectangles = []
-        triangles = []
-
-        for ALC, amount_of_labels_per_alc, past_ALC in zip(
-                ALCs[1:], amount_of_labels_per_alcs[1:], ALCs[:-1]):
-            rectangles.append(past_ALC * amount_of_labels_per_alc)
-            triangles.append(
-                abs(amount_of_labels_per_alc * (ALC - past_ALC) / 2))
-        square = sum(rectangles) + sum(triangles)
-        Amax = sum(amount_of_labels_per_alcs)
-        Arand = Amax * 0.5
-        global_score = (square - Arand) / (Amax - Arand)
-
-        #  if global_score > 1 or square < Arand:
-        #  print("ALCs: ", ALCs)
-        #  print("#q: ", amount_of_labels_per_alcs)
-        #  print("rect: ", rectangles)
-        #  print("tria: ", triangles)
-        #  print("Ama: ", Amax)
-        #  print("Ara: ", Arand)
-        #  print("squ: ", square)
-        #  print("glob: ", global_score)
-    else:
-        square_norm = math.log2(
-            metrics_per_al_cycle['query_length']
-            [0]) * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
-        square = metrics_per_al_cycle['query_length'][
-            0] * metrics_per_al_cycle['all_unlabeled_roc_auc_score'][0]
-
-        Amax = metrics_per_al_cycle['query_length'][0]
-        Arand = Amax * 0.5
-        global_score = (square - Arand) / (Amax - Arand)
-        Amax = math.log2(Amax)
-        Arand = Amax * 0.5
-        global_score_norm = (square_norm - Arand) / (Amax - Arand)
 
     # score is harmonic mean
     score = 2 * percentage_user_asked_queries * test_acc / (
         percentage_user_asked_queries + test_acc)
 
+    global_score = calculate_global_score(
+        alcs=metrics_per_al_cycle['all_unlabeled_roc_auc_scores'],
+        amount_of_labels_per_alcs=metrics_per_al_cycle['query_length'])
+    global_score_norm = calculate_global_score(
+        alcs=metrics_per_al_cycle['all_unlabeled_roc_auc_scores'],
+        amount_of_labels_per_alcs=[
+            math.log2(a) for a in metrics_per_al_cycle['query_length']
+        ])
+
     # calculate based on params a unique id which should be the same across all similar cross validation splits
+    param_distribution = get_param_distribution(**hyper_parameters)
     unique_params = ""
 
     for k in param_distribution.keys():
-        unique_params += str(vars(hyper_parameters)[k])
+        unique_params += str(hyper_parameters[k])
 
     param_list_id = hashlib.md5(unique_params.encode('utf-8')).hexdigest()
 
-    db = get_db(db_name_or_type=hyper_parameters.db_name_or_type)
-    params = hyper_parameters.get_params()
-    params['dataset_path'] = dataset_path
+    db = get_db(db_name_or_type=hyper_parameters['db_name_or_type'])
+
+    hyper_parameters['dataset_name'] = dataset_name
 
     experiment_result = ExperimentResult(
-        **params,
-        amount_of_user_asked_queries=hyper_parameters.
-        amount_of_user_asked_queries,
+        **hyper_parameters,
         metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),
         fit_time=str(fit_time),
         confusion_matrix_test=dumps(
@@ -247,7 +197,7 @@ def eval_al(X_test, Y_test, label_encoder, trained_active_clf_list, fit_time,
         acc_test=classification_report_and_confusion_matrix_test[0]
         ['accuracy'],
         fit_score=score,
-        roc_auc=metrics_per_al_cycle['all_unlabeled_roc_auc_score'][-1],
+        roc_auc=metrics_per_al_cycle['all_unlabeled_roc_auc_scores'][-1],
         global_score=global_score,
         global_score_norm=global_score_norm,
         param_list_id=param_list_id,
@@ -267,9 +217,8 @@ Takes a dataset_path, X, Y, label_encoder and does the following steps:
 '''
 
 
-def train_and_eval_dataset(dataset_path, X_train, X_test, Y_train, Y_test,
-                           label_encoder_classes, hyper_parameters,
-                           param_distribution):
+def train_and_eval_dataset(dataset_name, X_train, X_test, Y_train, Y_test,
+                           label_encoder_classes, hyper_parameters):
     label_encoder = LabelEncoder()
     label_encoder.fit(label_encoder_classes)
 
@@ -277,7 +226,6 @@ def train_and_eval_dataset(dataset_path, X_train, X_test, Y_train, Y_test,
         X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters)
 
     fit_score = eval_al(X_test, Y_test, label_encoder, trained_active_clf_list,
-                        fit_time, metrics_per_al_cycle, param_distribution,
-                        dataStorage, active_learner, hyper_parameters,
-                        dataset_path)
+                        fit_time, metrics_per_al_cycle, dataStorage,
+                        active_learner, hyper_parameters, dataset_name)
     return fit_score

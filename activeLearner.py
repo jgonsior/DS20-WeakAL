@@ -65,7 +65,7 @@ class ActiveLearner:
             'query_strong_accuracy_list': [],
             'query_length': [],
             'recommendation': [],
-            'all_unlabeled_roc_auc_score': []
+            'all_unlabeled_roc_auc_scores': []
         }
 
         self.with_test = with_test
@@ -182,7 +182,7 @@ class ActiveLearner:
             self.metrics_per_al_cycle['train_unlabeled_class_distribution'][
                 i].append(train_unlabeled_class_distribution)
 
-            self.metrics_per_al_cycle['all_unlabeled_roc_auc_score'].append(
+            self.metrics_per_al_cycle['all_unlabeled_roc_auc_scores'].append(
                 calculate_roc_auc(self.data_storage.label_encoder,
                                   total_unqueried_data_X,
                                   total_unqueried_data_Y, self.clf_list[0]))
@@ -365,6 +365,7 @@ class ActiveLearner:
         uncertainty_recommendation_certainty_threshold=None,
         uncertainty_recommendation_ratio=None,
         snuba_lite_minimum_heuristic_accuracy=None,
+        **kwargs,
     ):
         log_it(self.data_storage.label_encoder.classes_)
         log_it("Used Hyperparams:")
