@@ -99,6 +99,8 @@ def get_db(db_name_or_type):
     # create databases for storing the results
     if db_name_or_type == 'sqlite':
         db = peewee.SqliteDatabase('experiment_results.db')
+    elif db_name_or_type == 'jg':
+        db = PostgresqlExtDatabase('jg')
     else:
         db = PostgresqlExtDatabase(db_name_or_type,
                                    host="localhost",
