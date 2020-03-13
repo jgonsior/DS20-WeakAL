@@ -204,11 +204,7 @@ class ActiveLearner:
                 frequencies = collections.Counter(
                     self.data_storage.Y_train_labeled.loc[cluster_indices]
                     [0].tolist())
-                #  print(self.data_storage.Y_train_labeled.loc[cluster_indices])
-                #  print(frequencies)
-                #  print(frequencies.most_common(1))
-                #  print(len(cluster_indices))
-                print(minimum_ratio_labeled_unlabeled)
+
                 if frequencies.most_common(1)[0][1] > len(
                         cluster_indices) * minimum_ratio_labeled_unlabeled:
                     certain_indices = self.data_storage.X_train_unlabeled_cluster_indices[
