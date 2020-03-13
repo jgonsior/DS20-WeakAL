@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import argparse
 import contextlib
 import datetime
@@ -10,13 +9,19 @@ import random
 import sys
 from itertools import chain, combinations
 from timeit import default_timer as timer
+
+import altair as alt
+import altair_viewer
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import peewee
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps, loads
+from playhouse.shortcuts import model_to_dict
 from scipy.stats import randint, uniform
 from sklearn.datasets import load_iris
+from tabulate import tabulate
 
 from cluster_strategies import (DummyClusterStrategy,
                                 MostUncertainClusterStrategy,
@@ -30,8 +35,7 @@ from experiment_setup_lib import (ExperimentResult,
                                   load_and_prepare_X_and_Y, standard_config)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
-import altair as alt
-import altair_viewer
+
 alt.renderers.enable('altair_viewer')
 #  alt.renderers.enable('vegascope')
 
@@ -50,20 +54,65 @@ config = standard_config([
     (['--db'], {
         'default': 'sqlite'
     }),
+    (['--dataset_stats'], {
+        'action': 'store_true'
+    }),
+    (['--param_list_stats'], {
+        'action': 'store_true'
+    }),
 ])
 
 #  id zu untersuchen: 31858014d685a3f1ba3e4e32690ddfc3 -> warum ist roc_auc dort so falsch?
 
 db = get_db(db_name_or_type=config.db)
-if config.param_list_id != "-1":
+
+if config.dataset_stats:
+    # select count(*), dataset_name from experimentresult group by dataset_name;
+    results = ExperimentResult.select(
+        ExperimentResult.dataset_name,
+        peewee.fn.COUNT(
+            ExperimentResult.id_field).alias('dataset_name_count')).group_by(
+                ExperimentResult.dataset_name)
+
+    for result in results:
+        print("{:>4,d} {}".format(result.dataset_name_count,
+                                  result.dataset_name))
+
+elif config.param_list_stats:
+    #  SELECT param_list_id, avg(fit_score), stddev(fit_score), avg(global_score), stddev(global_score), avg(start_set_size) as sss, count(*) FROM experimentresult WHERE start_set_size = 1 GROUP BY param_list_id ORDER BY 7 DESC, 4 DESC LIMIT 30;
+
+    results = ExperimentResult.select(
+        ExperimentResult.param_list_id,
+        peewee.fn.AVG(ExperimentResult.fit_score).alias('avg_fit_score'),
+        peewee.fn.STDDEV(ExperimentResult.fit_score).alias('stddev_fit_score'),
+        peewee.fn.AVG(ExperimentResult.global_score).alias('avg_global_score'),
+        peewee.fn.STDDEV(
+            ExperimentResult.global_score).alias('stddev_global_score'),
+        peewee.fn.AVG(ExperimentResult.start_set_size).alias('sss'),
+        peewee.fn.COUNT(ExperimentResult.id_field).alias('count')).group_by(
+            ExperimentResult.param_list_id).order_by(
+                peewee.fn.COUNT(ExperimentResult.id_field).desc(),
+                peewee.fn.AVG(ExperimentResult.fit_score).desc()).limit(20)
+
+    table = []
+
+    for result in results:
+        data = vars(result)
+        data['param_list_id'] = data['__data__']['param_list_id']
+        del data['__data__']
+        del data['_dirty']
+        del data['__rel__']
+        table.append(vars(result))
+
+    print(tabulate(table, headers="keys"))
+
+elif config.param_list_id != "-1":
+    # SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
     results = ExperimentResult.select().where(
         ExperimentResult.param_list_id == config.param_list_id)
     for result in results:
 
         metrics = loads(result.metrics_per_al_cycle)
-        #  plt.plot(metrics['all_unlabeled_roc_auc_scores'])
-        #  plt.plot(metrics['query_strong_accuracy_list'])
-        #  plt.show()
 
         data = pd.DataFrame({
             'iteration':
@@ -77,15 +126,14 @@ if config.param_list_id != "-1":
             'query_strong_accuracy_list':
             metrics['query_strong_accuracy_list'],
         })
-        #hui
-        chart = alt.Chart(data).mark_line(point=True).encode(
+
+        alt.Chart(data).mark_line(point=True, size=60).encode(
             x='iteration',
             y='all_unlabeled_roc_auc_scores',
             tooltip=[
                 'query_strong_accuracy_list', 'query_length', 'recommendation'
             ]).interactive()
         chart.serve()
-        #  altair_viewer.show(chart)
 
         amount_of_clusters = 0
         amount_of_certainties = 0

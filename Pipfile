@@ -23,6 +23,7 @@ json-tricks = "*"
 psycopg2 = ">2.5"
 altair = "*"
 altair-viewer = "*"
+tabulate = "*"
 
 [requires]
 python_version = "3.8"
