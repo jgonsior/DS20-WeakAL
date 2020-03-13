@@ -110,6 +110,8 @@ elif config.param_list_id != "-1":
     # SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
     results = ExperimentResult.select().where(
         ExperimentResult.param_list_id == config.param_list_id)
+
+    charts = []
     for result in results:
 
         metrics = loads(result.metrics_per_al_cycle)
@@ -127,46 +129,46 @@ elif config.param_list_id != "-1":
             metrics['query_strong_accuracy_list'],
         })
 
-        alt.Chart(data).mark_line(point=True, size=60).encode(
+        chart = alt.Chart(data).mark_line(point=True, width=30).encode(
             x='iteration',
             y='all_unlabeled_roc_auc_scores',
             tooltip=[
                 'query_strong_accuracy_list', 'query_length', 'recommendation'
-            ]).interactive()
-        chart.serve()
+            ],
+        ).interactive()
+        charts.append(chart)
 
-        amount_of_clusters = 0
-        amount_of_certainties = 0
-        amount_of_active = 0
-        for recommendation, query_length in zip(metrics['recommendation'],
-                                                metrics['query_length']):
-            if recommendation == 'U':
-                amount_of_certainties += 1
-            if recommendation == 'C':
-                amount_of_clusters += 1
-            if recommendation == 'A':
-                amount_of_active += 1
-        #SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
-        print(
-            "{:>20} {:6,d} {:>25} {:>25} {:4,d} {:4,d} {:4,d} {:3,d} {:5,d} {:6.2} {:6.2%} {:6.2%} {:6.2%} {:6.2%}"
-            .format(
-                result.param_list_id,
-                result.id_field,
-                result.sampling,
-                result.cluster,
-                amount_of_clusters,
-                amount_of_certainties,
-                amount_of_active,
-                result.allow_recommendations_after_stop,
-                result.amount_of_user_asked_queries,
-                result.stopping_criteria_uncertainty,
-                result.stopping_criteria_std,
-                result.stopping_criteria_acc,
-                result.acc_test,
-                result.fit_score,
-            ))
-
-    exit(-3)
+        #  amount_of_clusters = 0
+        #  amount_of_certainties = 0
+        #  amount_of_active = 0
+        #  for recommendation, query_length in zip(metrics['recommendation'],
+        #  metrics['query_length']):
+        #  if recommendation == 'U':
+        #  amount_of_certainties += 1
+        #  if recommendation == 'C':
+        #  amount_of_clusters += 1
+        #  if recommendation == 'A':
+        #  amount_of_active += 1
+        #  #SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
+        #  print(
+        #  "{:>20} {:6,d} {:>25} {:>25} {:4,d} {:4,d} {:4,d} {:3,d} {:5,d} {:6.2} {:6.2%} {:6.2%} {:6.2%} {:6.2%}"
+        #  .format(
+        #  result.param_list_id,
+        #  result.id_field,
+        #  result.sampling,
+        #  result.cluster,
+        #  amount_of_clusters,
+        #  amount_of_certainties,
+        #  amount_of_active,
+        #  result.allow_recommendations_after_stop,
+        #  result.amount_of_user_asked_queries,
+        #  result.stopping_criteria_uncertainty,
+        #  result.stopping_criteria_std,
+        #  result.stopping_criteria_acc,
+        #  result.acc_test,
+        #  result.fit_score,
+        #  ))
+    alt.vconcat(*charts).serve()
 
 elif config.id != -1:
     print(get_single_al_run_stats_table_header())
