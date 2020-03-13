@@ -157,7 +157,6 @@ class Estimator(BaseEstimator):
 
             X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
                 standard_config.datasets_path, dataset_name)
-
             self.scores.append(
                 train_and_eval_dataset(dataset_name,
                                        X_train,

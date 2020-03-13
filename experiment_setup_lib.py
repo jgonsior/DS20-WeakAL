@@ -592,7 +592,7 @@ def get_param_distribution(hyper_search_type=None,
         "cluster_recommendation_ratio_labeled_unlabeled":
         half_to_one,
         "with_uncertainty_recommendation": [True, False],
-        "with_cluster_recommendation": [True, False],
+        "with_cluster_recommendation": [True],
         "with_snuba_lite": [False],
         "minimum_test_accuracy_before_recommendations":
         half_to_one,

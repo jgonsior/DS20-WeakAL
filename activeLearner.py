@@ -19,10 +19,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
-from experiment_setup_lib import (classification_report_and_confusion_matrix,
+from experiment_setup_lib import (calculate_roc_auc,
+                                  classification_report_and_confusion_matrix,
                                   get_single_al_run_stats_row,
-                                  get_single_al_run_stats_table_header,
-                                  calculate_roc_auc, log_it)
+                                  get_single_al_run_stats_table_header, log_it)
 
 
 class ActiveLearner:
@@ -204,6 +204,11 @@ class ActiveLearner:
                 frequencies = collections.Counter(
                     self.data_storage.Y_train_labeled.loc[cluster_indices]
                     [0].tolist())
+                #  print(self.data_storage.Y_train_labeled.loc[cluster_indices])
+                #  print(frequencies)
+                #  print(frequencies.most_common(1))
+                #  print(len(cluster_indices))
+                print(minimum_ratio_labeled_unlabeled)
                 if frequencies.most_common(1)[0][1] > len(
                         cluster_indices) * minimum_ratio_labeled_unlabeled:
                     certain_indices = self.data_storage.X_train_unlabeled_cluster_indices[
@@ -360,11 +365,6 @@ class ActiveLearner:
         stopping_criteria_acc,
         stopping_criteria_std,
         allow_recommendations_after_stop,
-        cluster_recommendation_minimum_cluster_unity_size=None,
-        cluster_recommendation_minimum_ratio_labeled_unlabeled=None,
-        uncertainty_recommendation_certainty_threshold=None,
-        uncertainty_recommendation_ratio=None,
-        snuba_lite_minimum_heuristic_accuracy=None,
         **kwargs,
     ):
         log_it(self.data_storage.label_encoder.classes_)
@@ -404,15 +404,18 @@ class ActiveLearner:
                         -1] > minimum_test_accuracy_before_recommendations:
                     if X_query is None and with_cluster_recommendation:
                         X_query, Y_query, query_indices = self.cluster_recommendation(
-                            cluster_recommendation_minimum_cluster_unity_size,
-                            cluster_recommendation_minimum_ratio_labeled_unlabeled
+                            kwargs[
+                                'cluster_recommendation_minimum_cluster_unity_size'],
+                            kwargs[
+                                'cluster_recommendation_ratio_labeled_unlabeled']
                         )
                         recommendation_value = "C"
 
                     if X_query is None and with_uncertainty_recommendation:
                         X_query, Y_query, query_indices = self.uncertainty_recommendation(
-                            uncertainty_recommendation_certainty_threshold,
-                            uncertainty_recommendation_ratio)
+                            kwargs[
+                                'uncertainty_recommendation_certainty_threshold'],
+                            kwargs['uncertainty_recommendation_ratio'])
                         recommendation_value = "U"
 
                     if X_query is None and with_snuba_lite:
