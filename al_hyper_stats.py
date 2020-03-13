@@ -10,18 +10,13 @@ import random
 import sys
 from itertools import chain, combinations
 from timeit import default_timer as timer
-
 import numpy as np
 import pandas as pd
 import peewee
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps, loads
 from scipy.stats import randint, uniform
-from sklearn.base import BaseEstimator
 from sklearn.datasets import load_iris
-from sklearn.model_selection import (GridSearchCV, ParameterGrid,
-                                     RandomizedSearchCV, train_test_split)
-from sklearn.preprocessing import LabelEncoder
 
 from cluster_strategies import (DummyClusterStrategy,
                                 MostUncertainClusterStrategy,
@@ -35,6 +30,10 @@ from experiment_setup_lib import (ExperimentResult,
                                   load_and_prepare_X_and_Y, standard_config)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
+import altair as alt
+import altair_viewer
+alt.renderers.enable('altair_viewer')
+#  alt.renderers.enable('vegascope')
 
 config = standard_config([
     (['--limit'], {
@@ -62,9 +61,32 @@ if config.param_list_id != "-1":
     for result in results:
 
         metrics = loads(result.metrics_per_al_cycle)
-        plt.plot(metrics['all_unlabeled_roc_auc_scores'])
+        #  plt.plot(metrics['all_unlabeled_roc_auc_scores'])
         #  plt.plot(metrics['query_strong_accuracy_list'])
-        plt.show()
+        #  plt.show()
+
+        data = pd.DataFrame({
+            'iteration':
+            range(0, len(metrics['all_unlabeled_roc_auc_scores'])),
+            'all_unlabeled_roc_auc_scores':
+            metrics['all_unlabeled_roc_auc_scores'],
+            'query_length':
+            metrics['query_length'],
+            'recommendation':
+            metrics['recommendation'],
+            'query_strong_accuracy_list':
+            metrics['query_strong_accuracy_list'],
+        })
+        #hui
+        chart = alt.Chart(data).mark_line(point=True).encode(
+            x='iteration',
+            y='all_unlabeled_roc_auc_scores',
+            tooltip=[
+                'query_strong_accuracy_list', 'query_length', 'recommendation'
+            ]).interactive()
+        chart.serve()
+        #  altair_viewer.show(chart)
+
         amount_of_clusters = 0
         amount_of_certainties = 0
         amount_of_active = 0

@@ -21,6 +21,8 @@ sklearn-deap = "*"
 peewee = "*"
 json-tricks = "*"
 psycopg2 = ">2.5"
+altair = "*"
+altair-viewer = "*"
 
 [requires]
 python_version = "3.8"
