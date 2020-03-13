@@ -62,8 +62,8 @@ if config.param_list_id != "-1":
     for result in results:
 
         metrics = loads(result.metrics_per_al_cycle)
-        #  plt.plot(metrics['all_unlabeled_roc_auc_score'])
-        plt.plot(metrics['query_strong_accuracy_list'])
+        plt.plot(metrics['all_unlabeled_roc_auc_scores'])
+        #  plt.plot(metrics['query_strong_accuracy_list'])
         plt.show()
         amount_of_clusters = 0
         amount_of_certainties = 0
