@@ -10,8 +10,14 @@ import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram
 from sklearn import metrics
-from sklearn.cluster import (DBSCAN, OPTICS, AgglomerativeClustering, Birch,
-                             KMeans, MiniBatchKMeans)
+from sklearn.cluster import (
+    DBSCAN,
+    OPTICS,
+    AgglomerativeClustering,
+    Birch,
+    KMeans,
+    MiniBatchKMeans,
+)
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
@@ -42,10 +48,9 @@ class BaseClusterStrategy:
         self.data_storage = data_storage
         # first run pca to downsample data
 
-        X_train_combined = pd.concat([
-            self.data_storage.X_train_labeled,
-            self.data_storage.X_train_unlabeled
-        ])
+        X_train_combined = pd.concat(
+            [self.data_storage.X_train_labeled, self.data_storage.X_train_unlabeled]
+        )
         self.X_train_combined = X_train_combined
 
         # then cluster it
@@ -57,32 +62,36 @@ class BaseClusterStrategy:
 
         n_samples, n_features = X_train_combined.shape
 
-        self.cluster_model = MiniBatchKMeans(n_clusters=int(n_features / 5),
-                                             batch_size=min(
-                                                 int(n_samples / 100),
-                                                 int(n_features / 5) * 5))
+        self.cluster_model = MiniBatchKMeans(
+            n_clusters=int(n_features / 5),
+            batch_size=min(int(n_samples / 100), int(n_features / 5) * 5),
+        )
 
         self.data_storage = data_storage
 
         # fit cluster
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
-            self.data_storage.X_train_unlabeled)
+            self.data_storage.X_train_unlabeled
+        )
 
-        logging.info("Clustering into " + str(self.cluster_model.n_clusters) +
-                     " cluster with batch_size " +
-                     str(min(int(n_samples / 100),
-                             int(n_features / 5) * 5)))
+        logging.info(
+            "Clustering into "
+            + str(self.cluster_model.n_clusters)
+            + " cluster with batch_size "
+            + str(min(int(n_samples / 100), int(n_features / 5) * 5))
+        )
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
-            lambda: list())
-        self.data_storage.X_train_labeled_cluster_indices = defaultdict(
-            lambda: list())
+            lambda: list()
+        )
+        self.data_storage.X_train_labeled_cluster_indices = defaultdict(lambda: list())
 
         for cluster_index, X_train_index in zip(
-                self.Y_train_unlabeled_cluster,
-                self.data_storage.X_train_unlabeled.index):
-            self.data_storage.X_train_unlabeled_cluster_indices[
-                cluster_index].append(X_train_index)
+            self.Y_train_unlabeled_cluster, self.data_storage.X_train_unlabeled.index
+        ):
+            self.data_storage.X_train_unlabeled_cluster_indices[cluster_index].append(
+                X_train_index
+            )
 
         #  print("cluster_model ", sys.getsizeof(self.cluster_model))
         #  print(
@@ -117,7 +126,8 @@ class BaseClusterStrategy:
             counts[i] = current_count
 
         linkage_matrix = np.column_stack(
-            [model.children_, model.distances_, counts]).astype(float)
+            [model.children_, model.distances_, counts]
+        ).astype(float)
 
         # Plot the corresponding dendrogram
         dendrogram(linkage_matrix, **kwargs)
@@ -125,14 +135,17 @@ class BaseClusterStrategy:
 
     def plot_cluster(self):
         y_pred = self.cluster_model.fit_predict(
-            self.X_train_combined, self.data_storage.Y_train_labeled)
+            self.X_train_combined, self.data_storage.Y_train_labeled
+        )
 
         # plot the top three levels of the dendrogram
         plt.figure()
         dimension = 0
-        plt.scatter(self.X_train_combined[:, dimension],
-                    self.X_train_combined[:, dimension + 1],
-                    c=y_pred)
+        plt.scatter(
+            self.X_train_combined[:, dimension],
+            self.X_train_combined[:, dimension + 1],
+            c=y_pred,
+        )
 
         plt.show()
 

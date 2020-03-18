@@ -19,12 +19,12 @@ class SheetBasedUncertaintySampler(SheetBasedActiveLearner):
         # for all possible classifications of classifier
         Y_temp_proba = self.clf_list[0].predict_proba(X_query)
 
-        if self.strategy == 'least_confident':
+        if self.strategy == "least_confident":
             result = 1 - np.amax(Y_temp_proba, axis=1)
-        elif self.strategy == 'max_margin':
+        elif self.strategy == "max_margin":
             margin = np.partition(-Y_temp_proba, 1, axis=1)
             result = -np.abs(margin[:, 0] - margin[:, 1])
-        elif self.strategy == 'entropy':
+        elif self.strategy == "entropy":
             result = np.apply_along_axis(entropy, 1, Y_temp_proba)
 
         class_proba = -result
@@ -35,21 +35,20 @@ class SheetBasedUncertaintySampler(SheetBasedActiveLearner):
 
         spreadsheet_to_class_proba = {}
 
-        for spreadsheet, class_probability in zip(self.X_query_spreadsheets,
-                                                  class_proba):
+        for spreadsheet, class_probability in zip(
+            self.X_query_spreadsheets, class_proba
+        ):
             if spreadsheet not in spreadsheet_to_class_proba.keys():
                 spreadsheet_to_class_proba[spreadsheet] = []
             spreadsheet_to_class_proba[spreadsheet].append(class_probability)
 
-        for spreadsheet, class_probabilities in spreadsheet_to_class_proba.items(
-        ):
-            spreadsheet_to_class_proba[spreadsheet] = np.mean(
-                class_probabilities)
+        for spreadsheet, class_probabilities in spreadsheet_to_class_proba.items():
+            spreadsheet_to_class_proba[spreadsheet] = np.mean(class_probabilities)
 
-        most_uncertain_spreadsheet = min(spreadsheet_to_class_proba,
-                                         key=spreadsheet_to_class_proba.get)
+        most_uncertain_spreadsheet = min(
+            spreadsheet_to_class_proba, key=spreadsheet_to_class_proba.get
+        )
 
         self.current_sheet_name = most_uncertain_spreadsheet
 
-        return np.nonzero(
-            self.X_query_spreadsheets == most_uncertain_spreadsheet)
+        return np.nonzero(self.X_query_spreadsheets == most_uncertain_spreadsheet)

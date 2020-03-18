@@ -22,15 +22,15 @@ class BoundaryPairSampler(ActiveLearner):
         X_joined = np.append(self.X_train_unlabeled, self.X_train_labeled0)
         index_joined = np.indices(X_joined)
 
-        nbrs = NearestNeighbors(n_neighbors=2,
-                                algorithm='ball_tree',
-                                n_jobs=self.config.cores).fit(X_joined)
+        nbrs = NearestNeighbors(
+            n_neighbors=2, algorithm="ball_tree", n_jobs=self.config.cores
+        ).fit(X_joined)
         distances, indices = nbrs.kneighbors(X_joined)
 
         distance_dict = {}
 
         for x in range(len(distances)):
-            if (self.append(indices, x, distance_dict, Y_joined) is True):
+            if self.append(indices, x, distance_dict, Y_joined) is True:
                 distance_dict[(indices[x][0], indices[x][1])] = distances[x][1]
 
         myset = []
@@ -54,4 +54,4 @@ class BoundaryPairSampler(ActiveLearner):
             # myset = np.unique(myset)
             del distance_dict[index_pair]
 
-        return (myset)
+        return myset

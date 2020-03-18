@@ -7,11 +7,10 @@ verify_ssl = true
 pylint = "*"
 pydocstyle = "*"
 rope = "*"
-yapf = "*"
+black = "*"
 
 [packages]
 pandas = "*"
-ipykernel = "*"
 matplotlib = "*"
 sklearn = "*"
 numpy = "*"
@@ -25,11 +24,6 @@ altair = "*"
 altair-viewer = "*"
 tabulate = "*"
 jupyter = "*"
-qtconsole = "*"
-pyqt5 = "*"
-vega = "*"
-jupyterlab-code-formatter = "*"
-seaborn = "*"
 
 [requires]
 python_version = "3.8"

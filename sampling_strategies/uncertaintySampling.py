@@ -14,22 +14,23 @@ class UncertaintySampler(ActiveLearner):
     def setClassifierClasses(self, classes):
         self.classifier_classes = classes
 
-    def calculate_next_query_indices(self, X_train_unlabeled_cluster_indices,
-                                     *args):
+    def calculate_next_query_indices(self, X_train_unlabeled_cluster_indices, *args):
         # merge indices from all clusters together and take the n most uncertain ones from them
         X_train_unlabeled_indices = list(
-            chain(*list(X_train_unlabeled_cluster_indices.values())))
+            chain(*list(X_train_unlabeled_cluster_indices.values()))
+        )
         # recieve predictions and probabilitys
         # for all possible classifications of classifier
         Y_temp_proba = self.clf_list[0].predict_proba(
-            self.data_storage.X_train_unlabeled.loc[X_train_unlabeled_indices])
+            self.data_storage.X_train_unlabeled.loc[X_train_unlabeled_indices]
+        )
 
-        if self.strategy == 'least_confident':
+        if self.strategy == "least_confident":
             result = 1 - np.amax(Y_temp_proba, axis=1)
-        elif self.strategy == 'max_margin':
+        elif self.strategy == "max_margin":
             margin = np.partition(-Y_temp_proba, 1, axis=1)
             result = -np.abs(margin[:, 0] - margin[:, 1])
-        elif self.strategy == 'entropy':
+        elif self.strategy == "entropy":
             result = np.apply_along_axis(entropy, 1, Y_temp_proba)
 
         # sort X_train_unlabeled_indices by argsort
@@ -37,4 +38,4 @@ class UncertaintySampler(ActiveLearner):
         query_indices = np.array(X_train_unlabeled_indices)[argsort]
 
         # return smallest probabilities
-        return query_indices[:self.nr_queries_per_iteration]
+        return query_indices[: self.nr_queries_per_iteration]
