@@ -32,41 +32,22 @@ from experiment_setup_lib import (ExperimentResult,
                                   classification_report_and_confusion_matrix,
                                   get_db, get_single_al_run_stats_row,
                                   get_single_al_run_stats_table_header,
-                                  load_and_prepare_X_and_Y, standard_config)
+                                  load_and_prepare_X_and_Y)
 from sampling_strategies import (BoundaryPairSampler, CommitteeSampler,
                                  RandomSampler, UncertaintySampler)
 
 alt.renderers.enable('altair_viewer')
 #  alt.renderers.enable('vegascope')
 
-config = standard_config([
-    (['--limit'], {
-        'type': int,
-        'default': 10
-    }),
-    (['--param_list_id'], {
-        'default': "-1"
-    }),
-    (['--id'], {
-        'type': int,
-        'default': -1
-    }),
-    (['--db'], {
-        'default': 'sqlite'
-    }),
-    (['--dataset_stats'], {
-        'action': 'store_true'
-    }),
-    (['--param_list_stats'], {
-        'action': 'store_true'
-    }),
-])
+config = {
+    'datasets_path': '../datasets',
+    'db': "tunnel",
+    'param_list_id': 'best_global_score',
+}
 
-#  id zu untersuchen: 31858014d685a3f1ba3e4e32690ddfc3 -> warum ist roc_auc dort so falsch?
+db = get_db(db_name_or_type=config['db'])
 
-db = get_db(db_name_or_type=config.db)
-
-if config.dataset_stats:
+if 'dataset_stats' in config.keys():
     # select count(*), dataset_name from experimentresult group by dataset_name;
     results = ExperimentResult.select(
         ExperimentResult.dataset_name,
@@ -78,7 +59,7 @@ if config.dataset_stats:
         print("{:>4,d} {}".format(result.dataset_name_count,
                                   result.dataset_name))
 
-elif config.param_list_stats:
+elif 'param_list_stats' in config.keys():
     #  SELECT param_list_id, avg(fit_score), stddev(fit_score), avg(global_score), stddev(global_score), avg(start_set_size) as sss, count(*) FROM experimentresult WHERE start_set_size = 1 GROUP BY param_list_id ORDER BY 7 DESC, 4 DESC LIMIT 30;
 
     results = ExperimentResult.select(
@@ -106,10 +87,26 @@ elif config.param_list_stats:
 
     print(tabulate(table, headers="keys"))
 
-elif config.param_list_id != "-1":
+elif 'param_list_id' in config.keys():
     # SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
+    if config['param_list_id'] == 'best_global_score':
+        config['param_list_id'] = ExperimentResult.select(
+            ExperimentResult.param_list_id).group_by(
+                ExperimentResult.param_list_id).order_by(
+                    peewee.fn.COUNT(ExperimentResult.id_field).desc(),
+                    peewee.fn.AVG(ExperimentResult.global_score).desc()).limit(
+                        1)[0].param_list_id
+    ## stop
     results = ExperimentResult.select().where(
-        ExperimentResult.param_list_id == config.param_list_id)
+        ExperimentResult.param_list_id == config['param_list_id'])
+    results
+    ## loaded data
+
+    loaded_data = []
+    for result in results:
+        loaded_data.append(result)
+    loaded_data
+    ## stop
 
     charts = []
     for result in results:
@@ -169,10 +166,11 @@ elif config.param_list_id != "-1":
         #  result.fit_score,
         #  ))
     alt.vconcat(*charts).serve()
+    ##
 
-elif config.id != -1:
+elif 'id' in config.keys():
     print(get_single_al_run_stats_table_header())
-    result = ExperimentResult.get(ExperimentResult.id_field == config.id)
+    result = ExperimentResult.get(ExperimentResult.id_field == config['id'])
     metrics = loads(result.metrics_per_al_cycle)
 
     for key in metrics.keys():
@@ -184,7 +182,7 @@ else:
     best_result = (ExperimentResult.select(
         ExperimentResult.param_list_id,
         peewee.fn.AVG(ExperimentResult.param_list_id)).group_by(
-            ExperimentResult.param_list_id).limit(config.limit))
+            ExperimentResult.param_list_id).limit(config['limit']))
 
     print(
         "{:>20} {:>6} {:>25} {:>25} {:>4} {:>4} {:>4} {:>3} {:>5} {:>6} {:>6} {:>6} {:>6} {:>6}"

@@ -24,6 +24,12 @@ psycopg2 = ">2.5"
 altair = "*"
 altair-viewer = "*"
 tabulate = "*"
+jupyter = "*"
+qtconsole = "*"
+pyqt5 = "*"
+vega = "*"
+jupyterlab-code-formatter = "*"
+seaborn = "*"
 
 [requires]
 python_version = "3.8"
