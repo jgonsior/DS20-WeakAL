@@ -7,7 +7,7 @@ verify_ssl = true
 pylint = "*"
 pydocstyle = "*"
 rope = "*"
-black = "*"
+black = "==19.10b0"
 
 [packages]
 pandas = "*"
@@ -24,6 +24,7 @@ altair = "*"
 altair-viewer = "*"
 tabulate = "*"
 jupyter = "*"
+nb-black = "*"
 
 [requires]
 python_version = "3.8"
