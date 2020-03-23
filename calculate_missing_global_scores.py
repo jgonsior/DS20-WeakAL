@@ -1,5 +1,5 @@
+import math
 import argparse
-from playhouse.postgres_ext import *
 import contextlib
 import datetime
 import io
@@ -20,6 +20,7 @@ import peewee
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps, loads
 from playhouse.migrate import *
+from playhouse.postgres_ext import *
 from playhouse.shortcuts import model_to_dict
 from scipy.stats import randint, uniform
 from sklearn.datasets import load_iris
@@ -33,14 +34,15 @@ from cluster_strategies import (
 )
 from dataStorage import DataStorage
 from experiment_setup_lib import (
-    ExperimentResult,
     BaseModel,
+    ExperimentResult,
     classification_report_and_confusion_matrix,
     get_db,
     get_single_al_run_stats_row,
     get_single_al_run_stats_table_header,
     load_and_prepare_X_and_Y,
     standard_config,
+    calculate_global_score,
 )
 from sampling_strategies import (
     BoundaryPairSampler,
@@ -62,8 +64,14 @@ db.execute_sql("INSERT INTO experimentresult (SELECT * FROM experimentresult_old
 
 global_score_no_weak_roc_auc_field = peewee.FloatField(index=True, null=True)
 global_score_no_weak_acc_field = peewee.FloatField(index=True, null=True)
-global_score_with_weak_roc_auc_no_norm_field = peewee.FloatField(index=True, null=True)
 global_score_with_weak_roc_auc_field = peewee.FloatField(index=True, null=True)
+global_score_with_weak_acc_field = peewee.FloatField(index=True, null=True)
+
+global_score_no_weak_roc_auc_norm_field = peewee.FloatField(index=True, null=True)
+global_score_no_weak_acc_norm_field = peewee.FloatField(index=True, null=True)
+global_score_with_weak_roc_auc_norm_field = peewee.FloatField(index=True, null=True)
+global_score_with_weak_acc_norm_field = peewee.FloatField(index=True, null=True)
+
 
 migrator = PostgresqlMigrator(db)
 
@@ -78,19 +86,41 @@ migrate(
     ),
     migrator.add_column(
         "experimentresult",
-        "global_score_with_weak_roc_auc_no_norm",
-        global_score_with_weak_roc_auc_no_norm_field,
-    ),
-    migrator.add_column(
-        "experimentresult",
         "global_score_with_weak_roc_auc",
         global_score_with_weak_roc_auc_field,
     ),
-    migrator.rename_column(
-        "experimentresult", "global_score", "global_score_with_weak_roc_auc_no_norm_old"
+    migrator.add_column(
+        "experimentresult",
+        "global_score_with_weak_acc",
+        global_score_with_weak_acc_field,
+    ),
+    migrator.add_column(
+        "experimentresult",
+        "global_score_no_weak_roc_auc_norm",
+        global_score_no_weak_roc_auc_norm_field,
+    ),
+    migrator.add_column(
+        "experimentresult",
+        "global_score_no_weak_acc_norm",
+        global_score_no_weak_acc_norm_field,
+    ),
+    migrator.add_column(
+        "experimentresult",
+        "global_score_with_weak_roc_auc_norm",
+        global_score_with_weak_roc_auc_norm_field,
+    ),
+    migrator.add_column(
+        "experimentresult",
+        "global_score_with_weak_acc_norm",
+        global_score_with_weak_acc_norm_field,
     ),
     migrator.rename_column(
-        "experimentresult", "global_score_norm", "global_score_with_weak_roc_auc_old"
+        "experimentresult", "global_score", "global_score_with_weak_roc_auc_old"
+    ),
+    migrator.rename_column(
+        "experimentresult",
+        "global_score_norm",
+        "global_score_with_weak_roc_auc_norm_old",
     ),
 )
 
@@ -138,12 +168,17 @@ class ExperimentResult(BaseModel):
     fit_score = peewee.FloatField(index=True)
     roc_auc = peewee.FloatField(index=True)
     global_score_with_weak_roc_auc_old = peewee.FloatField(index=True)
-    global_score_with_weak_roc_auc_no_norm_old = peewee.FloatField(index=True)
+    global_score_with_weak_roc_auc_norm_old = peewee.FloatField(index=True)
 
     global_score_no_weak_roc_auc = peewee.FloatField(index=True, null=True)
     global_score_no_weak_acc = peewee.FloatField(index=True, null=True)
-    global_score_with_weak_roc_auc_no_norm = peewee.FloatField(index=True, null=True)
     global_score_with_weak_roc_auc = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_acc = peewee.FloatField(index=True, null=True)
+
+    global_score_no_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
+    global_score_no_weak_acc_norm = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_acc_norm = peewee.FloatField(index=True, null=True)
 
     param_list_id = peewee.TextField(index=True)
 
@@ -159,14 +194,54 @@ db.bind([ExperimentResult])
 # calculate new roc_auc scores
 # random is amount of 1/amount_of_labels, not fixed 0.5!!
 
-for result in ExperimentResult.select(ExperimentResult):
-    print(result.id_field)
+for experimentresult in ExperimentResult.select(ExperimentResult):
+    metrics_per_al_cycle = loads(experimentresult.metrics_per_al_cycle)
+    amount_of_labels = 5
 
-exit(-2)
+    amount_of_labels_per_metric_value = metrics_per_al_cycle["query_length"]
+
+    amount_of_labels_per_metric_value_norm = [
+        math.log2(m) for m in amount_of_labels_per_metric_value
+    ]
+
+    metric_values = metrics_per_al_cycle["all_unlabeled_roc_auc_scores"]
+    experimentresult.global_score_no_weak_roc_auc = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+    )
+    experimentresult.global_score_no_weak_roc_auc_norm = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+    )
+    experimentresult.global_score_no_weak_acc = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+    )
+    experimentresult.global_score_no_weak_acc_norm = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+    )
+
+    experimentresult.global_score_with_weak_roc_auc = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+    )
+    experimentresult.global_score_with_weak_roc_auc_norm = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+    )
+    experimentresult.global_score_with_weak_acc = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+    )
+    experimentresult.global_score_with_weak_acc_norm = calculate_global_score(
+        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+    )
+
+    print(experimentresult.id_field)
+    experimentresult.save()
+
 
 migrate(
     migrator.add_not_null("experimentresult", "global_score_no_weak_roc_auc"),
     migrator.add_not_null("experimentresult", "global_score_no_weak_acc"),
-    migrator.add_not_null("experimentresult", "global_score_with_weak_roc_auc_no_norm"),
     migrator.add_not_null("experimentresult", "global_score_with_weak_roc_auc"),
+    migrator.add_not_null("experimentresult", "global_score_with_weak_acc"),
+    migrator.add_not_null("experimentresult", "global_score_no_weak_roc_auc_norm"),
+    migrator.add_not_null("experimentresult", "global_score_no_weak_acc_norm"),
+    migrator.add_not_null("experimentresult", "global_score_with_weak_roc_auc_norm"),
+    migrator.add_not_null("experimentresult", "global_score_with_weak_acc_norm"),
 )
