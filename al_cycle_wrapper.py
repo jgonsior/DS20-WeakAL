@@ -66,7 +66,8 @@ from sampling_strategies import (
 )
 
 
-def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
+def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
+             hyper_parameters):
     hyper_parameters["len_train_data"] = len(Y_train)
     dataset_storage = DataStorage(hyper_parameters["random_seed"])
     dataset_storage.set_training_data(
@@ -103,7 +104,8 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
         "cores": hyper_parameters["cores"],
         "random_seed": hyper_parameters["random_seed"],
         "nr_learning_iterations": hyper_parameters["nr_learning_iterations"],
-        "nr_queries_per_iteration": hyper_parameters["nr_queries_per_iteration"],
+        "nr_queries_per_iteration":
+        hyper_parameters["nr_queries_per_iteration"],
         "with_test": True,
     }
 
@@ -127,8 +129,7 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
 
     start = timer()
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-        **hyper_parameters
-    )
+        **hyper_parameters)
     #  minimum_test_accuracy_before_recommendations=hyper_parameters['
     #  minimum_test_accuracy_before_recommendations,
     #  with_cluster_recommendation=hyper_parameters['
@@ -176,12 +177,11 @@ def eval_al(
     dataset_name,
 ):
     hyper_parameters[
-        "amount_of_user_asked_queries"
-    ] = active_learner.amount_of_user_asked_queries
+        "amount_of_user_asked_queries"] = active_learner.amount_of_user_asked_queries
 
     classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
-        trained_active_clf_list[0], X_test, Y_test, dataset_storage.label_encoder
-    )
+        trained_active_clf_list[0], X_test, Y_test,
+        dataset_storage.label_encoder)
     classification_report_and_confusion_matrix_train = classification_report_and_confusion_matrix(
         trained_active_clf_list[0],
         dataset_storage.X_train_labeled,
@@ -191,30 +191,24 @@ def eval_al(
 
     # normalize by start_set_size
     percentage_user_asked_queries = (
-        1
-        - hyper_parameters["amount_of_user_asked_queries"]
-        / hyper_parameters["len_train_data"]
-    )
+        1 - hyper_parameters["amount_of_user_asked_queries"] /
+        hyper_parameters["len_train_data"])
     test_acc = classification_report_and_confusion_matrix_test[0]["accuracy"]
 
     # score is harmonic mean
-    score = (
-        2
-        * percentage_user_asked_queries
-        * test_acc
-        / (percentage_user_asked_queries + test_acc)
-    )
+    score = (2 * percentage_user_asked_queries * test_acc /
+             (percentage_user_asked_queries + test_acc))
 
     global_score = calculate_global_score(
         alcs=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"],
         amount_of_labels_per_alcs=metrics_per_al_cycle["query_length"],
-    )
+        amount_of_labels=len(label_encoder.classes_))
     global_score_norm = calculate_global_score(
         alcs=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"],
         amount_of_labels_per_alcs=[
             math.log2(a) for a in metrics_per_al_cycle["query_length"]
         ],
-    )
+        amount_of_labels=len(label_encoder.classes_))
 
     # calculate based on params a unique id which should be the same across all similar cross validation splits
     param_distribution = get_param_distribution(**hyper_parameters)
@@ -234,27 +228,28 @@ def eval_al(
         metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),
         fit_time=str(fit_time),
         confusion_matrix_test=dumps(
-            classification_report_and_confusion_matrix_test[1], allow_nan=True
-        ),
+            classification_report_and_confusion_matrix_test[1],
+            allow_nan=True),
         confusion_matrix_train=dumps(
-            classification_report_and_confusion_matrix_train[1], allow_nan=True
-        ),
+            classification_report_and_confusion_matrix_train[1],
+            allow_nan=True),
         classification_report_test=dumps(
-            classification_report_and_confusion_matrix_test[0], allow_nan=True
-        ),
+            classification_report_and_confusion_matrix_test[0],
+            allow_nan=True),
         classification_report_train=dumps(
-            classification_report_and_confusion_matrix_train[0], allow_nan=True
-        ),
-        acc_train=classification_report_and_confusion_matrix_train[0]["accuracy"],
-        acc_test=classification_report_and_confusion_matrix_test[0]["accuracy"],
+            classification_report_and_confusion_matrix_train[0],
+            allow_nan=True),
+        acc_train=classification_report_and_confusion_matrix_train[0]
+        ["accuracy"],
+        acc_test=classification_report_and_confusion_matrix_test[0]
+        ["accuracy"],
         fit_score=score,
         roc_auc=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"][-1],
         global_score=global_score,
         global_score_norm=global_score_norm,
         param_list_id=param_list_id,
         thread_id=threading.get_ident(),
-        end_time=datetime.datetime.now()
-    )
+        end_time=datetime.datetime.now())
     experiment_result.save()
     db.close()
     return score
@@ -287,7 +282,8 @@ def train_and_eval_dataset(
         metrics_per_al_cycle,
         dataStorage,
         active_learner,
-    ) = train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters)
+    ) = train_al(X_train, Y_train, X_test, Y_test, label_encoder,
+                 hyper_parameters)
 
     fit_score = eval_al(
         X_test,
