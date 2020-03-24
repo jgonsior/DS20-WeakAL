@@ -1,9 +1,9 @@
-import math
 import argparse
 import contextlib
 import datetime
 import io
 import logging
+import math
 import multiprocessing
 import os
 import random
@@ -36,13 +36,13 @@ from dataStorage import DataStorage
 from experiment_setup_lib import (
     BaseModel,
     ExperimentResult,
+    calculate_global_score,
     classification_report_and_confusion_matrix,
     get_db,
     get_single_al_run_stats_row,
     get_single_al_run_stats_table_header,
     load_and_prepare_X_and_Y,
     standard_config,
-    calculate_global_score,
 )
 from sampling_strategies import (
     BoundaryPairSampler,
@@ -198,37 +198,50 @@ for experimentresult in ExperimentResult.select(ExperimentResult):
     metrics_per_al_cycle = loads(experimentresult.metrics_per_al_cycle)
     amount_of_labels = 5
 
-    amount_of_labels_per_metric_value = metrics_per_al_cycle["query_length"]
-
-    amount_of_labels_per_metric_value_norm = [
-        math.log2(m) for m in amount_of_labels_per_metric_value
+    acc_with_weak_values = metrics_per_al_cycle[
+        "all_unlabeled_roc_auc_scores"
+    ]  # metrics_per_al_cycle["all_unlabeled_test_acc?"]
+    roc_auc_with_weak_values = metrics_per_al_cycle["all_unlabeled_roc_auc_scores"]
+    acc_with_weak_amount_of_labels = (
+        roc_auc_with_weak_amount_of_labels
+    ) = metrics_per_al_cycle["query_length"]
+    acc_with_weak_amount_of_labels_norm = roc_auc_with_weak_amount_of_labels_norm = [
+        math.log2(m) for m in acc_with_weak_amount_of_labels
     ]
 
-    metric_values = metrics_per_al_cycle["all_unlabeled_roc_auc_scores"]
+    acc_no_weak_values = [0, 2]
+    roc_auc_no_weak_values = [0, 2]
+    acc_no_weak_amount_of_labels = roc_auc_no_weak_amount_of_labels = [0.1, 2]
+    acc_no_weak_amount_of_labels_norm = roc_auc_no_weak_amount_of_labels_norm = [
+        math.log2(m) for m in acc_no_weak_amount_of_labels
+    ]
+
     experimentresult.global_score_no_weak_roc_auc = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+        roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels, amount_of_labels
     )
     experimentresult.global_score_no_weak_roc_auc_norm = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+        roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels_norm, amount_of_labels
     )
     experimentresult.global_score_no_weak_acc = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+        acc_no_weak_values, acc_no_weak_amount_of_labels, amount_of_labels
     )
     experimentresult.global_score_no_weak_acc_norm = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+        acc_no_weak_values, acc_no_weak_amount_of_labels_norm, amount_of_labels
     )
 
     experimentresult.global_score_with_weak_roc_auc = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+        roc_auc_with_weak_values, roc_auc_with_weak_amount_of_labels, amount_of_labels
     )
     experimentresult.global_score_with_weak_roc_auc_norm = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+        roc_auc_with_weak_values,
+        roc_auc_with_weak_amount_of_labels_norm,
+        amount_of_labels,
     )
     experimentresult.global_score_with_weak_acc = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value, amount_of_labels
+        acc_with_weak_values, acc_with_weak_amount_of_labels, amount_of_labels
     )
     experimentresult.global_score_with_weak_acc_norm = calculate_global_score(
-        metric_values, amount_of_labels_per_metric_value_norm, amount_of_labels
+        acc_with_weak_values, acc_with_weak_amount_of_labels_norm, amount_of_labels
     )
 
     print(experimentresult.id_field)
