@@ -492,18 +492,20 @@ def calculate_global_score(
         rectangles = []
         triangles = []
 
-        for metric_value, amount_of_labels_per_metric_value, past_metric_value in zip(
+        for (
+            metric_value,
+            amount_of_labels_per_metric_value,
+            past_metric_value,
+        ) in zip(
             metric_values[1:],
             amount_of_labels_per_metric_values[1:],
             metric_values[:-1],
         ):
-            rectangles.append(past_metric_value * amount_of_labels_per_metric_value)
+            rectangles.append(metric_value * amount_of_labels_per_metric_value)
             triangles.append(
-                abs(
-                    amount_of_labels_per_metric_value
-                    * (metric_value - past_metric_value)
-                    / 2
-                )
+                amount_of_labels_per_metric_value
+                * (past_metric_value - metric_value)
+                / 2
             )
         square = sum(rectangles) + sum(triangles)
     else:
@@ -513,11 +515,11 @@ def calculate_global_score(
     arand = amax * (1 / amount_of_labels)
     global_score = (square - arand) / (amax - arand)
 
-    if global_score > 1 or square < arand:
+    if global_score > 1:
         print("metric_values: ", metric_values)
         print("#q: ", amount_of_labels_per_metric_values)
-        #  print("rect: ", rectangles)
-        #  print("tria: ", triangles)
+        print("rect: ", rectangles)
+        print("tria: ", triangles)
         print("ama: ", amax)
         print("ara: ", arand)
         print("squ: ", square)

@@ -5,6 +5,7 @@ import io
 import logging
 import math
 import multiprocessing
+import operator
 import os
 import random
 import sys
@@ -198,9 +199,10 @@ for experimentresult in ExperimentResult.select(ExperimentResult):
     metrics_per_al_cycle = loads(experimentresult.metrics_per_al_cycle)
     amount_of_labels = 5
 
-    acc_with_weak_values = metrics_per_al_cycle[
-        "all_unlabeled_roc_auc_scores"
-    ]  # metrics_per_al_cycle["all_unlabeled_test_acc?"]
+    acc_with_weak_values = [
+        metrics_per_al_cycle["test_data_metrics"][0][i][0]["accuracy"]
+        for i in range(0, len(metrics_per_al_cycle["query_length"]))
+    ]
     roc_auc_with_weak_values = metrics_per_al_cycle["all_unlabeled_roc_auc_scores"]
     acc_with_weak_amount_of_labels = (
         roc_auc_with_weak_amount_of_labels
@@ -209,12 +211,26 @@ for experimentresult in ExperimentResult.select(ExperimentResult):
         math.log2(m) for m in acc_with_weak_amount_of_labels
     ]
 
-    acc_no_weak_values = [0, 2]
-    roc_auc_no_weak_values = [0, 2]
-    acc_no_weak_amount_of_labels = roc_auc_no_weak_amount_of_labels = [0.1, 2]
-    acc_no_weak_amount_of_labels_norm = roc_auc_no_weak_amount_of_labels_norm = [
-        math.log2(m) for m in acc_no_weak_amount_of_labels
+    # no recommendation indices
+    no_weak_indices = [
+        i
+        for i, j in enumerate(metrics_per_al_cycle["recommendation"])
+        if j == "A" or j == "G"
     ]
+
+    if no_weak_indices == [0]:
+        no_weak_indices.append(0)
+
+    acc_no_weak_values = operator.itemgetter(*no_weak_indices)(acc_with_weak_values)
+    roc_auc_no_weak_values = operator.itemgetter(*no_weak_indices)(
+        roc_auc_with_weak_values
+    )
+    acc_no_weak_amount_of_labels = (
+        roc_auc_no_weak_amount_of_labels
+    ) = operator.itemgetter(*no_weak_indices)(acc_with_weak_amount_of_labels)
+    acc_no_weak_amount_of_labels_norm = (
+        roc_auc_no_weak_amount_of_labels_norm
+    ) = operator.itemgetter(*no_weak_indices)(acc_with_weak_amount_of_labels_norm)
 
     experimentresult.global_score_no_weak_roc_auc = calculate_global_score(
         roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels, amount_of_labels
