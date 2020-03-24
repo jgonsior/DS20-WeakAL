@@ -80,8 +80,19 @@ class ExperimentResult(BaseModel):
     acc_test = peewee.FloatField(index=True)
     fit_score = peewee.FloatField(index=True)
     roc_auc = peewee.FloatField(index=True)
-    global_score = peewee.FloatField(index=True)
-    global_score_norm = peewee.FloatField(index=True)
+
+    global_score_with_weak_roc_auc_old = peewee.FloatField(index=True)
+    global_score_with_weak_roc_auc_norm_old = peewee.FloatField(index=True)
+
+    global_score_no_weak_roc_auc = peewee.FloatField(index=True, null=True)
+    global_score_no_weak_acc = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_roc_auc = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_acc = peewee.FloatField(index=True, null=True)
+
+    global_score_no_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
+    global_score_no_weak_acc_norm = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_acc_norm = peewee.FloatField(index=True, null=True)
 
     param_list_id = peewee.TextField(index=True)
 
@@ -580,9 +591,9 @@ def get_param_distribution(
         #  "nr_learning_iterations": [1],
         "nr_queries_per_iteration": nr_queries_per_iteration,
         "start_set_size": start_set_size,
-        "stopping_criteria_uncertainty": zero_to_one,
-        "stopping_criteria_std": zero_to_one,
-        "stopping_criteria_acc": zero_to_one,
+        "stopping_criteria_uncertainty": [1],  # zero_to_one,
+        "stopping_criteria_std": [1],  # zero_to_one,
+        "stopping_criteria_acc": [1],  # zero_to_one,
         "allow_recommendations_after_stop": [True, False],
         # uncertainty_recommendation_grid = {
         "uncertainty_recommendation_certainty_threshold": half_to_one,
@@ -598,6 +609,7 @@ def get_param_distribution(
         "with_snuba_lite": [False],
         "minimum_test_accuracy_before_recommendations": half_to_one,
         "db_name_or_type": [db_name_or_type],
+        "user_query_budget_limit": [2000],
     }
 
     return param_distribution

@@ -1,3 +1,4 @@
+import operator
 import argparse
 import contextlib
 import datetime
@@ -66,8 +67,7 @@ from sampling_strategies import (
 )
 
 
-def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
-             hyper_parameters):
+def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
     hyper_parameters["len_train_data"] = len(Y_train)
     dataset_storage = DataStorage(hyper_parameters["random_seed"])
     dataset_storage.set_training_data(
@@ -104,8 +104,7 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
         "cores": hyper_parameters["cores"],
         "random_seed": hyper_parameters["random_seed"],
         "nr_learning_iterations": hyper_parameters["nr_learning_iterations"],
-        "nr_queries_per_iteration":
-        hyper_parameters["nr_queries_per_iteration"],
+        "nr_queries_per_iteration": hyper_parameters["nr_queries_per_iteration"],
         "with_test": True,
     }
 
@@ -129,7 +128,8 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder,
 
     start = timer()
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
-        **hyper_parameters)
+        **hyper_parameters
+    )
     #  minimum_test_accuracy_before_recommendations=hyper_parameters['
     #  minimum_test_accuracy_before_recommendations,
     #  with_cluster_recommendation=hyper_parameters['
@@ -177,11 +177,12 @@ def eval_al(
     dataset_name,
 ):
     hyper_parameters[
-        "amount_of_user_asked_queries"] = active_learner.amount_of_user_asked_queries
+        "amount_of_user_asked_queries"
+    ] = active_learner.amount_of_user_asked_queries
 
     classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
-        trained_active_clf_list[0], X_test, Y_test,
-        dataset_storage.label_encoder)
+        trained_active_clf_list[0], X_test, Y_test, dataset_storage.label_encoder
+    )
     classification_report_and_confusion_matrix_train = classification_report_and_confusion_matrix(
         trained_active_clf_list[0],
         dataset_storage.X_train_labeled,
@@ -191,24 +192,82 @@ def eval_al(
 
     # normalize by start_set_size
     percentage_user_asked_queries = (
-        1 - hyper_parameters["amount_of_user_asked_queries"] /
-        hyper_parameters["len_train_data"])
+        1
+        - hyper_parameters["amount_of_user_asked_queries"]
+        / hyper_parameters["len_train_data"]
+    )
     test_acc = classification_report_and_confusion_matrix_test[0]["accuracy"]
 
     # score is harmonic mean
-    score = (2 * percentage_user_asked_queries * test_acc /
-             (percentage_user_asked_queries + test_acc))
+    score = (
+        2
+        * percentage_user_asked_queries
+        * test_acc
+        / (percentage_user_asked_queries + test_acc)
+    )
 
-    global_score = calculate_global_score(
-        alcs=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"],
-        amount_of_labels_per_alcs=metrics_per_al_cycle["query_length"],
-        amount_of_labels=len(label_encoder.classes_))
-    global_score_norm = calculate_global_score(
-        alcs=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"],
-        amount_of_labels_per_alcs=[
-            math.log2(a) for a in metrics_per_al_cycle["query_length"]
-        ],
-        amount_of_labels=len(label_encoder.classes_))
+    amount_of_labels = len(label_encoder.classes_)
+
+    acc_with_weak_values = [
+        metrics_per_al_cycle["test_data_metrics"][0][i][0]["accuracy"]
+        for i in range(0, len(metrics_per_al_cycle["query_length"]))
+    ]
+    roc_auc_with_weak_values = metrics_per_al_cycle["all_unlabeled_roc_auc_scores"]
+    acc_with_weak_amount_of_labels = (
+        roc_auc_with_weak_amount_of_labels
+    ) = metrics_per_al_cycle["query_length"]
+    acc_with_weak_amount_of_labels_norm = roc_auc_with_weak_amount_of_labels_norm = [
+        math.log2(m) for m in acc_with_weak_amount_of_labels
+    ]
+
+    # no recommendation indices
+    no_weak_indices = [
+        i
+        for i, j in enumerate(metrics_per_al_cycle["recommendation"])
+        if j == "A" or j == "G"
+    ]
+
+    if no_weak_indices == [0]:
+        no_weak_indices.append(0)
+
+    acc_no_weak_values = operator.itemgetter(*no_weak_indices)(acc_with_weak_values)
+    roc_auc_no_weak_values = operator.itemgetter(*no_weak_indices)(
+        roc_auc_with_weak_values
+    )
+    acc_no_weak_amount_of_labels = (
+        roc_auc_no_weak_amount_of_labels
+    ) = operator.itemgetter(*no_weak_indices)(acc_with_weak_amount_of_labels)
+    acc_no_weak_amount_of_labels_norm = (
+        roc_auc_no_weak_amount_of_labels_norm
+    ) = operator.itemgetter(*no_weak_indices)(acc_with_weak_amount_of_labels_norm)
+
+    global_score_no_weak_roc_auc = calculate_global_score(
+        roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels, amount_of_labels
+    )
+    global_score_no_weak_roc_auc_norm = calculate_global_score(
+        roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels_norm, amount_of_labels
+    )
+    global_score_no_weak_acc = calculate_global_score(
+        acc_no_weak_values, acc_no_weak_amount_of_labels, amount_of_labels
+    )
+    global_score_no_weak_acc_norm = calculate_global_score(
+        acc_no_weak_values, acc_no_weak_amount_of_labels_norm, amount_of_labels
+    )
+
+    global_score_with_weak_roc_auc = calculate_global_score(
+        roc_auc_with_weak_values, roc_auc_with_weak_amount_of_labels, amount_of_labels
+    )
+    global_score_with_weak_roc_auc_norm = calculate_global_score(
+        roc_auc_with_weak_values,
+        roc_auc_with_weak_amount_of_labels_norm,
+        amount_of_labels,
+    )
+    global_score_with_weak_acc = calculate_global_score(
+        acc_with_weak_values, acc_with_weak_amount_of_labels, amount_of_labels
+    )
+    global_score_with_weak_acc_norm = calculate_global_score(
+        acc_with_weak_values, acc_with_weak_amount_of_labels_norm, amount_of_labels
+    )
 
     # calculate based on params a unique id which should be the same across all similar cross validation splits
     param_distribution = get_param_distribution(**hyper_parameters)
@@ -228,28 +287,35 @@ def eval_al(
         metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),
         fit_time=str(fit_time),
         confusion_matrix_test=dumps(
-            classification_report_and_confusion_matrix_test[1],
-            allow_nan=True),
+            classification_report_and_confusion_matrix_test[1], allow_nan=True
+        ),
         confusion_matrix_train=dumps(
-            classification_report_and_confusion_matrix_train[1],
-            allow_nan=True),
+            classification_report_and_confusion_matrix_train[1], allow_nan=True
+        ),
         classification_report_test=dumps(
-            classification_report_and_confusion_matrix_test[0],
-            allow_nan=True),
+            classification_report_and_confusion_matrix_test[0], allow_nan=True
+        ),
         classification_report_train=dumps(
-            classification_report_and_confusion_matrix_train[0],
-            allow_nan=True),
-        acc_train=classification_report_and_confusion_matrix_train[0]
-        ["accuracy"],
-        acc_test=classification_report_and_confusion_matrix_test[0]
-        ["accuracy"],
+            classification_report_and_confusion_matrix_train[0], allow_nan=True
+        ),
+        acc_train=classification_report_and_confusion_matrix_train[0]["accuracy"],
+        acc_test=classification_report_and_confusion_matrix_test[0]["accuracy"],
         fit_score=score,
         roc_auc=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"][-1],
-        global_score=global_score,
-        global_score_norm=global_score_norm,
         param_list_id=param_list_id,
         thread_id=threading.get_ident(),
-        end_time=datetime.datetime.now())
+        end_time=datetime.datetime.now(),
+        global_score_no_weak_roc_auc=global_score_no_weak_roc_auc,
+        global_score_no_weak_roc_auc_norm=global_score_no_weak_roc_auc_norm,
+        global_score_no_weak_acc=global_score_no_weak_acc,
+        global_score_no_weak_acc_norm=global_score_no_weak_acc_norm,
+        global_score_with_weak_roc_auc=global_score_with_weak_roc_auc,
+        global_score_with_weak_roc_auc_norm=global_score_with_weak_roc_auc_norm,
+        global_score_with_weak_acc=global_score_with_weak_acc,
+        global_score_with_weak_acc_norm=global_score_with_weak_acc_norm,
+        global_score_with_weak_roc_auc_old=0,
+        global_score_with_weak_roc_auc_norm_old=0,
+    )
     experiment_result.save()
     db.close()
     return score
@@ -282,8 +348,7 @@ def train_and_eval_dataset(
         metrics_per_al_cycle,
         dataStorage,
         active_learner,
-    ) = train_al(X_train, Y_train, X_test, Y_test, label_encoder,
-                 hyper_parameters)
+    ) = train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters)
 
     fit_score = eval_al(
         X_test,

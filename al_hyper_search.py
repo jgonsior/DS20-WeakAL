@@ -104,6 +104,7 @@ class Estimator(BaseEstimator):
         stopping_criteria_acc=None,
         allow_recommendations_after_stop=None,
         db_name_or_type=None,
+        user_query_budget_limit=None,
     ):
         self.datasets_path = datasets_path
         self.classifier = classifier
@@ -141,6 +142,7 @@ class Estimator(BaseEstimator):
         self.allow_recommendations_after_stop = allow_recommendations_after_stop
 
         self.db_name_or_type = db_name_or_type
+        self.user_query_budget_limit = user_query_budget_limit
         #  if len(kwargs) == 0:
         #  for k in get_param_distribution().keys():
         #  setattr(self, k, None)

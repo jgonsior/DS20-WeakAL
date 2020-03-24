@@ -27,6 +27,7 @@ from scipy.stats import randint, uniform
 from sklearn.datasets import load_iris
 from tabulate import tabulate
 
+import experiment_setup_lib
 from cluster_strategies import (
     DummyClusterStrategy,
     MostUncertainClusterStrategy,
@@ -59,6 +60,63 @@ config = standard_config([(["--db"], {"default": "sqlite"}),])
 
 db = get_db(db_name_or_type=config.db)
 
+
+class ExperimentResult(BaseModel):
+    id_field = peewee.AutoField()
+
+    # hyper params
+    datasets_path = peewee.TextField()
+    dataset_name = peewee.TextField()
+    db_name_or_type = peewee.TextField()
+    classifier = peewee.TextField(index=True)
+    cores = peewee.IntegerField()
+    test_fraction = peewee.FloatField()
+    sampling = peewee.TextField(index=True)
+    random_seed = peewee.IntegerField()
+    cluster = peewee.TextField(index=True)
+    nr_learning_iterations = peewee.IntegerField()
+    nr_queries_per_iteration = peewee.IntegerField(index=True)
+    start_set_size = peewee.FloatField(index=True)
+    with_uncertainty_recommendation = peewee.BooleanField(index=True)
+    with_cluster_recommendation = peewee.BooleanField(index=True)
+    with_snuba_lite = peewee.BooleanField(index=True)
+    uncertainty_recommendation_certainty_threshold = peewee.FloatField(null=True)
+    uncertainty_recommendation_ratio = peewee.FloatField(null=True)
+    snuba_lite_minimum_heuristic_accuracy = peewee.FloatField(null=True)
+    cluster_recommendation_minimum_cluster_unity_size = peewee.FloatField(null=True)
+    cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(null=True)
+    metrics_per_al_cycle = BinaryJSONField()  # json string
+    amount_of_user_asked_queries = peewee.IntegerField(index=True)
+    allow_recommendations_after_stop = peewee.BooleanField()
+    stopping_criteria_uncertainty = peewee.FloatField()
+    stopping_criteria_acc = peewee.FloatField()
+    stopping_criteria_std = peewee.FloatField()
+
+    # information of hyperparam run
+    experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
+    fit_time = peewee.TextField()  # timedelta
+    confusion_matrix_test = BinaryJSONField()  # json
+    confusion_matrix_train = BinaryJSONField()  # json
+    classification_report_train = BinaryJSONField()  # json
+    classification_report_test = BinaryJSONField()  # json
+    acc_train = peewee.FloatField(index=True)
+    acc_test = peewee.FloatField(index=True)
+    fit_score = peewee.FloatField(index=True)
+    roc_auc = peewee.FloatField(index=True)
+
+    global_score = peewee.FloatField(index=True)
+    global_score_norm = peewee.FloatField(index=True)
+
+    param_list_id = peewee.TextField(index=True)
+
+    cv_fit_score_mean = peewee.FloatField(null=True)
+    cv_fit_score_std = peewee.FloatField(null=True)
+
+    thread_id = peewee.BigIntegerField(index=True)
+    end_time = peewee.DateTimeField(index=True)
+
+
+db.bind([ExperimentResult])
 db.execute_sql("DROP TABLE experimentresult;")
 db.create_tables([ExperimentResult])
 db.execute_sql("INSERT INTO experimentresult (SELECT * FROM experimentresult_old);")
@@ -125,75 +183,8 @@ migrate(
     ),
 )
 
-# @todo: include here the OLD definition instead!
-class ExperimentResult(BaseModel):
-    id_field = peewee.AutoField()
 
-    # hyper params
-    datasets_path = peewee.TextField()
-    dataset_name = peewee.TextField()
-    db_name_or_type = peewee.TextField()
-    classifier = peewee.TextField(index=True)
-    cores = peewee.IntegerField()
-    test_fraction = peewee.FloatField()
-    sampling = peewee.TextField(index=True)
-    random_seed = peewee.IntegerField()
-    cluster = peewee.TextField(index=True)
-    nr_learning_iterations = peewee.IntegerField()
-    nr_queries_per_iteration = peewee.IntegerField(index=True)
-    start_set_size = peewee.FloatField(index=True)
-    with_uncertainty_recommendation = peewee.BooleanField(index=True)
-    with_cluster_recommendation = peewee.BooleanField(index=True)
-    with_snuba_lite = peewee.BooleanField(index=True)
-    uncertainty_recommendation_certainty_threshold = peewee.FloatField(null=True)
-    uncertainty_recommendation_ratio = peewee.FloatField(null=True)
-    snuba_lite_minimum_heuristic_accuracy = peewee.FloatField(null=True)
-    cluster_recommendation_minimum_cluster_unity_size = peewee.FloatField(null=True)
-    cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(null=True)
-    metrics_per_al_cycle = BinaryJSONField()  # json string
-    amount_of_user_asked_queries = peewee.IntegerField(index=True)
-    allow_recommendations_after_stop = peewee.BooleanField()
-    stopping_criteria_uncertainty = peewee.FloatField()
-    stopping_criteria_acc = peewee.FloatField()
-    stopping_criteria_std = peewee.FloatField()
-
-    # information of hyperparam run
-    experiment_run_date = peewee.DateTimeField(default=datetime.datetime.now)
-    fit_time = peewee.TextField()  # timedelta
-    confusion_matrix_test = BinaryJSONField()  # json
-    confusion_matrix_train = BinaryJSONField()  # json
-    classification_report_train = BinaryJSONField()  # json
-    classification_report_test = BinaryJSONField()  # json
-    acc_train = peewee.FloatField(index=True)
-    acc_test = peewee.FloatField(index=True)
-    fit_score = peewee.FloatField(index=True)
-    roc_auc = peewee.FloatField(index=True)
-    global_score_with_weak_roc_auc_old = peewee.FloatField(index=True)
-    global_score_with_weak_roc_auc_norm_old = peewee.FloatField(index=True)
-
-    global_score_no_weak_roc_auc = peewee.FloatField(index=True, null=True)
-    global_score_no_weak_acc = peewee.FloatField(index=True, null=True)
-    global_score_with_weak_roc_auc = peewee.FloatField(index=True, null=True)
-    global_score_with_weak_acc = peewee.FloatField(index=True, null=True)
-
-    global_score_no_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
-    global_score_no_weak_acc_norm = peewee.FloatField(index=True, null=True)
-    global_score_with_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
-    global_score_with_weak_acc_norm = peewee.FloatField(index=True, null=True)
-
-    param_list_id = peewee.TextField(index=True)
-
-    cv_fit_score_mean = peewee.FloatField(null=True)
-    cv_fit_score_std = peewee.FloatField(null=True)
-
-    thread_id = peewee.BigIntegerField(index=True)
-    end_time = peewee.DateTimeField(index=True)
-
-
-db.bind([ExperimentResult])
-
-# calculate new roc_auc scores
-# random is amount of 1/amount_of_labels, not fixed 0.5!!
+db.bind([experiment_setup_lib.ExperimentResult])
 
 for experimentresult in ExperimentResult.select(ExperimentResult):
     metrics_per_al_cycle = loads(experimentresult.metrics_per_al_cycle)
@@ -217,6 +208,10 @@ for experimentresult in ExperimentResult.select(ExperimentResult):
         for i, j in enumerate(metrics_per_al_cycle["recommendation"])
         if j == "A" or j == "G"
     ]
+
+    # @todo ich muss hier die Werte für die Recommendation irgendwie mit einbeziehen!
+    # ansonsten wird das Ergebnis der Oracle Dinger GAR NICHT BEWERTET!!
+    # ich muss als End Accuracy für einen Orakel Query nicht die Orakelwerte, sondern die Werte nach den ganzen Automatischen Labeldingern nehmen, und amount_of_labels dafür aufsummieren
 
     if no_weak_indices == [0]:
         no_weak_indices.append(0)

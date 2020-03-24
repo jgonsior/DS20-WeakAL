@@ -72,6 +72,7 @@ class ActiveLearner:
         self.with_test = with_test
         self.cluster_strategy = cluster_strategy
         self.data_storage = dataset_storage
+        self.amount_of_user_asked_queries = 0
 
     def calculate_stopping_criteria_stddev(self):
         accuracy_list = self.query_weak_accuracy_list
@@ -395,6 +396,7 @@ class ActiveLearner:
         stopping_criteria_acc,
         stopping_criteria_std,
         allow_recommendations_after_stop,
+        user_query_budget_limit,
         **kwargs,
     ):
         log_it(self.data_storage.label_encoder.classes_)
@@ -476,6 +478,7 @@ class ActiveLearner:
                     # ask oracle for some "hard data"
                     X_query, Y_query, query_indices = self.increase_labeled_dataset()
                     recommendation_value = "A"
+                    self.amount_of_user_asked_queries += len(Y_query)
                     Y_query_strong = None
 
             self.metrics_per_al_cycle["recommendation"].append(recommendation_value)
@@ -534,29 +537,18 @@ class ActiveLearner:
             )
 
             # checking stop criterias
-            if (
-                self.metrics_per_al_cycle["stop_query_weak_accuracy_list"][-1]
-                > stopping_criteria_acc
-                and self.metrics_per_al_cycle["stop_stddev_list"][-1]
-                < stopping_criteria_std
-                and self.metrics_per_al_cycle["stop_certainty_list"][-1]
-                < stopping_criteria_std
-            ):
+            #  if (
+            #  self.metrics_per_al_cycle["stop_query_weak_accuracy_list"][-1]
+            #  > stopping_criteria_acc
+            #  and self.metrics_per_al_cycle["stop_stddev_list"][-1]
+            #  < stopping_criteria_std
+            #  and self.metrics_per_al_cycle["stop_certainty_list"][-1]
+            #  < stopping_criteria_std
+            #  ):
+            if self.amount_of_user_asked_queries > user_query_budget_limit:
                 early_stop_reached = True
                 log_it("Early stop")
                 if not allow_recommendations_after_stop:
                     break
 
-        self.calculate_amount_of_user_asked_queries()
-
         return self.clf_list, self.metrics_per_al_cycle
-
-    def calculate_amount_of_user_asked_queries(self):
-        amount_of_user_asked_queries = self.start_set_size
-
-        for i, amount_of_queries in enumerate(
-            self.metrics_per_al_cycle["query_length"]
-        ):
-            if self.metrics_per_al_cycle["recommendation"][i] == "A":
-                amount_of_user_asked_queries += amount_of_queries
-        self.amount_of_user_asked_queries = amount_of_user_asked_queries
