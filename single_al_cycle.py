@@ -47,9 +47,9 @@ config = standard_config(
                 "help": "Possible values: dummy, random, mostUncertain, roundRobin",
             },
         ),
-        (["--nr_learning_iterations"], {"type": int, "default": 15}),
+        (["--nr_learning_iterations"], {"type": int, "default": 150000}),
         (["--nr_queries_per_iteration"], {"type": int, "default": 150}),
-        (["--start_set_size"], {"type": float, "default": 0.1}),
+        (["--start_set_size"], {"type": int, "default": 1}),
         (
             ["--minimum_test_accuracy_before_recommendations"],
             {"type": float, "default": 0.7},
@@ -81,6 +81,7 @@ config = standard_config(
         ),
         (["--db_name_or_type"], {"default": "sqlite"}),
         (["--hyper_search_type"], {"default": "random"}),
+        (["--user_query_budget_limit"], {"type": float, "default": 200}),
     ]
 )
 

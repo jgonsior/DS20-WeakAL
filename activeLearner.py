@@ -547,7 +547,7 @@ class ActiveLearner:
             #  ):
             if self.amount_of_user_asked_queries > user_query_budget_limit:
                 early_stop_reached = True
-                log_it("Early stop")
+                log_it("Budget exhausted")
                 if not allow_recommendations_after_stop:
                     break
 
