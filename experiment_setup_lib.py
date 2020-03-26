@@ -1,18 +1,9 @@
 import argparse
-import contextlib
 import datetime
-import hashlib
-import io
-import json
-import logging
-import multiprocessing
 import os
-import pickle
 import random
 import sys
 import threading
-from itertools import chain, combinations
-from timeit import default_timer as timer
 
 import numpy as np
 
@@ -21,11 +12,9 @@ import numpy.random
 import pandas as pd
 import peewee
 import scipy
-from evolutionary_search import EvolutionaryAlgorithmSearchCV
-from json_tricks import dumps
 from playhouse.postgres_ext import *
-from sklearn.base import BaseEstimator
-from sklearn.datasets import fetch_covtype, load_iris
+from sklearn.datasets import fetch_covtype
+from sklearn.datasets import make_classification
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
@@ -169,15 +158,15 @@ def divide_data(X, Y, test_fraction):
 
 def standard_config(additional_parameters=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datasets_path", default="../datasets/")
+    parser.add_argument("--DATASETS_PATH", default="../datasets/")
     parser.add_argument(
-        "--classifier", default="RF", help="Supported types: RF, DTree, NB, SVM, Linear"
+        "--CLASSIFIER", default="RF", help="Supported types: RF, DTree, NB, SVM, Linear"
     )
-    parser.add_argument("--cores", type=int, default=-1)
+    parser.add_argument("--CORES", type=int, default=-1)
     parser.add_argument(
-        "--random_seed", type=int, default=42, help="-1 Enables true Randomness"
+        "--RANDOM_SEED", type=int, default=42, help="-1 Enables true Randomness"
     )
-    parser.add_argument("--test_fraction", type=float, default=0.5)
+    parser.add_argument("--TEST_FRACTION", type=float, default=0.5)
 
     if additional_parameters is not None:
         for additional_parameter in additional_parameters:
@@ -189,9 +178,9 @@ def standard_config(additional_parameters=None):
         parser.print_help()
         parser.exit()
 
-    if config.random_seed != -1:
-        np.random.seed(config.random_seed)
-        random.seed(config.random_seed)
+    if config.RANDOM_SEED != -1:
+        np.random.seed(config.RANDOM_SEED)
+        random.seed(config.RANDOM_SEED)
 
     return config
 
@@ -411,7 +400,35 @@ def get_dataset(datasets_path, dataset_name):
 
         logging.info("Loaded " + dataset_name)
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_
-
+    elif dataset_name == "synthetic":
+        N_SAMPLES = 100
+        N_FEATURES = 20
+        N_INFORMATIVE = 2
+        N_REDUNDANT = 2
+        N_REPEATED = 0
+        N_CLASSES = 5
+        N_CLUSTERS_PER_CLASS = 2
+        WEIGHTS = None  # list of weights, len(WEIGHTS) = N_CLASSES, sum(WEIGHTS)=1
+        FLIP_Y = 0.01  # amount of noise, larger values make it harder
+        CLASS_SEP = 1.0  # larger values spread out the clusters and make it easier
+        HYPERCUBE = True  # if false random polytope
+        SCALE = 0.01  # features should be between 0 and 1 now
+        X_data, Y_data = make_classification(
+            N_SAMPLES,
+            N_FEATURES,
+            N_INFORMATIVE,
+            N_REDUNDANT,
+            N_REPEATED,
+            N_CLASSES,
+            N_CLUSTERS_PER_CLASS,
+            WEIGHTS,
+            FLIP_Y,
+            CLASS_SEP,
+            HYPERCUBE,
+            SCALE,
+        )
+        print(X_data)
+        print(Y_data)
     else:
         train_indices = {
             "ibn_sina": 10361,
@@ -541,45 +558,45 @@ def calculate_global_score(
 
 def get_param_distribution(
     hyper_search_type=None,
-    datasets_path=None,
-    classifier=None,
-    cores=None,
-    random_seed=None,
-    test_fraction=None,
-    nr_learning_iterations=None,
-    db_name_or_type=None,
+    DATASETS_PATH=None,
+    CLASSIFIER=None,
+    CORES=None,
+    RANDOM_SEED=None,
+    TEST_FRACTION=None,
+    NR_LEARNING_ITERATIONS=None,
+    DB_NAME_OR_TYPE=None,
     **kwargs
 ):
     if hyper_search_type == "random":
         zero_to_one = scipy.stats.uniform(loc=0, scale=1)
         half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
         #  nr_queries_per_iteration = scipy.stats.randint(1, 151)
-        nr_queries_per_iteration = [10]
-        #  start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
-        #  start_set_size = [1, 10, 25, 50, 100]
-        start_set_size = [1]
+        NR_QUERIES_PER_ITERATION = [10]
+        #  START_SET_SIZE = scipy.stats.uniform(loc=0.001, scale=0.1)
+        #  START_SET_SIZE = [1, 10, 25, 50, 100]
+        START_SET_SIZE = [1]
     else:
         param_size = 50
         #  param_size = 2
         zero_to_one = np.linspace(0, 1, num=param_size * 2 + 1).astype(float)
         half_to_one = np.linspace(0.5, 1, num=param_size + 1).astype(float)
-        nr_queries_per_iteration = np.linspace(1, 150, num=param_size + 1).astype(int)
-        #  start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
-        start_set_size = [1, 10, 25, 50, 100]
+        NR_QUERIES_PER_ITERATION = np.linspace(1, 150, num=param_size + 1).astype(int)
+        #  START_SET_SIZE = np.linspace(0.001, 0.1, num=10).astype(float)
+        START_SET_SIZE = [1, 10, 25, 50, 100]
 
     param_distribution = {
-        "datasets_path": [datasets_path],
-        "classifier": [classifier],
-        "cores": [cores],
-        "random_seed": [random_seed],
-        "test_fraction": [test_fraction],
-        "sampling": [
+        "DATASETS_PATH": [DATASETS_PATH],
+        "CLASSIFIER": [CLASSIFIER],
+        "CORES": [CORES],
+        "RANDOM_SEED": [RANDOM_SEED],
+        "TEST_FRACTION": [TEST_FRACTION],
+        "SAMPLING": [
             "random",
             "uncertainty_lc",
             "uncertainty_max_margin",
             "uncertainty_entropy",
         ],
-        "cluster": [
+        "CLUSTER": [
             "dummy",
             "random",
             "MostUncertain_lc",
@@ -587,29 +604,29 @@ def get_param_distribution(
             "MostUncertain_entropy"
             #  'dummy',
         ],
-        "nr_learning_iterations": [nr_learning_iterations],
-        #  "nr_learning_iterations": [1],
-        "nr_queries_per_iteration": nr_queries_per_iteration,
-        "start_set_size": start_set_size,
-        "stopping_criteria_uncertainty": [1],  # zero_to_one,
-        "stopping_criteria_std": [1],  # zero_to_one,
-        "stopping_criteria_acc": [1],  # zero_to_one,
-        "allow_recommendations_after_stop": [True, False],
+        "NR_LEARNING_ITERATIONS": [NR_LEARNING_ITERATIONS],
+        #  "NR_LEARNING_ITERATIONS": [1],
+        "NR_QUERIES_PER_ITERATION": NR_QUERIES_PER_ITERATION,
+        "START_SET_SIZE": START_SET_SIZE,
+        "STOPPING_CRITERIA_UNCERTAINTY": [1],  # zero_to_one,
+        "STOPPING_CRITERIA_STD": [1],  # zero_to_one,
+        "STOPPING_CRITERIA_ACC": [1],  # zero_to_one,
+        "ALLOW_RECOMMENDATIONS_AFTER_STOP": [True, False],
         # uncertainty_recommendation_grid = {
-        "uncertainty_recommendation_certainty_threshold": half_to_one,
-        "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
+        "UNCERTAINTY_RECOMMENDATION_CERTAINTY_THRESHOLD": half_to_one,
+        "UNCERTAINTY_RECOMMENDATION_RATIO": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
         # snuba_lite_grid = {
-        "snuba_lite_minimum_heuristic_accuracy": [0],
+        "SNUBA_LITE_MINIMUM_HEURISTIC_ACCURACY": [0],
         #  half_to_one,
         # cluster_recommendation_grid = {
-        "cluster_recommendation_minimum_cluster_unity_size": half_to_one,
-        "cluster_recommendation_ratio_labeled_unlabeled": half_to_one,
-        "with_uncertainty_recommendation": [True, False],
-        "with_cluster_recommendation": [True],
-        "with_snuba_lite": [False],
-        "minimum_test_accuracy_before_recommendations": half_to_one,
-        "db_name_or_type": [db_name_or_type],
-        "user_query_budget_limit": [2000],
+        "CLUSTER_RECOMMENDATION_MINIMUM_CLUSTER_UNITY_SIZE": half_to_one,
+        "CLUSTER_RECOMMENDATION_RATIO_LABELED_UNLABELED": half_to_one,
+        "WITH_UNCERTAINTY_RECOMMENDATION": [True, False],
+        "WITH_CLUSTER_RECOMMENDATION": [True],
+        "WITH_SNUBA_LITE": [False],
+        "MINIMUM_TEST_ACCURACY_BEFORE_RECOMMENDATIONS": half_to_one,
+        "DB_NAME_OR_TYPE": [DB_NAME_OR_TYPE],
+        "USER_QUERY_BUDGET_LIMIT": [2000],
     }
 
     return param_distribution

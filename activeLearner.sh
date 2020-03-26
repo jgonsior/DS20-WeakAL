@@ -3,7 +3,7 @@
 function learn_with_batch_size {
   output_dir="results/shuffle_$3"
   mkdir -p $output_dir
-  unbuffer python trainer.py --nr_queries_per_iteration $4 --dataset_path ../datasets/dwtc/aft.csv --strategy $1 --nr_learning_iterations 60000000 --cores -1 --start_set_size $2 --output $output_dir --random_seed $3 2>&1 | tee $output_dir/active_$1_start_$2_$4.txt
+  unbuffer python trainer.py --nr_queries_per_iteration $4 --dataset_path ../datasets/dwtc/aft.csv --strategy $1 --NR_LEARNING_ITERATIONS 60000000 --CORES -1 --start_set_size $2 --output $output_dir --RANDOM_SEED $3 2>&1 | tee $output_dir/active_$1_start_$2_$4.txt
 }
 
 function active_learn {

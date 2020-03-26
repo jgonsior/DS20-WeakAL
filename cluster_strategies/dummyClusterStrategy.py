@@ -1,10 +1,3 @@
-from itertools import islice
-from pprint import pprint
-import random
-from collections import defaultdict
-
-import numpy as np
-
 from cluster_strategies import BaseClusterStrategy
 
 

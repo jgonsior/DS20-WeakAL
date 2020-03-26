@@ -1,8 +1,8 @@
-from pprint import pprint
 import random
-from itertools import islice
-from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
+
 import numpy as np
+
+from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 
 
 class SheetBasedRandomSampler(SheetBasedActiveLearner):

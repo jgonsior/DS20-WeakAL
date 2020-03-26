@@ -1,45 +1,13 @@
-import operator
-import argparse
-import contextlib
 import datetime
 import hashlib
-import io
-import json
 import math
-import multiprocessing
-import os
-import pickle
-import random
-import sys
+import operator
 import threading
-from itertools import chain, combinations
 from timeit import default_timer as timer
 
-import numpy as np
-
 #  import np.random.distributions as dists
-import numpy.random
-import pandas as pd
-import peewee
-import scipy
-from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from json_tricks import dumps
-from sklearn.base import BaseEstimator
-from sklearn.datasets import load_iris
-from sklearn.metrics import (
-    classification_report,
-    confusion_matrix,
-    make_scorer,
-    roc_auc_score,
-)
-from sklearn.model_selection import (
-    GridSearchCV,
-    ParameterGrid,
-    RandomizedSearchCV,
-    ShuffleSplit,
-    train_test_split,
-)
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
+from sklearn.preprocessing import LabelEncoder
 
 from cluster_strategies import (
     DummyClusterStrategy,
@@ -52,48 +20,43 @@ from experiment_setup_lib import (
     ExperimentResult,
     calculate_global_score,
     classification_report_and_confusion_matrix,
-    divide_data,
     get_db,
     get_param_distribution,
-    load_and_prepare_X_and_Y,
-    log_it,
-    standard_config,
 )
 from sampling_strategies import (
     BoundaryPairSampler,
-    CommitteeSampler,
     RandomSampler,
     UncertaintySampler,
 )
 
 
 def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
-    hyper_parameters["len_train_data"] = len(Y_train)
-    dataset_storage = DataStorage(hyper_parameters["random_seed"])
+    hyper_parameters["LEN_TRAIN_DATA"] = len(Y_train)
+    dataset_storage = DataStorage(hyper_parameters["RANDOM_SEED"])
     dataset_storage.set_training_data(
         X_train,
         Y_train,
         label_encoder,
-        hyper_parameters["test_fraction"],
-        hyper_parameters["start_set_size"],
+        hyper_parameters["TEST_FRACTION"],
+        hyper_parameters["START_SET_SIZE"],
         X_test,
         Y_test,
     )
 
-    if hyper_parameters["cluster"] == "dummy":
+    if hyper_parameters["CLUSTER"] == "dummy":
         cluster_strategy = DummyClusterStrategy()
-    elif hyper_parameters["cluster"] == "random":
+    elif hyper_parameters["CLUSTER"] == "random":
         cluster_strategy = RandomClusterStrategy()
-    elif hyper_parameters["cluster"] == "MostUncertain_lc":
+    elif hyper_parameters["CLUSTER"] == "MostUncertain_lc":
         cluster_strategy = MostUncertainClusterStrategy()
         cluster_strategy.set_uncertainty_strategy("least_confident")
-    elif hyper_parameters["cluster"] == "MostUncertain_max_margin":
+    elif hyper_parameters["CLUSTER"] == "MostUncertain_max_margin":
         cluster_strategy = MostUncertainClusterStrategy()
         cluster_strategy.set_uncertainty_strategy("max_margin")
-    elif hyper_parameters["cluster"] == "MostUncertain_entropy":
+    elif hyper_parameters["CLUSTER"] == "MostUncertain_entropy":
         cluster_strategy = MostUncertainClusterStrategy()
         cluster_strategy.set_uncertainty_strategy("entropy")
-    elif hyper_parameters["cluster"] == "RoundRobin":
+    elif hyper_parameters["CLUSTER"] == "RoundRobin":
         cluster_strategy = RoundRobinClusterStrategy()
 
     cluster_strategy.set_data_storage(dataset_storage)
@@ -101,28 +64,28 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
     active_learner_params = {
         "dataset_storage": dataset_storage,
         "cluster_strategy": cluster_strategy,
-        "cores": hyper_parameters["cores"],
-        "random_seed": hyper_parameters["random_seed"],
-        "nr_learning_iterations": hyper_parameters["nr_learning_iterations"],
-        "nr_queries_per_iteration": hyper_parameters["nr_queries_per_iteration"],
-        "with_test": True,
+        "CORES": hyper_parameters["CORES"],
+        "RANDOM_SEED": hyper_parameters["RANDOM_SEED"],
+        "NR_LEARNING_ITERATIONS": hyper_parameters["NR_LEARNING_ITERATIONS"],
+        "NR_QUERIES_PER_ITERATION": hyper_parameters["NR_QUERIES_PER_ITERATION"],
+        "WITH_TEST": True,  # legacy parameter
     }
 
-    if hyper_parameters["sampling"] == "random":
+    if hyper_parameters["SAMPLING"] == "random":
         active_learner = RandomSampler(**active_learner_params)
-    elif hyper_parameters["sampling"] == "boundary":
+    elif hyper_parameters["SAMPLING"] == "boundary":
         active_learner = BoundaryPairSampler(**active_learner_params)
-    elif hyper_parameters["sampling"] == "uncertainty_lc":
+    elif hyper_parameters["SAMPLING"] == "uncertainty_lc":
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy("least_confident")
-    elif hyper_parameters["sampling"] == "uncertainty_max_margin":
+    elif hyper_parameters["SAMPLING"] == "uncertainty_max_margin":
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy("max_margin")
-    elif hyper_parameters["sampling"] == "uncertainty_entropy":
+    elif hyper_parameters["SAMPLING"] == "uncertainty_entropy":
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy("entropy")
     #  elif hyper_parameters['sampling'] == 'committee':
-    #  active_learner = CommitteeSampler(hyper_parameters['random_seed, hyper_parameters.cores, hyper_parameters.nr_learning_iterations)
+    #  active_learner = CommitteeSampler(hyper_parameters['RANDOM_SEED, hyper_parameters.CORES, hyper_parameters.NR_LEARNING_ITERATIONS)
     else:
         ("No Active Learning Strategy specified")
 
@@ -130,29 +93,6 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
     trained_active_clf_list, metrics_per_al_cycle = active_learner.learn(
         **hyper_parameters
     )
-    #  minimum_test_accuracy_before_recommendations=hyper_parameters['
-    #  minimum_test_accuracy_before_recommendations,
-    #  with_cluster_recommendation=hyper_parameters['
-    #  with_cluster_recommendation,
-    #  with_uncertainty_recommendation=hyper_parameters['
-    #  with_uncertainty_recommendation,
-    #  with_snuba_lite=hyper_parameters['with_snuba_lite,
-    #  cluster_recommendation_minimum_cluster_unity_size=hyper_parameters['
-    #  cluster_recommendation_minimum_cluster_unity_size,
-    #  cluster_recommendation_minimum_ratio_labeled_unlabeled=hyper_parameters
-    #  .cluster_recommendation_ratio_labeled_unlabeled,
-    #  uncertainty_recommendation_certainty_threshold=hyper_parameters['
-    #  uncertainty_recommendation_certainty_threshold,
-    #  uncertainty_recommendation_ratio=hyper_parameters['
-    #  uncertainty_recommendation_ratio,
-    #  snuba_lite_minimum_heuristic_accuracy=hyper_parameters['
-    #  snuba_lite_minimum_heuristic_accuracy,
-    #  stopping_criteria_uncertainty=hyper_parameters['
-    #  stopping_criteria_uncertainty,
-    #  stopping_criteria_acc=hyper_parameters['stopping_criteria_acc,
-    #  stopping_criteria_std=hyper_parameters['stopping_criteria_std,
-    #  allow_recommendations_after_stop=hyper_parameters['
-    #  allow_recommendations_after_stop)
     end = timer()
 
     return (
@@ -194,7 +134,7 @@ def eval_al(
     percentage_user_asked_queries = (
         1
         - hyper_parameters["amount_of_user_asked_queries"]
-        / hyper_parameters["len_train_data"]
+        / hyper_parameters["LEN_TRAIN_DATA"]
     )
     test_acc = classification_report_and_confusion_matrix_test[0]["accuracy"]
 
@@ -272,15 +212,16 @@ def eval_al(
     # calculate based on params a unique id which should be the same across all similar cross validation splits
     param_distribution = get_param_distribution(**hyper_parameters)
     unique_params = ""
-
     for k in param_distribution.keys():
         unique_params += str(hyper_parameters[k])
 
     param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
+    db = get_db(db_name_or_type=hyper_parameters["DB_NAME_OR_TYPE"])
 
-    db = get_db(db_name_or_type=hyper_parameters["db_name_or_type"])
+    hyper_parameters["DATASET_NAME"] = dataset_name
 
-    hyper_parameters["dataset_name"] = dataset_name
+    # lower case all parameters for nice values in database
+    hyper_parameters = {k.lower(): v for k, v in hyper_parameters.items()}
 
     experiment_result = ExperimentResult(
         **hyper_parameters,

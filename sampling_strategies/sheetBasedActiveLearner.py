@@ -1,8 +1,6 @@
-from pprint import pprint
-import random
-from itertools import islice
-from activeLearner import ActiveLearner
 import numpy as np
+
+from activeLearner import ActiveLearner
 
 
 class SheetBasedActiveLearner(ActiveLearner):

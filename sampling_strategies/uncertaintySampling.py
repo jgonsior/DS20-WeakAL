@@ -1,5 +1,4 @@
 from itertools import chain
-from pprint import pprint
 
 import numpy as np
 from scipy.stats import entropy
@@ -20,7 +19,7 @@ class UncertaintySampler(ActiveLearner):
             chain(*list(X_train_unlabeled_cluster_indices.values()))
         )
         # recieve predictions and probabilitys
-        # for all possible classifications of classifier
+        # for all possible classifications of CLASSIFIER
         Y_temp_proba = self.clf_list[0].predict_proba(
             self.data_storage.X_train_unlabeled.loc[X_train_unlabeled_indices]
         )

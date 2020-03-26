@@ -1,8 +1,9 @@
-from activeLearner import ActiveLearner
-import numpy as np
-import pandas as pd
-from sklearn.neighbors import NearestNeighbors
 from pprint import pprint
+
+import numpy as np
+from sklearn.neighbors import NearestNeighbors
+
+from activeLearner import ActiveLearner
 
 
 class BoundaryPairSampler(ActiveLearner):

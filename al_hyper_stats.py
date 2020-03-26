@@ -1,49 +1,15 @@
-import argparse
-import contextlib
-import datetime
-import io
-import logging
-import multiprocessing
-import os
-import random
-import sys
-from itertools import chain, combinations
-from timeit import default_timer as timer
-
 import altair as alt
-import altair_viewer
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import peewee
-from evolutionary_search import EvolutionaryAlgorithmSearchCV
-from json_tricks import dumps, loads
-from playhouse.shortcuts import model_to_dict
-from scipy.stats import randint, uniform
-from sklearn.datasets import load_iris
+from json_tricks import loads
 from tabulate import tabulate
 
-from cluster_strategies import (
-    DummyClusterStrategy,
-    MostUncertainClusterStrategy,
-    RandomClusterStrategy,
-    RoundRobinClusterStrategy,
-)
-from dataStorage import DataStorage
 from experiment_setup_lib import (
     ExperimentResult,
-    classification_report_and_confusion_matrix,
     get_db,
     get_single_al_run_stats_row,
     get_single_al_run_stats_table_header,
-    load_and_prepare_X_and_Y,
     standard_config,
-)
-from sampling_strategies import (
-    BoundaryPairSampler,
-    CommitteeSampler,
-    RandomSampler,
-    UncertaintySampler,
 )
 
 alt.renderers.enable("altair_viewer")
@@ -110,7 +76,7 @@ elif config.param_list_stats:
     print(tabulate(table, headers="keys"))
 
 elif config.param_list_id != "-1":
-    # SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
+    # SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, ALLOW_RECOMMENDATIONS_AFTER_STOP as SA, STOPPING_CRITERIA_UNCERTAINTY as SCU, STOPPING_CRITERIA_STD as SCS, STOPPING_CRITERIA_ACC as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
     results = ExperimentResult.select().where(
         ExperimentResult.param_list_id == config.param_list_id
     )
@@ -157,7 +123,7 @@ elif config.param_list_id != "-1":
         #  amount_of_clusters += 1
         #  if recommendation == 'A':
         #  amount_of_active += 1
-        #  #SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
+        #  #SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, ALLOW_RECOMMENDATIONS_AFTER_STOP as SA, STOPPING_CRITERIA_UNCERTAINTY as SCU, STOPPING_CRITERIA_STD as SCS, STOPPING_CRITERIA_ACC as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
         #  print(
         #  "{:>20} {:6,d} {:>25} {:>25} {:4,d} {:4,d} {:4,d} {:3,d} {:5,d} {:6.2} {:6.2%} {:6.2%} {:6.2%} {:6.2%}"
         #  .format(
@@ -168,11 +134,11 @@ elif config.param_list_id != "-1":
         #  amount_of_clusters,
         #  amount_of_certainties,
         #  amount_of_active,
-        #  result.allow_recommendations_after_stop,
+        #  result.ALLOW_RECOMMENDATIONS_AFTER_STOP,
         #  result.amount_of_user_asked_queries,
-        #  result.stopping_criteria_uncertainty,
-        #  result.stopping_criteria_std,
-        #  result.stopping_criteria_acc,
+        #  result.STOPPING_CRITERIA_UNCERTAINTY,
+        #  result.STOPPING_CRITERIA_STD,
+        #  result.STOPPING_CRITERIA_ACC,
         #  result.acc_test,
         #  result.fit_score,
         #  ))

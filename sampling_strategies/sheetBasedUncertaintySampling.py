@@ -1,8 +1,7 @@
 import numpy as np
-from pprint import pprint
-from activeLearner import ActiveLearner
-from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 from scipy.stats import entropy
+
+from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 
 
 class SheetBasedUncertaintySampler(SheetBasedActiveLearner):
@@ -16,7 +15,7 @@ class SheetBasedUncertaintySampler(SheetBasedActiveLearner):
         X_query = self.X_train_unlabeled
 
         # recieve predictions and probabilities
-        # for all possible classifications of classifier
+        # for all possible classifications of CLASSIFIER
         Y_temp_proba = self.clf_list[0].predict_proba(X_query)
 
         if self.strategy == "least_confident":
