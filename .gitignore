@@ -168,7 +168,7 @@ tmp/
 .vim/
 
 paper/
-
+plots/
 *.db
 
 Pipfile.lock
