@@ -57,11 +57,14 @@ class ExperimentResult(BaseModel):
     with_uncertainty_recommendation = peewee.BooleanField(index=True)
     with_cluster_recommendation = peewee.BooleanField(index=True)
     with_snuba_lite = peewee.BooleanField(index=True)
-    uncertainty_recommendation_certainty_threshold = peewee.FloatField(null=True)
+    uncertainty_recommendation_certainty_threshold = peewee.FloatField(
+        null=True)
     uncertainty_recommendation_ratio = peewee.FloatField(null=True)
     snuba_lite_minimum_heuristic_accuracy = peewee.FloatField(null=True)
-    cluster_recommendation_minimum_cluster_unity_size = peewee.FloatField(null=True)
-    cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(null=True)
+    cluster_recommendation_minimum_cluster_unity_size = peewee.FloatField(
+        null=True)
+    cluster_recommendation_ratio_labeled_unlabeled = peewee.FloatField(
+        null=True)
     metrics_per_al_cycle = BinaryJSONField()  # json string
     amount_of_user_asked_queries = peewee.IntegerField(index=True)
     allow_recommendations_after_stop = peewee.BooleanField()
@@ -89,9 +92,11 @@ class ExperimentResult(BaseModel):
     global_score_with_weak_roc_auc = peewee.FloatField(index=True, null=True)
     global_score_with_weak_acc = peewee.FloatField(index=True, null=True)
 
-    global_score_no_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
+    global_score_no_weak_roc_auc_norm = peewee.FloatField(index=True,
+                                                          null=True)
     global_score_no_weak_acc_norm = peewee.FloatField(index=True, null=True)
-    global_score_with_weak_roc_auc_norm = peewee.FloatField(index=True, null=True)
+    global_score_with_weak_roc_auc_norm = peewee.FloatField(index=True,
+                                                            null=True)
     global_score_with_weak_acc_norm = peewee.FloatField(index=True, null=True)
 
     param_list_id = peewee.TextField(index=True)
@@ -108,9 +113,11 @@ def get_db(db_name_or_type):
     if db_name_or_type == "sqlite":
         db = peewee.SqliteDatabase("experiment_results.db")
     elif db_name_or_type == "tunnel":
-        db = PostgresqlExtDatabase(
-            "jg", host="localhost", port=1111, password="test", user="jg"
-        )
+        db = PostgresqlExtDatabase("jg",
+                                   host="localhost",
+                                   port=1111,
+                                   password="test",
+                                   user="jg")
     else:
         db = PostgresqlExtDatabase(db_name_or_type)
     db.bind([ExperimentResult])
@@ -137,15 +144,8 @@ def get_db(db_name_or_type):
 def log_it(message):
     #  print(message)
     with open("tmp/log.txt", "a") as f:
-        f.write(
-            "["
-            + str(threading.get_ident())
-            + "] ["
-            + str(datetime.datetime.now())
-            + "] "
-            + str(message)
-            + "\n"
-        )
+        f.write("[" + str(threading.get_ident()) + "] [" +
+                str(datetime.datetime.now()) + "] " + str(message) + "\n")
 
 
 #  def get_logger():
@@ -160,28 +160,32 @@ def log_it(message):
 
 def divide_data(X, Y, test_fraction):
     # split data
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=test_fraction)
+    X_train, X_test, Y_train, Y_test = train_test_split(
+        X, Y, test_size=test_fraction)
 
     len_test = len(X_test)
-    logging.info("size of test set: %i = %1.2f" % (len_test, len_test / len_test))
+    logging.info("size of test set: %i = %1.2f" %
+                 (len_test, len_test / len_test))
     return X_train, X_test, Y_train, Y_test
 
 
 def standard_config(additional_parameters=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--datasets_path", default="../datasets/")
-    parser.add_argument(
-        "--classifier", default="RF", help="Supported types: RF, DTree, NB, SVM, Linear"
-    )
+    parser.add_argument("--classifier",
+                        default="RF",
+                        help="Supported types: RF, DTree, NB, SVM, Linear")
     parser.add_argument("--cores", type=int, default=-1)
-    parser.add_argument(
-        "--random_seed", type=int, default=42, help="-1 Enables true Randomness"
-    )
+    parser.add_argument("--random_seed",
+                        type=int,
+                        default=42,
+                        help="-1 Enables true Randomness")
     parser.add_argument("--test_fraction", type=float, default=0.5)
 
     if additional_parameters is not None:
         for additional_parameter in additional_parameters:
-            parser.add_argument(*additional_parameter[0], **additional_parameter[1])
+            parser.add_argument(*additional_parameter[0],
+                                **additional_parameter[1])
 
     config = parser.parse_args()
 
@@ -258,9 +262,12 @@ def load_and_prepare_X_and_Y(dataset_path):
     return X, Y, label_encoder
 
 
-def classification_report_and_confusion_matrix(
-    clf, X, Y, label_encoder, output_dict=True, training_times=""
-):
+def classification_report_and_confusion_matrix(clf,
+                                               X,
+                                               Y,
+                                               label_encoder,
+                                               output_dict=True,
+                                               training_times=""):
     Y_pred = clf.predict(X)
     clf_report = classification_report(
         Y,
@@ -325,13 +332,14 @@ class Logger(object):
 
 def get_single_al_run_stats_table_header():
     return "Iteration: {:>3} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>6} {:>3} {:>6}".format(
-        "I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR", "QS"
-    )
+        "I", "L", "U", "Q", "Te", "L", "U", "SC", "SS", "QW", "CR", "QS")
 
 
-def get_single_al_run_stats_row(
-    i, amount_of_labeled, amount_of_unlabeled, metrics_per_al_cycle, index=-1
-):
+def get_single_al_run_stats_row(i,
+                                amount_of_labeled,
+                                amount_of_unlabeled,
+                                metrics_per_al_cycle,
+                                index=-1):
     if amount_of_labeled == None:
         amount_of_labeled = 0
         for query_length in metrics_per_al_cycle["query_length"][:index]:
@@ -341,19 +349,16 @@ def get_single_al_run_stats_row(
         for query_length in metrics_per_al_cycle["query_length"][:index]:
             amount_of_unlabeled -= query_length
 
-    if "accuracy" not in metrics_per_al_cycle["test_data_metrics"][0][index][0].keys():
+    if "accuracy" not in metrics_per_al_cycle["test_data_metrics"][0][index][
+            0].keys():
         return "No test accuracy found"
 
-    if (
-        "accuracy"
-        not in metrics_per_al_cycle["train_labeled_data_metrics"][0][index][0].keys()
-    ):
+    if ("accuracy" not in metrics_per_al_cycle["train_labeled_data_metrics"][0]
+        [index][0].keys()):
         return "No train_labeled accuracy found"
 
-    if (
-        "accuracy"
-        not in metrics_per_al_cycle["train_unlabeled_data_metrics"][0][index][0].keys()
-    ):
+    if ("accuracy" not in metrics_per_al_cycle["train_unlabeled_data_metrics"]
+        [0][index][0].keys()):
         return "No train_unlabeled_data_metrics accuracy found"
 
     return "Iteration: {:3,d} {:6,d} {:6,d} {:6,d} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:6.1%} {:>3} {:6.1%}".format(
@@ -362,8 +367,10 @@ def get_single_al_run_stats_row(
         amount_of_unlabeled,
         metrics_per_al_cycle["query_length"][index],
         metrics_per_al_cycle["test_data_metrics"][0][index][0]["accuracy"],
-        metrics_per_al_cycle["train_labeled_data_metrics"][0][index][0]["accuracy"],
-        metrics_per_al_cycle["train_unlabeled_data_metrics"][0][index][0]["accuracy"],
+        metrics_per_al_cycle["train_labeled_data_metrics"][0][index][0]
+        ["accuracy"],
+        metrics_per_al_cycle["train_unlabeled_data_metrics"][0][index][0]
+        ["accuracy"],
         metrics_per_al_cycle["stop_certainty_list"][index],
         metrics_per_al_cycle["stop_stddev_list"][index],
         metrics_per_al_cycle["stop_query_weak_accuracy_list"][index],
@@ -403,11 +410,10 @@ def get_dataset(datasets_path, dataset_name):
     logging.info("Loading " + dataset_name)
     if dataset_name == "dwtc":
         X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(
-            datasets_path + "/dwtc/aft.csv"
-        )
-        X_train, X_test, Y_train, Y_test = divide_data(
-            X_data, Y_data, test_fraction=0.5
-        )
+            datasets_path + "/dwtc/aft.csv")
+        X_train, X_test, Y_train, Y_test = divide_data(X_data,
+                                                       Y_data,
+                                                       test_fraction=0.5)
 
         logging.info("Loaded " + dataset_name)
         return X_train, X_test, Y_train, Y_test, label_encoder.classes_
@@ -433,9 +439,9 @@ def get_dataset(datasets_path, dataset_name):
             df = df.replace([np.inf, -np.inf], np.nan)
             df = df.fillna(0)
 
-            labels = pd.read_csv(
-                datasets_path + "/al_challenge/" + dataset_name + ".label", header=None
-            )
+            labels = pd.read_csv(datasets_path + "/al_challenge/" +
+                                 dataset_name + ".label",
+                                 header=None)
 
             labels = labels.replace([-1], "A")
             labels = labels.replace([1], "B")
@@ -460,7 +466,9 @@ def get_dataset(datasets_path, dataset_name):
         Y_temp = pd.DataFrame(Y_temp, dtype=int)
 
         X_temp = X_temp.apply(pd.to_numeric, downcast="float", errors="ignore")
-        Y_temp = Y_temp.apply(pd.to_numeric, downcast="integer", errors="ignore")
+        Y_temp = Y_temp.apply(pd.to_numeric,
+                              downcast="integer",
+                              errors="ignore")
 
         X_train = X_temp[:train_num]
         X_test = X_temp[train_num:]
@@ -496,28 +504,24 @@ def calculate_roc_auc(label_encoder, X_test, Y_test, clf):
 
 
 # for details see http://www.causality.inf.ethz.ch/activelearning.php?page=evaluation#cont
-def calculate_global_score(
-    metric_values, amount_of_labels_per_metric_values, amount_of_labels
-):
+def calculate_global_score(metric_values, amount_of_labels_per_metric_values,
+                           amount_of_labels):
     if len(metric_values) > 1:
         rectangles = []
         triangles = []
 
         for (
-            metric_value,
-            amount_of_labels_per_metric_value,
-            past_metric_value,
+                metric_value,
+                amount_of_labels_per_metric_value,
+                past_metric_value,
         ) in zip(
-            metric_values[1:],
-            amount_of_labels_per_metric_values[1:],
-            metric_values[:-1],
+                metric_values[1:],
+                amount_of_labels_per_metric_values[1:],
+                metric_values[:-1],
         ):
             rectangles.append(metric_value * amount_of_labels_per_metric_value)
-            triangles.append(
-                amount_of_labels_per_metric_value
-                * (past_metric_value - metric_value)
-                / 2
-            )
+            triangles.append(amount_of_labels_per_metric_value *
+                             (past_metric_value - metric_value) / 2)
         square = sum(rectangles) + sum(triangles)
     else:
         square = metric_values[0] * amount_of_labels_per_metric_values[0]
@@ -539,17 +543,15 @@ def calculate_global_score(
     return global_score
 
 
-def get_param_distribution(
-    hyper_search_type=None,
-    datasets_path=None,
-    classifier=None,
-    cores=None,
-    random_seed=None,
-    test_fraction=None,
-    nr_learning_iterations=None,
-    db_name_or_type=None,
-    **kwargs
-):
+def get_param_distribution(hyper_search_type=None,
+                           datasets_path=None,
+                           classifier=None,
+                           cores=None,
+                           random_seed=None,
+                           test_fraction=None,
+                           nr_learning_iterations=None,
+                           db_name_or_type=None,
+                           **kwargs):
     if hyper_search_type == "random":
         zero_to_one = scipy.stats.uniform(loc=0, scale=1)
         half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
@@ -563,7 +565,8 @@ def get_param_distribution(
         #  param_size = 2
         zero_to_one = np.linspace(0, 1, num=param_size * 2 + 1).astype(float)
         half_to_one = np.linspace(0.5, 1, num=param_size + 1).astype(float)
-        nr_queries_per_iteration = np.linspace(1, 150, num=param_size + 1).astype(int)
+        nr_queries_per_iteration = np.linspace(1, 150,
+                                               num=param_size + 1).astype(int)
         #  start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
         start_set_size = [1, 10, 25, 50, 100]
 
@@ -580,34 +583,38 @@ def get_param_distribution(
             "uncertainty_entropy",
         ],
         "cluster": [
-            "dummy",
-            "random",
-            "MostUncertain_lc",
-            "MostUncertain_max_margin",
+            "dummy", "random", "MostUncertain_lc", "MostUncertain_max_margin",
             "MostUncertain_entropy"
             #  'dummy',
         ],
         "nr_learning_iterations": [nr_learning_iterations],
         #  "nr_learning_iterations": [1],
-        "nr_queries_per_iteration": nr_queries_per_iteration,
-        "start_set_size": start_set_size,
+        "nr_queries_per_iteration":
+        nr_queries_per_iteration,
+        "start_set_size":
+        start_set_size,
         "stopping_criteria_uncertainty": [1],  # zero_to_one,
         "stopping_criteria_std": [1],  # zero_to_one,
         "stopping_criteria_acc": [1],  # zero_to_one,
         "allow_recommendations_after_stop": [True, False],
         # uncertainty_recommendation_grid = {
-        "uncertainty_recommendation_certainty_threshold": half_to_one,
-        "uncertainty_recommendation_ratio": [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
+        "uncertainty_recommendation_certainty_threshold":
+        half_to_one,
+        "uncertainty_recommendation_ratio":
+        [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
         # snuba_lite_grid = {
         "snuba_lite_minimum_heuristic_accuracy": [0],
         #  half_to_one,
         # cluster_recommendation_grid = {
-        "cluster_recommendation_minimum_cluster_unity_size": half_to_one,
-        "cluster_recommendation_ratio_labeled_unlabeled": half_to_one,
+        "cluster_recommendation_minimum_cluster_unity_size":
+        half_to_one,
+        "cluster_recommendation_ratio_labeled_unlabeled":
+        half_to_one,
         "with_uncertainty_recommendation": [True, False],
         "with_cluster_recommendation": [True],
         "with_snuba_lite": [False],
-        "minimum_test_accuracy_before_recommendations": half_to_one,
+        "minimum_test_accuracy_before_recommendations":
+        half_to_one,
         "db_name_or_type": [db_name_or_type],
         "user_query_budget_limit": [2000],
     }
