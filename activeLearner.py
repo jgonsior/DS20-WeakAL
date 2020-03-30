@@ -11,6 +11,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.exceptions import NotFittedError
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.semi_supervised import LabelPropagation, LabelSpreading
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils.class_weight import compute_sample_weight
 
@@ -29,7 +30,7 @@ class ActiveLearner:
         RANDOM_SEED,
         dataset_storage,
         cluster_strategy,
-        CORES,
+        N_JOBS,
         NR_LEARNING_ITERATIONS,
         NR_QUERIES_PER_ITERATION,
         WITH_TEST=True,
@@ -38,9 +39,9 @@ class ActiveLearner:
             np.random.seed(RANDOM_SEED)
             random.seed(RANDOM_SEED)
 
-            self.best_hyper_parameters = {"random_state": RANDOM_SEED, "n_jobs": CORES}
+            self.best_hyper_parameters = {"random_state": RANDOM_SEED, "n_jobs": N_JOBS}
         else:
-            self.best_hyper_parameters = {"n_jobs": CORES}
+            self.best_hyper_parameters = {"n_jobs": N_JOBS}
 
         self.NR_LEARNING_ITERATIONS = NR_LEARNING_ITERATIONS
         self.nr_queries_per_iteration = NR_QUERIES_PER_ITERATION

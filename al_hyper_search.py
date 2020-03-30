@@ -1,14 +1,13 @@
-import multiprocessing
 import copy
+import inspect
+import multiprocessing
+from collections import defaultdict
+
 import pandas as pd
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from sklearn.base import BaseEstimator
-from sklearn.model_selection import (
-    RandomizedSearchCV,
-    ShuffleSplit,
-)
-from collections import defaultdict
-import inspect
+from sklearn.model_selection import RandomizedSearchCV, ShuffleSplit
+
 from al_cycle_wrapper import train_and_eval_dataset
 from experiment_setup_lib import (
     get_dataset,
@@ -21,7 +20,6 @@ standard_config = standard_config(
     [
         (["--NR_LEARNING_ITERATIONS"], {"type": int, "default": 1000000}),
         (["--CV"], {"type": int, "default": 3}),
-        (["--N_JOBS"], {"type": int, "default": multiprocessing.cpu_count()}),
         (["--NR_RANDOM_RUNS"], {"type": int, "default": 200000}),
         (["--POPULATION_SIZE"], {"type": int, "default": 100}),
         (["--TOURNAMENT_SIZE"], {"type": int, "default": 100}),

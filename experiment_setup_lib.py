@@ -161,7 +161,7 @@ def standard_config(additional_parameters=None):
     parser.add_argument(
         "--CLASSIFIER", default="RF", help="Supported types: RF, DTree, NB, SVM, Linear"
     )
-    parser.add_argument("--CORES", type=int, default=-1)
+    parser.add_argument("--N_JOBS", type=int, default=-1)
     parser.add_argument(
         "--RANDOM_SEED", type=int, default=42, help="-1 Enables true Randomness"
     )
@@ -547,7 +547,7 @@ def get_param_distribution(
     hyper_search_type=None,
     DATASETS_PATH=None,
     CLASSIFIER=None,
-    CORES=None,
+    N_JOBS=None,
     RANDOM_SEED=None,
     TEST_FRACTION=None,
     NR_LEARNING_ITERATIONS=None,
@@ -574,7 +574,7 @@ def get_param_distribution(
     param_distribution = {
         "DATASETS_PATH": [DATASETS_PATH],
         "CLASSIFIER": [CLASSIFIER],
-        "CORES": [CORES],
+        "N_JOBS": [N_JOBS],
         "RANDOM_SEED": [RANDOM_SEED],
         "TEST_FRACTION": [TEST_FRACTION],
         "SAMPLING": [

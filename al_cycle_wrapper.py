@@ -23,11 +23,7 @@ from experiment_setup_lib import (
     get_db,
     get_param_distribution,
 )
-from sampling_strategies import (
-    BoundaryPairSampler,
-    RandomSampler,
-    UncertaintySampler,
-)
+from sampling_strategies import BoundaryPairSampler, RandomSampler, UncertaintySampler
 
 
 def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
@@ -59,12 +55,13 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
     elif hyper_parameters["CLUSTER"] == "RoundRobin":
         cluster_strategy = RoundRobinClusterStrategy()
 
-    cluster_strategy.set_data_storage(dataset_storage)
+    print(hyper_parameters.keys())
+    cluster_strategy.set_data_storage(dataset_storage, hyper_parameters["N_JOBS"])
 
     active_learner_params = {
         "dataset_storage": dataset_storage,
         "cluster_strategy": cluster_strategy,
-        "CORES": hyper_parameters["CORES"],
+        "N_JOBS": hyper_parameters["N_JOBS"],
         "RANDOM_SEED": hyper_parameters["RANDOM_SEED"],
         "NR_LEARNING_ITERATIONS": hyper_parameters["NR_LEARNING_ITERATIONS"],
         "NR_QUERIES_PER_ITERATION": hyper_parameters["NR_QUERIES_PER_ITERATION"],
@@ -85,7 +82,7 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
         active_learner = UncertaintySampler(**active_learner_params)
         active_learner.set_uncertainty_strategy("entropy")
     #  elif hyper_parameters['sampling'] == 'committee':
-    #  active_learner = CommitteeSampler(hyper_parameters['RANDOM_SEED, hyper_parameters.CORES, hyper_parameters.NR_LEARNING_ITERATIONS)
+    #  active_learner = CommitteeSampler(hyper_parameters['RANDOM_SEED, hyper_parameters.N_JOBS, hyper_parameters.NR_LEARNING_ITERATIONS)
     else:
         ("No Active Learning Strategy specified")
 

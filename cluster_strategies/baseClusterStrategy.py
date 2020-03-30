@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram
-from sklearn.cluster import MiniBatchKMeans
+from sklearn.cluster import OPTICS, MiniBatchKMeans, cluster_optics_dbscan
 
 
 class BaseClusterStrategy:
@@ -30,7 +30,7 @@ class BaseClusterStrategy:
             ent -= i * log(i, base)
         return ent
 
-    def set_data_storage(self, data_storage):
+    def set_data_storage(self, data_storage, n_jobs=-1):
         self.data_storage = data_storage
         # first run pca to downsample data
 
@@ -52,6 +52,8 @@ class BaseClusterStrategy:
             n_clusters=int(n_features / 5),
             batch_size=min(int(n_samples / 100), int(n_features / 5) * 5),
         )
+
+        self.cluster_model = OPTICS(min_cluster_size=30, n_jobs=n_jobs)
 
         self.data_storage = data_storage
 
