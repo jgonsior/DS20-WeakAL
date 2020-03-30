@@ -1,6 +1,8 @@
 import csv
 import random
 import sys
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed, parallel_backend
@@ -14,7 +16,8 @@ plt.style.use("seaborn")
 
 
 def test_run(random_run):
-    N_SAMPLES = 1000
+    MAX_USED_N_SAMPLES = 1000
+    N_SAMPLES = 100000
     N_FEATURES = random.randint(10, 100)
     N_INFORMATIVE, N_REDUNDANT, N_REPEATED = [
         int(N_FEATURES * i) for i in np.random.dirichlet(np.ones(3), size=1).tolist()[0]
@@ -53,29 +56,35 @@ def test_run(random_run):
         "scale": SCALE,
     }
     print(random_run, ": ", synthetic_creation_args)
-
+    start = time.time()
     X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
         "../datasets", "synthetic", **synthetic_creation_args
     )
+    end = time.time()
+    print("Data generated in " + str(end - start) + "s")
+
+    X_test = X_test[:5000]
+    Y_test = Y_test[:5000]
 
     BATCH_SIZE = 10
     accs = []
+    accs2 = []
     clf = RandomForestClassifier()
 
-    for i in range(1, int(len(Y_train) / BATCH_SIZE)):
+    for i in range(1, int(MAX_USED_N_SAMPLES / BATCH_SIZE)):
         train_data_limit = i * BATCH_SIZE
         clf.fit(
-            X_train[:train_data_limit].to_numpy(),
-            Y_train[:train_data_limit][0].to_numpy(),
+            X_train[:train_data_limit],
+            Y_train[:train_data_limit][0],
             sample_weight=compute_sample_weight(
-                "balanced", Y_train[:train_data_limit][0].to_numpy()
+                "balanced", Y_train[:train_data_limit][0]
             ),
         )
 
-        Y_pred = clf.predict(X_test.to_numpy().astype(np.float64))
+        Y_pred = clf.predict(X_test)
 
         current_acc = accuracy_score(Y_test, Y_pred)
-        #  print("{} {}".format(train_data_limit, current_acc))
+        #  print("{} {:6.1%} {:6.1%}".format(train_data_limit, current_acc, current_acc))
         accs.append(current_acc)
 
     synthetic_creation_args["accs"] = accs
@@ -94,7 +103,7 @@ def test_run(random_run):
     )
 
     plt.plot(
-        [i * BATCH_SIZE for i in range(1, int(len(Y_train) / BATCH_SIZE))],
+        [i * BATCH_SIZE for i in range(1, int(MAX_USED_N_SAMPLES / BATCH_SIZE))],
         accs,
         "-gD",
         markevery=markers_on,

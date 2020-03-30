@@ -101,10 +101,10 @@ class ActiveLearner:
 
     def fit_clf(self):
         self.clf_list[0].fit(
-            self.data_storage.X_train_labeled.to_numpy(),
-            self.data_storage.Y_train_labeled[0].to_numpy(),
+            self.data_storage.X_train_labeled,
+            self.data_storage.Y_train_labeled[0],
             sample_weight=compute_sample_weight(
-                "balanced", self.data_storage.Y_train_labeled[0].to_numpy()
+                "balanced", self.data_storage.Y_train_labeled[0]
             ),
         )
 
