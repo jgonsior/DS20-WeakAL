@@ -1,9 +1,4 @@
 import random
-from collections import defaultdict
-from itertools import islice
-from pprint import pprint
-
-import numpy as np
 
 from cluster_strategies import BaseClusterStrategy
 
@@ -15,7 +10,7 @@ class RandomClusterStrategy(BaseClusterStrategy):
             list(self.data_storage.X_train_unlabeled_cluster_indices.keys())
         )
 
-        #  for cluster, cluster_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
+        #  for cluster, cluster_indices in self.dataset_storage.X_train_unlabeled_cluster_indices.items(
         #  ):
         #  print(cluster, ":\t", len(cluster_indices))
         return random_cluster

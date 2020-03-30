@@ -1,18 +1,9 @@
 import argparse
-import contextlib
 import datetime
-import hashlib
-import io
-import json
-import logging
-import multiprocessing
 import os
-import pickle
 import random
 import sys
 import threading
-from itertools import chain, combinations
-from timeit import default_timer as timer
 
 import numpy as np
 
@@ -21,11 +12,8 @@ import numpy.random
 import pandas as pd
 import peewee
 import scipy
-from evolutionary_search import EvolutionaryAlgorithmSearchCV
-from json_tricks import dumps
 from playhouse.postgres_ext import *
-from sklearn.base import BaseEstimator
-from sklearn.datasets import fetch_covtype, load_iris
+from sklearn.datasets import fetch_covtype, make_classification
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, RobustScaler
@@ -171,16 +159,16 @@ def divide_data(X, Y, test_fraction):
 
 def standard_config(additional_parameters=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--datasets_path", default="../datasets/")
-    parser.add_argument("--classifier",
+    parser.add_argument("--DATASETS_PATH", default="../datasets/")
+    parser.add_argument("--CLASSIFIER",
                         default="RF",
                         help="Supported types: RF, DTree, NB, SVM, Linear")
-    parser.add_argument("--cores", type=int, default=-1)
-    parser.add_argument("--random_seed",
+    parser.add_argument("--N_JOBS", type=int, default=-1)
+    parser.add_argument("--RANDOM_SEED",
                         type=int,
                         default=42,
                         help="-1 Enables true Randomness")
-    parser.add_argument("--test_fraction", type=float, default=0.5)
+    parser.add_argument("--TEST_FRACTION", type=float, default=0.5)
 
     if additional_parameters is not None:
         for additional_parameter in additional_parameters:
@@ -193,9 +181,9 @@ def standard_config(additional_parameters=None):
         parser.print_help()
         parser.exit()
 
-    if config.random_seed != -1:
-        np.random.seed(config.random_seed)
-        random.seed(config.random_seed)
+    if config.RANDOM_SEED != -1:
+        np.random.seed(config.RANDOM_SEED)
+        random.seed(config.RANDOM_SEED)
 
     return config
 
@@ -406,87 +394,102 @@ def prettify_bytes(bytes):
     return str(amount) + suffix
 
 
-def get_dataset(datasets_path, dataset_name):
+def get_dataset(datasets_path, dataset_name, **kwargs):
     logging.info("Loading " + dataset_name)
+
     if dataset_name == "dwtc":
-        X_data, Y_data, label_encoder = load_and_prepare_X_and_Y(
-            datasets_path + "/dwtc/aft.csv")
-        X_train, X_test, Y_train, Y_test = divide_data(X_data,
-                                                       Y_data,
-                                                       test_fraction=0.5)
+        df = pd.read_csv(datasets_path + "/dwtc/aft.csv", index_col="id")
 
-        logging.info("Loaded " + dataset_name)
-        return X_train, X_test, Y_train, Y_test, label_encoder.classes_
+        # shuffle df
+        df = df.sample(frac=1).reset_index(drop=True)
 
+        Y_temp = df.pop("CLASS").to_numpy()
+
+        # replace labels with strings
+        #  Y_temp = Y_temp.astype("str")
+        #  for i in range(0, 40):
+        #  np.place(Y_temp, Y_temp == str(i), chr(65 + i))
+    elif dataset_name == "synthetic":
+        X_data, Y_temp = make_classification(**kwargs)
+        df = pd.DataFrame(X_data)
+
+        # replace labels with strings
+        Y_temp = Y_temp.astype("str")
+        for i in range(0, kwargs["n_classes"]):
+            np.place(Y_temp, Y_temp == str(i), chr(65 + i))
+
+    elif dataset_name == "forest_covtype":
+        X, Y_temp = fetch_covtype(data_home=datasets_path, return_X_y=True)
+        train_num = int(len(labels) / 2)
+        df = pd.DataFrame(X)
     else:
-        train_indices = {
-            "ibn_sina": 10361,
-            "hiva": 21339,
-            "nova": 9733,
-            "orange": 25000,
-            "sylva": 72626,
-            "zebra": 30744,
-        }
+        df = pd.read_csv(
+            datasets_path + "/al_challenge/" + dataset_name + ".data",
+            header=None,
+            sep=" ",
+        )
 
-        if dataset_name != "forest_covtype":
-            train_num = train_indices[dataset_name]
+        # shuffle df
+        df = df.sample(frac=1)
 
-            df = pd.read_csv(
-                datasets_path + "/al_challenge/" + dataset_name + ".data",
-                header=None,
-                sep=" ",
-            )
-            df = df.replace([np.inf, -np.inf], np.nan)
-            df = df.fillna(0)
+        df = df.replace([np.inf, -np.inf], np.nan)
+        df = df.fillna(0)
 
-            labels = pd.read_csv(datasets_path + "/al_challenge/" +
-                                 dataset_name + ".label",
-                                 header=None)
+        labels = pd.read_csv(datasets_path + "/al_challenge/" + dataset_name +
+                             ".label",
+                             header=None)
 
-            labels = labels.replace([-1], "A")
-            labels = labels.replace([1], "B")
-        elif dataset_name == "forest_covtype":
-            X, labels = fetch_covtype(data_home=datasets_path, return_X_y=True)
-            train_num = int(len(labels) / 2)
-            df = pd.DataFrame(X)
-            labels = pd.DataFrame(labels)
-
+        labels = labels.replace([-1], "A")
+        labels = labels.replace([1], "B")
         Y_temp = labels[0].to_numpy()
-        label_encoder = LabelEncoder()
-        Y_temp = label_encoder.fit_transform(Y_temp)
-        X_temp = df.to_numpy().astype(np.float)
 
-        scaler = RobustScaler()
-        X_temp = scaler.fit_transform(X_temp)
+    train_indices = {
+        "ibn_sina": 10361,
+        "hiva": 21339,
+        "nova": 9733,
+        "orange": 25000,
+        "sylva": 72626,
+        "zebra": 30744,
+    }
 
-        scaler = MinMaxScaler()
-        X_temp = scaler.fit_transform(X_temp)
+    if dataset_name in train_indices:
+        train_num = train_indices[dataset_name]
+    else:
+        train_num = int(len(Y_temp) * 0.5)
 
-        X_temp = pd.DataFrame(X_temp, dtype=float)
-        Y_temp = pd.DataFrame(Y_temp, dtype=int)
+    label_encoder = LabelEncoder()
+    Y_temp = label_encoder.fit_transform(Y_temp)
+    X_temp = df.to_numpy().astype(np.float)
 
-        X_temp = X_temp.apply(pd.to_numeric, downcast="float", errors="ignore")
-        Y_temp = Y_temp.apply(pd.to_numeric,
-                              downcast="integer",
-                              errors="ignore")
+    # feature normalization
+    scaler = RobustScaler()
+    X_temp = scaler.fit_transform(X_temp)
 
-        X_train = X_temp[:train_num]
-        X_test = X_temp[train_num:]
+    # scale back to [0,1]
+    scaler = MinMaxScaler()
+    X_temp = scaler.fit_transform(X_temp)
 
-        Y_train = Y_temp[:train_num]
-        Y_test = Y_temp[train_num:]
+    X_temp = pd.DataFrame(X_temp, dtype=float)
+    Y_temp = pd.DataFrame(Y_temp, dtype=int)
 
-        logging.info("Loaded " + dataset_name)
-        #  print("Size X ", prettify_bytes(sys.getsizeof(X_temp)), " \t Y ",
-        #  prettify_bytes(sys.getsizeof(Y_temp)))
-        return X_train, X_test, Y_train, Y_test, label_encoder.classes_
+    X_temp = X_temp.apply(pd.to_numeric, downcast="float", errors="ignore")
+    Y_temp = Y_temp.apply(pd.to_numeric, downcast="integer", errors="ignore")
+
+    X_train = X_temp[:train_num]
+    X_test = X_temp[train_num:]
+
+    Y_train = Y_temp[:train_num]
+    Y_test = Y_temp[train_num:]
+
+    logging.info("Loaded " + dataset_name)
+    return X_train, X_test, Y_train, Y_test, label_encoder.classes_
 
 
 def calculate_roc_auc(label_encoder, X_test, Y_test, clf):
-    #  print(set(Y_test[0].to_numpy()))
+    print(set(Y_test[0].to_numpy()))
     if len(label_encoder.classes_) > 2:
         Y_scores = np.array(clf.predict_proba(X_test))
-        #  print(Y_scores)
+        print(Y_scores)
         Y_test = Y_test.to_numpy().reshape(1, len(Y_scores))[0].tolist()
 
         return roc_auc_score(
@@ -544,79 +547,80 @@ def calculate_global_score(metric_values, amount_of_labels_per_metric_values,
 
 
 def get_param_distribution(hyper_search_type=None,
-                           datasets_path=None,
-                           classifier=None,
-                           cores=None,
-                           random_seed=None,
-                           test_fraction=None,
-                           nr_learning_iterations=None,
-                           db_name_or_type=None,
+                           DATASETS_PATH=None,
+                           CLASSIFIER=None,
+                           N_JOBS=None,
+                           RANDOM_SEED=None,
+                           TEST_FRACTION=None,
+                           NR_LEARNING_ITERATIONS=None,
+                           DB_NAME_OR_TYPE=None,
                            **kwargs):
     if hyper_search_type == "random":
         zero_to_one = scipy.stats.uniform(loc=0, scale=1)
         half_to_one = scipy.stats.uniform(loc=0.5, scale=0.5)
         #  nr_queries_per_iteration = scipy.stats.randint(1, 151)
-        nr_queries_per_iteration = [10]
-        #  start_set_size = scipy.stats.uniform(loc=0.001, scale=0.1)
-        #  start_set_size = [1, 10, 25, 50, 100]
-        start_set_size = [1]
+        NR_QUERIES_PER_ITERATION = [10]
+        #  START_SET_SIZE = scipy.stats.uniform(loc=0.001, scale=0.1)
+        #  START_SET_SIZE = [1, 10, 25, 50, 100]
+        START_SET_SIZE = [1]
     else:
         param_size = 50
         #  param_size = 2
         zero_to_one = np.linspace(0, 1, num=param_size * 2 + 1).astype(float)
         half_to_one = np.linspace(0.5, 1, num=param_size + 1).astype(float)
-        nr_queries_per_iteration = np.linspace(1, 150,
-                                               num=param_size + 1).astype(int)
-        #  start_set_size = np.linspace(0.001, 0.1, num=10).astype(float)
-        start_set_size = [1, 10, 25, 50, 100]
+        NR_QUERIES_PER_ITERATION = [
+            10
+        ]  # np.linspace(1, 150, num=param_size + 1).astype(int)
+        #  START_SET_SIZE = np.linspace(0.001, 0.1, num=10).astype(float)
+        START_SET_SIZE = [1]
 
     param_distribution = {
-        "datasets_path": [datasets_path],
-        "classifier": [classifier],
-        "cores": [cores],
-        "random_seed": [random_seed],
-        "test_fraction": [test_fraction],
-        "sampling": [
+        "DATASETS_PATH": [DATASETS_PATH],
+        "CLASSIFIER": [CLASSIFIER],
+        "N_JOBS": [N_JOBS],
+        "RANDOM_SEED": [RANDOM_SEED],
+        "TEST_FRACTION": [TEST_FRACTION],
+        "SAMPLING": [
             "random",
             "uncertainty_lc",
             "uncertainty_max_margin",
             "uncertainty_entropy",
         ],
-        "cluster": [
+        "CLUSTER": [
             "dummy", "random", "MostUncertain_lc", "MostUncertain_max_margin",
             "MostUncertain_entropy"
             #  'dummy',
         ],
-        "nr_learning_iterations": [nr_learning_iterations],
-        #  "nr_learning_iterations": [1],
-        "nr_queries_per_iteration":
-        nr_queries_per_iteration,
-        "start_set_size":
-        start_set_size,
-        "stopping_criteria_uncertainty": [1],  # zero_to_one,
-        "stopping_criteria_std": [1],  # zero_to_one,
-        "stopping_criteria_acc": [1],  # zero_to_one,
-        "allow_recommendations_after_stop": [True, False],
+        "NR_LEARNING_ITERATIONS": [NR_LEARNING_ITERATIONS],
+        #  "NR_LEARNING_ITERATIONS": [1],
+        "NR_QUERIES_PER_ITERATION":
+        NR_QUERIES_PER_ITERATION,
+        "START_SET_SIZE":
+        START_SET_SIZE,
+        "STOPPING_CRITERIA_UNCERTAINTY": [1],  # zero_to_one,
+        "STOPPING_CRITERIA_STD": [1],  # zero_to_one,
+        "STOPPING_CRITERIA_ACC": [1],  # zero_to_one,
+        "ALLOW_RECOMMENDATIONS_AFTER_STOP": [True, False],
         # uncertainty_recommendation_grid = {
-        "uncertainty_recommendation_certainty_threshold":
+        "UNCERTAINTY_RECOMMENDATION_CERTAINTY_THRESHOLD":
         half_to_one,
-        "uncertainty_recommendation_ratio":
+        "UNCERTAINTY_RECOMMENDATION_RATIO":
         [1 / 10, 1 / 100, 1 / 1000, 1 / 10000],
         # snuba_lite_grid = {
-        "snuba_lite_minimum_heuristic_accuracy": [0],
+        "SNUBA_LITE_MINIMUM_HEURISTIC_ACCURACY": [0],
         #  half_to_one,
         # cluster_recommendation_grid = {
-        "cluster_recommendation_minimum_cluster_unity_size":
+        "CLUSTER_RECOMMENDATION_MINIMUM_CLUSTER_UNITY_SIZE":
         half_to_one,
-        "cluster_recommendation_ratio_labeled_unlabeled":
+        "CLUSTER_RECOMMENDATION_RATIO_LABELED_UNLABELED":
         half_to_one,
-        "with_uncertainty_recommendation": [True, False],
-        "with_cluster_recommendation": [True],
-        "with_snuba_lite": [False],
-        "minimum_test_accuracy_before_recommendations":
+        "WITH_UNCERTAINTY_RECOMMENDATION": [True, False],
+        "WITH_CLUSTER_RECOMMENDATION": [True, False],
+        "WITH_SNUBA_LITE": [False],
+        "MINIMUM_TEST_ACCURACY_BEFORE_RECOMMENDATIONS":
         half_to_one,
-        "db_name_or_type": [db_name_or_type],
-        "user_query_budget_limit": [2000],
+        "DB_NAME_OR_TYPE": [DB_NAME_OR_TYPE],
+        "USER_QUERY_BUDGET_LIMIT": [2000],
     }
 
     return param_distribution

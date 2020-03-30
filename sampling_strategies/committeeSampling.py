@@ -1,11 +1,10 @@
-from sklearn.ensemble import RandomForestClassifier
-from pprint import pprint
-from activeLearner import ActiveLearner
 import numpy as np
-import math
-from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.naive_bayes import MultinomialNB
 from sklearn import svm
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.utils.class_weight import compute_sample_weight
+
+from activeLearner import ActiveLearner
 
 
 class Committee:

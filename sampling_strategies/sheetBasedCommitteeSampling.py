@@ -1,13 +1,9 @@
-import math
-from pprint import pprint
-
 import numpy as np
 from sklearn import svm
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.utils.class_weight import compute_sample_weight
 
-from activeLearner import ActiveLearner
 from sampling_strategies.sheetBasedActiveLearner import SheetBasedActiveLearner
 
 

@@ -1,12 +1,9 @@
-from sklearn.model_selection import train_test_split
-import numpy as np
-import pandas as pd
 from sklearn import svm
-from sklearn.datasets import fetch_california_housing
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.feature_selection import SelectKBest, chi2
+
 from experiment_setup_lib import (
     train_and_evaluate,
     load_and_prepare_X_and_Y,

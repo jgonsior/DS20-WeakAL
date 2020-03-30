@@ -1,8 +1,3 @@
-import random
-from collections import defaultdict
-from itertools import islice
-from pprint import pprint
-
 import numpy as np
 from scipy.stats import entropy
 

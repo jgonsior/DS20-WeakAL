@@ -1,7 +1,5 @@
 import abc
 import logging
-import random
-import sys
 from collections import defaultdict
 from math import e, log
 
@@ -9,19 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram
-from sklearn import metrics
-from sklearn.cluster import (
-    DBSCAN,
-    OPTICS,
-    AgglomerativeClustering,
-    Birch,
-    KMeans,
-    MiniBatchKMeans,
-)
-from sklearn.decomposition import PCA
-from sklearn.neighbors import NearestNeighbors
-
-from experiment_setup_lib import prettify_bytes
+from sklearn.cluster import OPTICS, MiniBatchKMeans, cluster_optics_dbscan
 
 
 class BaseClusterStrategy:
@@ -44,7 +30,7 @@ class BaseClusterStrategy:
             ent -= i * log(i, base)
         return ent
 
-    def set_data_storage(self, data_storage):
+    def set_data_storage(self, data_storage, n_jobs=-1):
         self.data_storage = data_storage
         # first run pca to downsample data
 
@@ -66,6 +52,8 @@ class BaseClusterStrategy:
             n_clusters=int(n_features / 5),
             batch_size=min(int(n_samples / 100), int(n_features / 5) * 5),
         )
+
+        self.cluster_model = OPTICS(min_cluster_size=30, n_jobs=n_jobs)
 
         self.data_storage = data_storage
 
@@ -98,13 +86,13 @@ class BaseClusterStrategy:
         #  "X_train_unlabeled_cluster_indices ",
         #  prettify_bytes(
         #  sys.getsizeof(
-        #  self.data_storage.X_train_unlabeled_cluster_indices)))
+        #  self.dataset_storage.X_train_unlabeled_cluster_indices)))
         #  print(
         #  "X_train_unlabeled ",
-        #  prettify_bytes(sys.getsizeof(self.data_storage.X_train_unlabeled)))
-        #  for cluster_index, X_train_indices in self.data_storage.X_train_unlabeled_cluster_indices.items(
+        #  prettify_bytes(sys.getsizeof(self.dataset_storage.X_train_unlabeled)))
+        #  for cluster_index, X_train_indices in self.dataset_storage.X_train_unlabeled_cluster_indices.items(
         #  ):
-        #  cluster_labels = self.data_storage.Y_train_unlabeled.loc[
+        #  cluster_labels = self.dataset_storage.Y_train_unlabeled.loc[
         #  X_train_indices][0].to_numpy()
         #  logging.info(self._entropy(cluster_labels), '\t', cluster_labels)
 

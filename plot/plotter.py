@@ -1,23 +1,16 @@
 import argparse
 import glob
-import os
 import pickle
 import sys
-from abc import abstractmethod
-from collections import defaultdict
 from math import sqrt
 from pprint import pprint
 
 import matplotlib
-import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
-from matplotlib import rc
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.stats import norm
-
-import functions
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--strategy")
@@ -338,7 +331,7 @@ def get_passive_accuracy(start_size, batch_size):
 
         for line in results_file:
             if (
-                "accuracy of simple classifier training \033[1m biggest possible training set"
+                "accuracy of simple CLASSIFIER training \033[1m biggest possible training set"
                 in line
             ):
                 passive_accuracy = float(line.split(" ")[-1][:-1])

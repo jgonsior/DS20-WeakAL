@@ -1,56 +1,20 @@
-import argparse
-import contextlib
 import datetime
-import io
-import logging
+import datetime
 import math
-import multiprocessing
 import operator
-import os
-import random
-import sys
-from itertools import chain, combinations
-from timeit import default_timer as timer
 
 import altair as alt
-import altair_viewer
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import peewee
-from evolutionary_search import EvolutionaryAlgorithmSearchCV
-from json_tricks import dumps, loads
+from json_tricks import loads
 from playhouse.migrate import *
 from playhouse.postgres_ext import *
-from playhouse.shortcuts import model_to_dict
-from scipy.stats import randint, uniform
-from sklearn.datasets import load_iris
-from tabulate import tabulate
 
 import experiment_setup_lib
-from cluster_strategies import (
-    DummyClusterStrategy,
-    MostUncertainClusterStrategy,
-    RandomClusterStrategy,
-    RoundRobinClusterStrategy,
-)
-from dataStorage import DataStorage
 from experiment_setup_lib import (
     BaseModel,
-    ExperimentResult,
     calculate_global_score,
-    classification_report_and_confusion_matrix,
     get_db,
-    get_single_al_run_stats_row,
-    get_single_al_run_stats_table_header,
-    load_and_prepare_X_and_Y,
     standard_config,
-)
-from sampling_strategies import (
-    BoundaryPairSampler,
-    CommitteeSampler,
-    RandomSampler,
-    UncertaintySampler,
 )
 
 alt.renderers.enable("altair_viewer")
