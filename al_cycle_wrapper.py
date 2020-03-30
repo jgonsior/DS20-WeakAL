@@ -55,7 +55,6 @@ def train_al(X_train, Y_train, X_test, Y_test, label_encoder, hyper_parameters):
     elif hyper_parameters["CLUSTER"] == "RoundRobin":
         cluster_strategy = RoundRobinClusterStrategy()
 
-    print(hyper_parameters.keys())
     cluster_strategy.set_data_storage(dataset_storage, hyper_parameters["N_JOBS"])
 
     active_learner_params = {
@@ -216,6 +215,9 @@ def eval_al(
     db = get_db(db_name_or_type=hyper_parameters["DB_NAME_OR_TYPE"])
 
     hyper_parameters["DATASET_NAME"] = dataset_name
+    print(hyper_parameters.keys())
+    hyper_parameters["cores"] = hyper_parameters["N_JOBS"]
+    #  del hyper_parameters["N_JOBS"]
 
     # lower case all parameters for nice values in database
     hyper_parameters = {k.lower(): v for k, v in hyper_parameters.items()}

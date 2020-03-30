@@ -1,6 +1,5 @@
 import abc
-import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 from math import e, log
 
 import matplotlib.pyplot as plt
@@ -8,6 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy.cluster.hierarchy import dendrogram
 from sklearn.cluster import OPTICS, MiniBatchKMeans, cluster_optics_dbscan
+
+from experiment_setup_lib import log_it
 
 
 class BaseClusterStrategy:
@@ -49,24 +50,31 @@ class BaseClusterStrategy:
         n_samples, n_features = X_train_combined.shape
 
         self.cluster_model = MiniBatchKMeans(
-            n_clusters=int(n_features / 5),
-            batch_size=min(int(n_samples / 100), int(n_features / 5) * 5),
+            n_clusters=int(n_samples / 50),
+            batch_size=min(int(n_samples / 100), int(n_features)),
         )
 
-        self.cluster_model = OPTICS(min_cluster_size=30, n_jobs=n_jobs)
-
-        self.data_storage = data_storage
-
-        # fit cluster
         self.Y_train_unlabeled_cluster = self.cluster_model.fit_predict(
             self.data_storage.X_train_unlabeled
         )
 
-        logging.info(
+        #  self.cluster_model = OPTICS(min_cluster_size=20, n_jobs=n_jobs)
+        #  with np.errstate(divide="ignore"):
+        #  self.cluster_model.fit(self.data_storage.X_train_unlabeled)
+
+        #  # fit cluster
+        #  self.Y_train_unlabeled_cluster = self.cluster_model.labels_[
+        #  self.cluster_model.ordering_
+        #  ]
+
+        counter = Counter(self.Y_train_unlabeled_cluster)
+        self.n_clusters = len([1 for _ in counter.most_common()])
+
+        log_it(
             "Clustering into "
-            + str(self.cluster_model.n_clusters)
-            + " cluster with batch_size "
-            + str(min(int(n_samples / 100), int(n_features / 5) * 5))
+            + str(self.n_clusters)
+            + " :  "
+            + str(counter.most_common())
         )
 
         self.data_storage.X_train_unlabeled_cluster_indices = defaultdict(
@@ -80,62 +88,6 @@ class BaseClusterStrategy:
             self.data_storage.X_train_unlabeled_cluster_indices[cluster_index].append(
                 X_train_index
             )
-
-        #  print("cluster_model ", sys.getsizeof(self.cluster_model))
-        #  print(
-        #  "X_train_unlabeled_cluster_indices ",
-        #  prettify_bytes(
-        #  sys.getsizeof(
-        #  self.dataset_storage.X_train_unlabeled_cluster_indices)))
-        #  print(
-        #  "X_train_unlabeled ",
-        #  prettify_bytes(sys.getsizeof(self.dataset_storage.X_train_unlabeled)))
-        #  for cluster_index, X_train_indices in self.dataset_storage.X_train_unlabeled_cluster_indices.items(
-        #  ):
-        #  cluster_labels = self.dataset_storage.Y_train_unlabeled.loc[
-        #  X_train_indices][0].to_numpy()
-        #  logging.info(self._entropy(cluster_labels), '\t', cluster_labels)
-
-    def plot_dendrogram(self, **kwargs):
-        self.cluster_model.fit(self.X_train_combined)
-        model = self.cluster_model
-        # Create linkage matrix and then plot the dendrogram
-
-        # create the counts of samples under each node
-        counts = np.zeros(model.children_.shape[0])
-        n_samples = len(model.labels_)
-        for i, merge in enumerate(model.children_):
-            current_count = 0
-            for child_idx in merge:
-                if child_idx < n_samples:
-                    current_count += 1  # leaf node
-                else:
-                    current_count += counts[child_idx - n_samples]
-            counts[i] = current_count
-
-        linkage_matrix = np.column_stack(
-            [model.children_, model.distances_, counts]
-        ).astype(float)
-
-        # Plot the corresponding dendrogram
-        dendrogram(linkage_matrix, **kwargs)
-        plt.show()
-
-    def plot_cluster(self):
-        y_pred = self.cluster_model.fit_predict(
-            self.X_train_combined, self.data_storage.Y_train_labeled
-        )
-
-        # plot the top three levels of the dendrogram
-        plt.figure()
-        dimension = 0
-        plt.scatter(
-            self.X_train_combined[:, dimension],
-            self.X_train_combined[:, dimension + 1],
-            c=y_pred,
-        )
-
-        plt.show()
 
     @abc.abstractmethod
     def get_cluster_indices(self, **kwargs):

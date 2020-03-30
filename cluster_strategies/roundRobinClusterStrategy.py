@@ -15,7 +15,7 @@ class RoundRobinClusterStrategy(BaseClusterStrategy):
             self.X_train_unlabeled_clustered[Y].append(index)
 
         # randomly select cluster
-        random_cluster = random.sample(range(0, self.cluster_model.n_clusters_), k=1)[0]
+        random_cluster = random.sample(range(0, self.n_clusters_), k=1)[0]
         return random_cluster
 
     def get_oracle_cluster(self):
