@@ -34,7 +34,9 @@ def test_run(random_run):
     WEIGHTS = np.random.dirichlet(np.ones(N_CLASSES), size=1).tolist()[
         0
     ]  # list of weights, len(WEIGHTS) = N_CLASSES, sum(WEIGHTS)=1
-    FLIP_Y = 0.01  # amount of noise, larger values make it harder
+    FLIP_Y = (
+        np.random.pareto(2.0) + 1
+    ) * 0.01  # amount of noise, larger values make it harder
     CLASS_SEP = random.uniform(
         0, 10
     )  # larger values spread out the clusters and make it easier
