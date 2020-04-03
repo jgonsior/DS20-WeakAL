@@ -1,8 +1,5 @@
-from al_cycle_wrapper import train_and_eval_dataset
-from experiment_setup_lib import (
-    get_dataset,
-    standard_config,
-)
+from active_learning.al_cycle_wrapper import train_and_eval_dataset
+from active_learning.experiment_setup_lib import get_dataset, standard_config
 
 config = standard_config(
     [

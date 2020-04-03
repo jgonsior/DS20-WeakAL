@@ -8,8 +8,8 @@ from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import RandomizedSearchCV, ShuffleSplit
 
-from al_cycle_wrapper import train_and_eval_dataset
-from experiment_setup_lib import (
+from active_learning.al_cycle_wrapper import train_and_eval_dataset
+from active_learning.experiment_setup_lib import (
     get_dataset,
     get_param_distribution,
     log_it,
