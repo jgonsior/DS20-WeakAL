@@ -172,3 +172,4 @@ plots/
 *.db
 
 Pipfile.lock
+log.txt
