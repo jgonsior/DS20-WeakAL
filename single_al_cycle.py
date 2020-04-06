@@ -1,5 +1,6 @@
 from active_learning.al_cycle_wrapper import train_and_eval_dataset
 from active_learning.experiment_setup_lib import get_dataset, standard_config
+from fake_experiment_oracle import FakeExperimentOracle
 
 config = standard_config(
     [
@@ -68,5 +69,6 @@ score = train_and_eval_dataset(
     Y_test,
     label_encoder_classes,
     hyper_parameters=vars(config),
+    oracle=FakeExperimentOracle(),
 )
 print("Done with ", score)

@@ -15,6 +15,7 @@ from active_learning.experiment_setup_lib import (
     log_it,
     standard_config,
 )
+from fake_experiment_oracle import FakeExperimentOracle
 
 standard_config = standard_config(
     [
@@ -68,6 +69,7 @@ class Estimator(BaseEstimator):
                     Y_test,
                     label_encoder_classes,
                     hyper_parameters=vars(self),
+                    oracle=FakeExperimentOracle(),
                 )
             )
 
