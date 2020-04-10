@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "vega-cli": "^5.10.1",
+    "vega-lite": "^4.10.2"
+  }
+}

@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import peewee
+from altair_saver import save
 from evolutionary_search import EvolutionaryAlgorithmSearchCV
 from IPython.core.display import HTML, display
 from json_tricks import dumps, loads
@@ -56,6 +57,11 @@ from active_learning.sampling_strategies import (
 
 config = standard_config(
     [
+        (["--ACTION"], {}),
+        (["--TOP"], {"type": int}),
+        (["--BUDGET"], {"type": int}),
+        (["--DATASET"], {}),
+        (["--METRIC"], {}),
         (["--DESTINATION"], {}),
         (["--RANDOM_SEED"], {"type": int, "default": -1}),
         (["--LOG_FILE"], {"default": "log.txt"}),
@@ -234,121 +240,45 @@ table = get_result_table(
         #  ExperimentResult.stopping_criteria_std,
         #  ExperimentResult.experiment_run_date,
     ],
-    ORDER_BY=ExperimentResult.global_score_no_weak_acc,
-    BUDGET=2000,
-    LIMIT=5,
+    ORDER_BY=getattr(ExperimentResult, config.METRIC),
+    BUDGET=config.BUDGET,
+    LIMIT=config.TOP,
     PARAM_LIST_ID=False,
 )
-save_table_as_latex(table, config.DESTINATION)
-display_table(table)
-exit(-2)
-
-# & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0))) # no stopping criterias
-#  & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 30, 12, 23))) # optics
 
 
-results = (
-    ExperimentResult.select(
-        ExperimentResult.param_list_id,
-        peewee.fn.AVG(ExperimentResult.fit_score).alias("avg_fit_score"),
-        peewee.fn.STDDEV(ExperimentResult.fit_score).alias("stddev_fit_score"),
-        peewee.fn.AVG(ExperimentResult.global_score_no_weak_acc).alias(
-            "avg_global_score"
-        ),
-        peewee.fn.STDDEV(ExperimentResult.global_score_no_weak_acc).alias(
-            "stddev_global_score"
-        ),
-        peewee.fn.AVG(ExperimentResult.amount_of_user_asked_queries).alias(
-            "avg_amount_oracle"
-        ),
-        peewee.fn.STDDEV(ExperimentResult.amount_of_user_asked_queries).alias(
-            "std_amount_oracle"
-        ),
-        # peewee.fn.AVG(ExperimentResult.start_set_size).alias("sss"),
-        # peewee.fn.COUNT(ExperimentResult.id_field).alias("count"),
+def pre_fetch_data(TOP_N, GROUP_SELECT, GROUP_SELECT_AGG, BUDGET, ORDER_BY, DATASET):
+    table = get_result_table(
+        GROUP_SELECT=GROUP_SELECT,
+        GROUP_SELECT_AGG=GROUP_SELECT_AGG,
+        ADDITIONAL_SELECT=[],
+        ORDER_BY=ORDER_BY,
+        BUDGET=BUDGET,
+        LIMIT=TOP_N + 1,
+        PARAM_LIST_ID=True,
     )
-    .where(
-        (ExperimentResult.amount_of_user_asked_queries < 2000)
-        # & (
-        #    ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0))
-        # )  # no stopping criterias
-    )
-    .group_by(ExperimentResult.param_list_id)
-    .order_by(
-        peewee.fn.COUNT(ExperimentResult.id_field).desc(),
-        peewee.fn.AVG(ExperimentResult.global_score_no_weak_acc).desc(),
-    )
-    .limit(20)
-)
 
-table = []
-id = 0
-for result in results:
-    data = {**{"id": id}, **vars(result)}
-    data["param_list_id"] = data["__data__"]["param_list_id"]
-    del data["__data__"]
-    del data["_dirty"]
-    del data["__rel__"]
-
-    # get one param_list_id
-
-    one_param_list_id_result = (
-        ExperimentResult.select(
-            ExperimentResult.classifier,
-            ExperimentResult.test_fraction,
-            ExperimentResult.sampling,
-            ExperimentResult.cluster,
-            ExperimentResult.nr_queries_per_iteration,
-            ExperimentResult.with_uncertainty_recommendation,
-            ExperimentResult.with_cluster_recommendation,
-            ExperimentResult.uncertainty_recommendation_certainty_threshold,
-            ExperimentResult.uncertainty_recommendation_ratio,
-            ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
-            ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
-            ExperimentResult.allow_recommendations_after_stop,
-            ExperimentResult.stopping_criteria_uncertainty,
-            ExperimentResult.stopping_criteria_acc,
-            ExperimentResult.stopping_criteria_std,
-            ExperimentResult.experiment_run_date,
-        )
-        .where(ExperimentResult.param_list_id == data["param_list_id"])
-        .limit(1)
-    )[0]
-
-    data = {**data, **vars(one_param_list_id_result)["__data__"]}
-
-    table.append(data)
-    id += 1
-
-display(HTML(tabulate(table, headers="keys", tablefmt="html")))
-
-
-# SELECT id_field, param_list_id, dataset_path, start_set_size as sss, sampling, cluster, allow_recommendations_after_stop as SA, stopping_criteria_uncertainty as SCU, stopping_criteria_std as SCS, stopping_criteria_acc as SCA, amount_of_user_asked_queries as "#q", acc_test, fit_score, global_score_norm, thread_id, end_time from experimentresult where param_list_id='31858014d685a3f1ba3e4e32690ddfc3' order by end_time, fit_score desc, param_list_id;
-loaded_data = {}
-
-
-def pre_fetch_data(top_n=0):
-    best_param_list_id = table[top_n]["param_list_id"]
+    best_param_list_id = table[TOP_N]["param_list_id"]
 
     results = ExperimentResult.select().where(
-        ExperimentResult.param_list_id == best_param_list_id
+        (ExperimentResult.param_list_id == best_param_list_id)
+        & (ExperimentResult.dataset_name == DATASET)
     )
 
-    loaded_data[top_n] = []
+    loaded_data = []
     for result in results:
-        loaded_data[top_n].append(result)
-    print("Loaded Top " + str(top_n) + " data")
+        loaded_data.append(result)
+    print("Loaded Top " + str(TOP_N) + " data")
+
+    return loaded_data
 
 
-pre_fetch_data(0)
-
-
-def visualise_top_n(top_n=0):
+def visualise_top_n(data):
     charts = []
 
     alt.renderers.enable("html")
 
-    for result in loaded_data[top_n][:]:
+    for result in data:
         metrics = loads(result.metrics_per_al_cycle)
         test_data_metrics = [
             metrics["test_data_metrics"][0][f][0]["weighted avg"]
@@ -433,4 +363,17 @@ def visualise_top_n(top_n=0):
     return alt.vconcat(*charts).configure()
 
 
-visualise_top_n(0)
+if config.ACTION == "table":
+    save_table_as_latex(table, config.DESTINATION)
+    #  display_table(table)
+elif config.ACTION == "plot":
+    loaded_data = pre_fetch_data(
+        config.TOP,
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        BUDGET=config.BUDGET,
+        DATASET=config.DATASET,
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+    )
+
+    save(visualise_top_n(loaded_data), config.DESTINATION)

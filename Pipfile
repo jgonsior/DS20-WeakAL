@@ -26,6 +26,8 @@ tabulate = "*"
 jupyter = "*"
 nb-black = "*"
 jupyterlab = "*"
+altair-saver = "*"
+vega-datasets = "*"
 
 [requires]
 python_version = "3"
