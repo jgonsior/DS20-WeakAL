@@ -59,6 +59,8 @@ config = standard_config(
     [
         (["--ACTION"], {}),
         (["--TOP"], {"type": int}),
+        (["--TOP2"], {"type": int}),
+        (["--TOP3"], {"type": int}),
         (["--BUDGET"], {"type": int}),
         (["--DATASET"], {}),
         (["--METRIC"], {}),
@@ -247,7 +249,9 @@ table = get_result_table(
 )
 
 
-def pre_fetch_data(TOP_N, GROUP_SELECT, GROUP_SELECT_AGG, BUDGET, ORDER_BY, DATASET):
+def pre_fetch_data(
+    TOP_N, GROUP_SELECT, GROUP_SELECT_AGG, BUDGET, ORDER_BY, DATASET, LEGEND=""
+):
     table = get_result_table(
         GROUP_SELECT=GROUP_SELECT,
         GROUP_SELECT_AGG=GROUP_SELECT_AGG,
@@ -267,6 +271,7 @@ def pre_fetch_data(TOP_N, GROUP_SELECT, GROUP_SELECT_AGG, BUDGET, ORDER_BY, DATA
 
     loaded_data = []
     for result in results:
+        setattr(result, "legend", LEGEND)
         loaded_data.append(result)
     print("Loaded Top " + str(TOP_N) + " data")
 
@@ -363,6 +368,109 @@ def visualise_top_n(data):
     return alt.vconcat(*charts).configure()
 
 
+def compare_data(datasets):
+    charts = []
+
+    alt.renderers.enable("html")
+    all_data = pd.DataFrame()
+    print(datasets)
+    for i, dataset in enumerate(datasets):
+        for result in dataset:
+            if result.dataset_name != "dwtc":
+                continue
+            metrics = loads(result.metrics_per_al_cycle)
+            test_data_metrics = [
+                metrics["test_data_metrics"][0][f][0]["weighted avg"]
+                for f in range(0, len(metrics["test_data_metrics"][0]))
+            ]
+            test_acc = [
+                metrics["test_data_metrics"][0][f][0]["accuracy"]
+                for f in range(0, len(metrics["test_data_metrics"][0]))
+            ]
+
+            data = pd.DataFrame(
+                {
+                    "iteration": range(0, len(metrics["all_unlabeled_roc_auc_scores"])),
+                    "all_unlabeled_roc_auc_scores": metrics[
+                        "all_unlabeled_roc_auc_scores"
+                    ],
+                    "query_length": metrics["query_length"],
+                    "recommendation": metrics["recommendation"],
+                    "query_strong_accuracy_list": metrics["query_strong_accuracy_list"],
+                    "f1": [i["f1-score"] for i in test_data_metrics],
+                    "test_acc": test_acc,
+                    "top_n": result.legend,
+                    "color": 4,
+                    #'asked_queries': [sum(metrics['query_length'][:i]) for i in range(0, len(metrics['query_length']))],
+                }
+            )
+
+            # bar width
+            data["asked_queries"] = data["query_length"].cumsum()
+            data["asked_queries_end"] = data["asked_queries"].shift(fill_value=0)
+
+            # print(data[['asked_queries', 'query_length']])
+
+            data["recommendation"] = data["recommendation"].replace(
+                {
+                    "A": "Oracle",
+                    "C": "Weak Cluster",
+                    "U": "Weak Certainty",
+                    "G": "Ground Truth",
+                }
+            )
+
+            all_data = pd.concat([all_data, data])
+
+    points = (
+        alt.Chart(all_data,)
+        .mark_point()
+        .encode(
+            x="asked_queries:Q",
+            y="test_acc:Q",
+            shape="recommendation:N",
+            #  color="color:N",
+            #  color="recommendation:N",
+        )
+    )
+
+    lines = (
+        alt.Chart(all_data,)
+        .mark_line(interpolate="step-before")
+        .encode(
+            x=alt.X(
+                "asked_queries:Q",
+                title="Asked Queries",
+                scale=alt.Scale(domain=[0, 2900], type="linear"),
+            ),
+            y=alt.Y(
+                "test_acc:Q",
+                title="Test Accuracy",
+                scale=alt.Scale(domain=[0, 1], type="linear"),
+            ),
+            color="top_n:N",
+            # shape="top_n",
+            # strokeDash="top_n",
+            # shape="recommendation",
+            # color="recommendation:N",
+        )
+    )
+
+    return (
+        alt.layer(lines)
+        .resolve_scale(color="independent", shape="independent")
+        .configure_legend(
+            orient="bottom-right",
+            padding=10,
+            fillColor="#f1f1f1",
+            labelOpacity=0.9,
+            labelOverlap=True,
+            title=None,
+        )
+        #  .properties(title="Comparison of ")
+    )
+
+
 if config.ACTION == "table":
     save_table_as_latex(table, config.DESTINATION)
     #  display_table(table)
@@ -377,3 +485,32 @@ elif config.ACTION == "plot":
     )
 
     save(visualise_top_n(loaded_data), config.DESTINATION)
+elif config.ACTION == "compare":
+    data1 = pre_fetch_data(
+        config.TOP,
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        BUDGET=config.BUDGET,
+        DATASET=config.DATASET,
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        LEGEND="Top 1",
+    )
+    data2 = pre_fetch_data(
+        config.TOP2,
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        BUDGET=config.BUDGET,
+        DATASET=config.DATASET,
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        LEGEND="Top 2",
+    )
+    data3 = pre_fetch_data(
+        5,
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        BUDGET=config.BUDGET,
+        DATASET=config.DATASET,
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        LEGEND="Tob 3",
+    )
+    save(compare_data([data1, data2, data3]), config.DESTINATION)
