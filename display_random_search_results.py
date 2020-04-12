@@ -178,7 +178,7 @@ def get_result_table(
 
 def save_table_as_latex(table, destination):
     table = pd.DataFrame(table)
-    table["id"] = table["id"].apply(lambda x: "Top " + str(x))
+    table["id"] = table["id"].apply(lambda x: "Top " + str(x + 1))
     table = table.set_index("id")
 
     numeric_column_names = table.select_dtypes(float).columns
@@ -186,10 +186,34 @@ def save_table_as_latex(table, destination):
         "{0:2.2%}".format
     )
 
-    # renamle column names
-    table.columns = table.columns.str.replace("_", " ")
     # rename sapmling and cluster values
     table.sampling = table.sampling.str.replace("_", " ")
+    table.cluster = table.cluster.str.replace("_", " ")
+
+    # renamle column names
+    table.columns = table.columns.str.replace("_", " ")
+    table.columns = table.columns.str.replace(
+        "global score no weak acc", "global score"
+    )
+    table.columns = table.columns.str.replace(
+        "amount of user asked queries", "# queries"
+    )
+    table.columns = table.columns.str.replace("acc test", "test accuracy")
+    table.columns = table.columns.str.replace("sampling", "sampling strategy")
+    table.columns = table.columns.str.replace("cluster", "cluster strategy")
+    table.columns = table.columns.str.replace(
+        "with uncertainty recommendation", "weak certainty?"
+    )
+    table.columns = table.columns.str.replace(
+        "with cluster strategy recommendation", "weak cluster?"
+    )
+
+    table[["weak cluster?"]] = table[["weak cluster?"]].replace(
+        [True, False], ["Yes", "No"]
+    )
+    table[["weak certainty?"]] = table[["weak certainty?"]].replace(
+        {True: "Yes", False: "No",}
+    )
 
     table = table.T
 
@@ -198,7 +222,9 @@ def save_table_as_latex(table, destination):
         tabular_columns_fmt = "".join([alignment.get(a, "l") for a in colaligns])
         return "\n".join(
             [
-                "\\begin{tabularx}{\linewidth}{" + tabular_columns_fmt + "}",
+                "\\begin{table}\\centering\\begin{tabularx}{\linewidth}{"
+                + tabular_columns_fmt
+                + "}",
                 "\\toprule" if booktabs else "\\hline",
             ]
         )
@@ -208,7 +234,7 @@ def save_table_as_latex(table, destination):
         lineabove=partial(_latex_line_begin_tabular, booktabs=True),
         linebelowheader=Line("\\midrule", "", "", ""),
         linebetweenrows=None,
-        linebelow=Line("\\bottomrule\n\\end{tabularx}", "", "", ""),
+        linebelow=Line("\\bottomrule\n\\end{tabularx}\\end{table}", "", "", ""),
         headerrow=_latex_row,
         datarow=_latex_row,
         padding=1,
@@ -438,7 +464,9 @@ def compare_data(datasets, without_weak=True):
     if without_weak:
         show_top_legend = alt.Legend()
         show_thickness_legend = None
+        x_scale = alt.Scale()
     else:
+        x_scale = alt.Scale(domain=[0, 3000])
         show_top_legend = None
         show_thickness_legend = alt.Legend()
 
@@ -446,17 +474,13 @@ def compare_data(datasets, without_weak=True):
         alt.Chart(all_data,)
         .mark_trail(interpolate="step-before")
         .encode(
-            x=alt.X(
-                "asked_queries:Q",
-                title="Asked Queries",
-                scale=alt.Scale(domain=[0, 2900], type="linear"),
-            ),
+            x=alt.X("asked_queries:Q", title="Asked Queries", scale=x_scale),
             y=alt.Y(
                 "test_acc:Q",
                 title="Test Accuracy",
                 scale=alt.Scale(domain=[0, 1], type="linear"),
             ),
-            color=alt.Color("top_n:N", legend=show_top_legend),
+            color=alt.Color("top_n:N", legend=show_top_legend,),
             opacity=alt.Opacity("opacity", legend=None),
             size=alt.Size("size:N", legend=show_thickness_legend)
             # shape="top_n",
@@ -471,12 +495,15 @@ def compare_data(datasets, without_weak=True):
         .resolve_scale(opacity="independent", color="independent", shape="independent")
         .configure_legend(
             orient="bottom-right",
-            #  padding=10,
-            #  fillColor="#f1f1f1",
-            labelOverlap=True,
+            padding=5,
+            #  labelSeparation=20,
+            fillColor="#ffffff",
+            #  labelOverlap=True,
             title=None,
+            columns=3,
+            #  strokeColor= "#878787"
         )
-        .properties(width=200, height=200)
+        .properties(width=200, height=125)
         #  .properties(title="Comparison of ")
     )
 
@@ -489,6 +516,7 @@ if config.ACTION == "table":
             ExperimentResult.fit_score,
             ExperimentResult.global_score_no_weak_acc,
             ExperimentResult.amount_of_user_asked_queries,
+            ExperimentResult.acc_test,
             #  ExperimentResult.classifier,
             #  ExperimentResult.test_fraction,
             ExperimentResult.sampling,
@@ -496,7 +524,7 @@ if config.ACTION == "table":
             #  ExperimentResult.nr_queries_per_iteration,
             ExperimentResult.with_uncertainty_recommendation,
             ExperimentResult.with_cluster_recommendation,
-            ExperimentResult.uncertainty_recommendation_certainty_threshold,
+            #  ExperimentResult.uncertainty_recommendation_certainty_threshold,
             #  ExperimentResult.uncertainty_recommendation_ratio,
             #  ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
             #  ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
@@ -523,7 +551,7 @@ if config.ACTION == "table":
                 BUDGET=config.BUDGET,
                 DATASET=config.DATASET,
                 ORDER_BY=getattr(ExperimentResult, config.METRIC),
-                LEGEND="Top " + str(i),
+                LEGEND="Top " + str(i + 1),
             )
         )
 
@@ -561,3 +589,75 @@ elif config.ACTION == "plot":
     )
 
     save(visualise_top_n(loaded_data), config.DESTINATION)
+
+
+elif config.ACTION == "compare_rec":
+    table = get_result_table(
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        ADDITIONAL_SELECT=[
+            ExperimentResult.fit_score,
+            ExperimentResult.global_score_no_weak_acc,
+            ExperimentResult.amount_of_user_asked_queries,
+            ExperimentResult.acc_test,
+            #  ExperimentResult.classifier,
+            #  ExperimentResult.test_fraction,
+            ExperimentResult.sampling,
+            ExperimentResult.cluster,
+            #  ExperimentResult.nr_queries_per_iteration,
+            ExperimentResult.with_uncertainty_recommendation,
+            ExperimentResult.with_cluster_recommendation,
+            #  ExperimentResult.uncertainty_recommendation_certainty_threshold,
+            #  ExperimentResult.uncertainty_recommendation_ratio,
+            #  ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
+            #  ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
+            #  ExperimentResult.allow_recommendations_after_stop,
+            #  ExperimentResult.stopping_criteria_uncertainty,
+            #  ExperimentResult.stopping_criteria_acc,
+            #  ExperimentResult.stopping_criteria_std,
+            #  ExperimentResult.experiment_run_date,
+        ],
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        BUDGET=config.BUDGET,
+        LIMIT=3,
+        PARAM_LIST_ID=False,
+    )
+    print(table)
+    save_table_as_latex(table, config.DESTINATION + ".tex")
+
+    datasets = []
+    for i in range(0, config.TOP):
+        datasets.append(
+            pre_fetch_data(
+                i,
+                GROUP_SELECT=[ExperimentResult.param_list_id],
+                GROUP_SELECT_AGG=[],
+                BUDGET=config.BUDGET,
+                DATASET=config.DATASET,
+                ORDER_BY=getattr(ExperimentResult, config.METRIC),
+                LEGEND="Top " + str(i + 1),
+            )
+        )
+
+    for with_or_without_weak in [True, False]:
+        base_title = config.DESTINATION + "_" + str(with_or_without_weak)
+        save(compare_data(datasets, with_or_without_weak), base_title + ".svg")
+        subprocess.run(
+            "inkscape -D -z --file "
+            + base_title
+            + ".svg --export-pdf "
+            + base_title
+            + ".pdf --export-latex",
+            shell=True,
+        )
+        with fileinput.FileInput(
+            base_title + ".pdf_tex", inplace=True, backup=".bak"
+        ) as file:
+            for line in file:
+                print(
+                    line.replace(
+                        base_title.split("/")[-1] + ".pdf",
+                        "results/" + base_title.split("/")[-1] + ".pdf",
+                    ),
+                    end="",
+                )
