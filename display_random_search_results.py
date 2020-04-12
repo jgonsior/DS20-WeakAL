@@ -86,9 +86,6 @@ results = ExperimentResult.select(
 for result in results:
     print("{:>4,d} {}".format(result.dataset_name_count, result.dataset_name))
 
-# & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0))) # no stopping criterias
-#  & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 30, 12, 23))) # optics
-
 
 def get_result_table(
     GROUP_SELECT=[ExperimentResult.param_list_id],
@@ -120,6 +117,7 @@ def get_result_table(
     LIMIT=20,
     DATASET="dwtc",
     PARAM_LIST_ID=True,
+    ADDITIONAL_WHERE=True,
 ):
     results = (
         ExperimentResult.select(
@@ -135,8 +133,11 @@ def get_result_table(
         )
         .where(
             (ExperimentResult.amount_of_user_asked_queries < BUDGET)
-            & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0)))
+            & (ExperimentResult.stopping_criteria_acc == 1)
+            & (ExperimentResult.stopping_criteria_std == 1)
+            & (ExperimentResult.stopping_criteria_uncertainty == 1)
             & (ExperimentResult.dataset_name == DATASET)
+            & ADDITIONAL_WHERE
         )
         .group_by(ExperimentResult.param_list_id)
         .order_by(
@@ -176,9 +177,10 @@ def get_result_table(
     return table
 
 
-def save_table_as_latex(table, destination):
+def save_table_as_latex(table, destination, top=True):
     table = pd.DataFrame(table)
-    table["id"] = table["id"].apply(lambda x: "Top " + str(x + 1))
+    if top:
+        table["id"] = table["id"].apply(lambda x: "Top " + str(x + 1))
     table = table.set_index("id")
 
     numeric_column_names = table.select_dtypes(float).columns
@@ -299,7 +301,14 @@ def display_table(original_table, transpose=True):
 
 
 def pre_fetch_data(
-    TOP_N, GROUP_SELECT, GROUP_SELECT_AGG, BUDGET, ORDER_BY, DATASET, LEGEND=""
+    TOP_N,
+    GROUP_SELECT,
+    GROUP_SELECT_AGG,
+    BUDGET,
+    ORDER_BY,
+    DATASET,
+    ADDITIONAL_WHERE=True,
+    LEGEND="",
 ):
     table = get_result_table(
         GROUP_SELECT=GROUP_SELECT,
@@ -308,6 +317,7 @@ def pre_fetch_data(
         ORDER_BY=ORDER_BY,
         BUDGET=BUDGET,
         LIMIT=TOP_N + 1,
+        ADDITIONAL_WHERE=ADDITIONAL_WHERE,
         PARAM_LIST_ID=True,
     )
 
@@ -417,7 +427,7 @@ def visualise_top_n(data):
     return alt.vconcat(*charts).configure()
 
 
-def compare_data(datasets, without_weak=True):
+def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
     charts = []
 
     alt.renderers.enable("html")
@@ -426,8 +436,9 @@ def compare_data(datasets, without_weak=True):
 
     for dataset in datasets:
         for result in dataset:
-            if result.dataset_name != "dwtc":
-                continue
+            if dataset_name is not False:
+                if result.dataset_name != dataset_name:
+                    continue
             metrics = loads(result.metrics_per_al_cycle)
             test_data_metrics = [
                 metrics["test_data_metrics"][0][f][0]["weighted avg"]
@@ -493,7 +504,6 @@ def compare_data(datasets, without_weak=True):
             all_data = pd.concat([all_data, data])
             #  if not without_weak:
             #  point_datas = pd.concat([point_datas, point_data])
-
     #  points = (
     #  alt.Chart(point_datas)
     #  .mark_point()
@@ -511,7 +521,8 @@ def compare_data(datasets, without_weak=True):
         show_thickness_legend = None
         x_scale = alt.Scale()
     else:
-        x_scale = alt.Scale(domain=[0, 3000])
+        x_scale = alt.Scale(type="log")
+        #  x_scale = alt.Scale(domain=[0, 3000])
         show_top_legend = None
         show_thickness_legend = alt.Legend()
 
@@ -519,7 +530,7 @@ def compare_data(datasets, without_weak=True):
         alt.Chart(all_data,)
         .mark_trail(interpolate="step-before")
         .encode(
-            x=alt.X("asked_queries:Q", title="Asked Queries", scale=x_scale),
+            x=alt.X("asked_queries:Q", title="#Asked Queries", scale=x_scale),
             y=alt.Y(
                 "test_acc:Q",
                 title="Test Accuracy",
@@ -545,7 +556,7 @@ def compare_data(datasets, without_weak=True):
             fillColor="#ffffff",
             #  labelOverlap=True,
             title=None,
-            columns=3,
+            columns=COLUMNS,
             #  strokeColor= "#878787"
         )
         .properties(width=200, height=125)
@@ -637,56 +648,146 @@ elif config.ACTION == "plot":
 
 
 elif config.ACTION == "compare_rec":
-    table = get_result_table(
-        GROUP_SELECT=[ExperimentResult.param_list_id],
-        GROUP_SELECT_AGG=[],
-        ADDITIONAL_SELECT=[
-            ExperimentResult.fit_score,
-            ExperimentResult.global_score_no_weak_acc,
-            ExperimentResult.amount_of_user_asked_queries,
-            ExperimentResult.acc_test,
-            #  ExperimentResult.classifier,
-            #  ExperimentResult.test_fraction,
-            ExperimentResult.sampling,
-            ExperimentResult.cluster,
-            #  ExperimentResult.nr_queries_per_iteration,
-            ExperimentResult.with_uncertainty_recommendation,
-            ExperimentResult.with_cluster_recommendation,
-            #  ExperimentResult.uncertainty_recommendation_certainty_threshold,
-            #  ExperimentResult.uncertainty_recommendation_ratio,
-            #  ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
-            #  ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
-            #  ExperimentResult.allow_recommendations_after_stop,
-            #  ExperimentResult.stopping_criteria_uncertainty,
-            #  ExperimentResult.stopping_criteria_acc,
-            #  ExperimentResult.stopping_criteria_std,
-            #  ExperimentResult.experiment_run_date,
+    table = []
+    for recommendations, name in zip(
+        [(0, 0), (1, 0), (0, 1), (1, 1)],
+        [
+            "No Recommendations",
+            "Certainty Recommendation",
+            "Cluster Recommendation",
+            "Both Recommendations",
         ],
-        ORDER_BY=getattr(ExperimentResult, config.METRIC),
-        BUDGET=config.BUDGET,
-        LIMIT=6,
-        PARAM_LIST_ID=False,
-    )
+    ):
+        table1 = get_result_table(
+            GROUP_SELECT=[ExperimentResult.param_list_id],
+            GROUP_SELECT_AGG=[],
+            ADDITIONAL_SELECT=[
+                ExperimentResult.fit_score,
+                ExperimentResult.global_score_no_weak_acc,
+                ExperimentResult.amount_of_user_asked_queries,
+                ExperimentResult.acc_test,
+                ExperimentResult.sampling,
+                ExperimentResult.cluster,
+                ExperimentResult.with_uncertainty_recommendation,
+                ExperimentResult.with_cluster_recommendation,
+            ],
+            ORDER_BY=getattr(ExperimentResult, config.METRIC),
+            BUDGET=config.BUDGET,
+            LIMIT=1,
+            PARAM_LIST_ID=False,
+            ADDITIONAL_WHERE=(
+                (ExperimentResult.with_cluster_recommendation == recommendations[1])
+                & (
+                    ExperimentResult.with_uncertainty_recommendation
+                    == recommendations[0]
+                )
+            ),
+        )
+        table1[0]["id"] = name
+        table += table1
     print(table)
-    save_table_as_latex(table, config.DESTINATION + ".tex")
+    save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
 
     datasets = []
-    for i in range(0, config.TOP):
+    for recommendations, name in zip(
+        [(0, 0), (1, 0), (0, 1), (1, 1)],
+        [
+            "No Recommendations",
+            "Certainty Recommendation",
+            "Cluster Recommendation",
+            "Both Recommendations",
+        ],
+    ):
         datasets.append(
             pre_fetch_data(
-                i,
+                0,
                 GROUP_SELECT=[ExperimentResult.param_list_id],
                 GROUP_SELECT_AGG=[],
                 BUDGET=config.BUDGET,
                 DATASET=config.DATASET,
                 ORDER_BY=getattr(ExperimentResult, config.METRIC),
-                LEGEND="Top " + str(i + 1),
+                ADDITIONAL_WHERE=(
+                    (ExperimentResult.with_cluster_recommendation == recommendations[1])
+                    & (
+                        ExperimentResult.with_uncertainty_recommendation
+                        == recommendations[0]
+                    )
+                ),
+                LEGEND=name,
             )
         )
 
     for with_or_without_weak in [True, False]:
         base_title = config.DESTINATION + "_" + str(with_or_without_weak)
-        save(compare_data(datasets, with_or_without_weak), base_title + ".svg")
+        save(
+            compare_data(datasets, with_or_without_weak, COLUMNS=1), base_title + ".svg"
+        )
+        subprocess.run(
+            "inkscape -D -z --file "
+            + base_title
+            + ".svg --export-pdf "
+            + base_title
+            + ".pdf --export-latex",
+            shell=True,
+        )
+        with fileinput.FileInput(
+            base_title + ".pdf_tex", inplace=True, backup=".bak"
+        ) as file:
+            for line in file:
+                print(
+                    line.replace(
+                        base_title.split("/")[-1] + ".pdf",
+                        "results/" + base_title.split("/")[-1] + ".pdf",
+                    ),
+                    end="",
+                )
+
+elif config.ACTION == "compare_all":
+    table = []
+    for dataset_name in ["dwtc", "ibn_sina", "hiva", "orange", "sylva", "zebra"]:
+        table1 = get_result_table(
+            GROUP_SELECT=[ExperimentResult.param_list_id],
+            GROUP_SELECT_AGG=[],
+            ADDITIONAL_SELECT=[
+                ExperimentResult.fit_score,
+                ExperimentResult.global_score_no_weak_acc,
+                ExperimentResult.amount_of_user_asked_queries,
+                ExperimentResult.acc_test,
+                ExperimentResult.sampling,
+                ExperimentResult.cluster,
+                ExperimentResult.with_uncertainty_recommendation,
+                ExperimentResult.with_cluster_recommendation,
+            ],
+            ORDER_BY=getattr(ExperimentResult, config.METRIC),
+            BUDGET=config.BUDGET,
+            LIMIT=1,
+            PARAM_LIST_ID=False,
+            DATASET=dataset_name,
+        )
+        table1[0]["id"] = dataset_name
+        table += table1
+    save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
+
+    datasets = []
+    for dataset_name in ["dwtc", "ibn_sina", "hiva", "orange", "sylva", "zebra"]:
+        datasets.append(
+            pre_fetch_data(
+                0,
+                GROUP_SELECT=[ExperimentResult.param_list_id],
+                GROUP_SELECT_AGG=[],
+                BUDGET=config.BUDGET,
+                ORDER_BY=getattr(ExperimentResult, config.METRIC),
+                DATASET=dataset_name,
+                LEGEND=dataset_name,
+            )
+        )
+
+    for with_or_without_weak in [True, False]:
+        base_title = config.DESTINATION + "_" + str(with_or_without_weak)
+        save(
+            compare_data(datasets, with_or_without_weak, dataset_name=False, COLUMNS=1),
+            base_title + ".svg",
+        )
         subprocess.run(
             "inkscape -D -z --file "
             + base_title

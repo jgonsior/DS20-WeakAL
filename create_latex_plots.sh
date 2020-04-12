@@ -13,4 +13,7 @@ python display_random_search_results.py --DB tunnel --ACTION table --BUDGET 3000
 
 
 # exp6
-python display_random_search_results.py --DB tunnel --ACTION compare_rec --BUDGET 500 --TOP 1 --METRIC fit_score --DATASET dwtc --DESTINATION ../../win_transfer/ds-active_learning/results/compare_rec_500_dwtc_fit_score&
+python display_random_search_results.py --DB tunnel --ACTION compare_rec --BUDGET 500000 --TOP 1 --METRIC fit_score --DATASET dwtc --DESTINATION ../../win_transfer/ds-active_learning/results/compare_rec_500_dwtc_fit_score&
+
+# exp7 multi
+python display_random_search_results.py --DB tunnel --ACTION compare_all --BUDGET 500 --TOP 1 --METRIC fit_score --DESTINATION ../../win_transfer/ds-active_learning/results/compare_all_500_fit_score

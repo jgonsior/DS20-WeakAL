@@ -1,0 +1,66 @@
+4,891 orange
+4,864 sylva
+4,895 hiva
+4,907 ibn_sina
+4,852 zebra
+4,914 dwtc
+[{'id': 'No Recommendations', 'fit_score': 0.452643, 'global_score_no_weak_acc': 0.790407, 'amount_of_user_asked_queries': 2001, 'acc_test': 0.860159, 'sampling': 'uncertainty_entropy', 'cluster': 'MostUncertain_max_margin', 'with_uncertainty_recommendation': False, 'with_cluster_recommendation': False}, {'id': 'Certainty Recommendation', 'fit_score': 0.838352, 'global_score_no_weak_acc': 0.610387, 'amount_of_user_asked_queries': 320, 'acc_test': 0.793008, 'sampling': 'uncertainty_max_margin', 'cluster': 'dummy', 'with_uncertainty_recommendation': True, 'with_cluster_recommendation': False}, {'id': 'Cluster Recommendation', 'fit_score': 0.562872, 'global_score_no_weak_acc': 0.76184, 'amount_of_user_asked_queries': 1654, 'acc_test': 0.824507, 'sampling': 'uncertainty_entropy', 'cluster': 'dummy', 'with_uncertainty_recommendation': False, 'with_cluster_recommendation': True}, {'id': 'Both Recommendations', 'fit_score': 0.832914, 'global_score_no_weak_acc': 0.574828, 'amount_of_user_asked_queries': 265, 'acc_test': 0.769124, 'sampling': 'uncertainty_max_margin', 'cluster': 'MostUncertain_lc', 'with_uncertainty_recommendation': True, 'with_cluster_recommendation': True}]
+Loaded Top 0 data
+Loaded Top 0 data
+Loaded Top 0 data
+Loaded Top 0 data
+4,891 orange
+4,864 sylva
+4,895 hiva
+4,907 ibn_sina
+4,852 zebra
+4,914 dwtc
+Loaded Top 0 data
+Loaded Top 1 data
+Loaded Top 2 data
+Loaded Top 3 data
+Loaded Top 4 data
+4,891 orange
+4,864 sylva
+4,895 hiva
+4,907 ibn_sina
+4,852 zebra
+4,914 dwtc
+Loaded Top 0 data
+Loaded Top 1 data
+Loaded Top 2 data
+Loaded Top 3 data
+Loaded Top 4 data
+4,891 orange
+4,864 sylva
+4,895 hiva
+4,907 ibn_sina
+4,914 dwtc
+4,852 zebra
+Loaded Top 0 data
+Loaded Top 1 data
+Loaded Top 2 data
+Loaded Top 3 data
+Loaded Top 4 data
+4,891 orange
+4,864 sylva
+4,895 hiva
+4,907 ibn_sina
+4,914 dwtc
+4,852 zebra
+Loaded Top 0 data
+Loaded Top 1 data
+Loaded Top 2 data
+Loaded Top 3 data
+Loaded Top 4 data
+4,891 orange
+4,864 sylva
+4,895 hiva
+4,907 ibn_sina
+4,914 dwtc
+4,852 zebra
+Loaded Top 0 data
+Loaded Top 1 data
+Loaded Top 2 data
+Loaded Top 3 data
+Loaded Top 4 data
