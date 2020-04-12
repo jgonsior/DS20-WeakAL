@@ -346,13 +346,14 @@ def visualise_top_n(data):
     return alt.vconcat(*charts).configure()
 
 
-def compare_data(datasets):
+def compare_data(datasets, without_weak=True):
     charts = []
 
     alt.renderers.enable("html")
     all_data = pd.DataFrame()
-    print(datasets)
-    for i, dataset in enumerate(datasets):
+    #  point_datas = pd.DataFrame()
+
+    for dataset in datasets:
         for result in dataset:
             if result.dataset_name != "dwtc":
                 continue
@@ -379,42 +380,71 @@ def compare_data(datasets):
                     "test_acc": test_acc,
                     "top_n": result.legend,
                     "color": 4,
+                    "opacity": 0.7,
+                    "size": metrics["recommendation"]
                     #'asked_queries': [sum(metrics['query_length'][:i]) for i in range(0, len(metrics['query_length']))],
                 }
             )
+
+            if without_weak:
+                data = pd.concat(
+                    [data[data.recommendation == "G"], data[data.recommendation == "A"]]
+                )
 
             # bar width
             data["asked_queries"] = data["query_length"].cumsum()
             data["asked_queries_end"] = data["asked_queries"].shift(fill_value=0)
 
-            # print(data[['asked_queries', 'query_length']])
-
-            data["recommendation"] = data["recommendation"].replace(
+            data["recommendation"].replace(
                 {
                     "A": "Oracle",
                     "C": "Weak Cluster",
                     "U": "Weak Certainty",
                     "G": "Ground Truth",
-                }
+                },
+                inplace=True,
             )
 
-            all_data = pd.concat([all_data, data])
+            data["size"].replace(
+                {
+                    "A": "Oracle",
+                    "C": "Recommendation",
+                    "U": "Recommendation",
+                    "G": "Oracle",
+                },
+                inplace=True,
+            )
 
-    points = (
-        alt.Chart(all_data,)
-        .mark_point()
-        .encode(
-            x="asked_queries:Q",
-            y="test_acc:Q",
-            shape="recommendation:N",
-            #  color="color:N",
-            #  color="recommendation:N",
-        )
-    )
+            #  if not without_weak:
+            #  point_data = data[data.recommendation != "Oracle"]
+            #  print(data)
+
+            all_data = pd.concat([all_data, data])
+            #  if not without_weak:
+            #  point_datas = pd.concat([point_datas, point_data])
+
+    #  points = (
+    #  alt.Chart(point_datas)
+    #  .mark_point()
+    #  .encode(
+    #  x="asked_queries:Q",
+    #  y="test_acc:Q",
+    #  shape="recommendation:N",
+    #  #  color="color:N",
+    #  #  color="recommendation:N",
+    #  )
+    #  )
+
+    if without_weak:
+        show_top_legend = alt.Legend()
+        show_thickness_legend = None
+    else:
+        show_top_legend = None
+        show_thickness_legend = alt.Legend()
 
     lines = (
         alt.Chart(all_data,)
-        .mark_line(interpolate="step-before")
+        .mark_trail(interpolate="step-before")
         .encode(
             x=alt.X(
                 "asked_queries:Q",
@@ -426,25 +456,27 @@ def compare_data(datasets):
                 title="Test Accuracy",
                 scale=alt.Scale(domain=[0, 1], type="linear"),
             ),
-            color="top_n:N",
+            color=alt.Color("top_n:N", legend=show_top_legend),
+            opacity=alt.Opacity("opacity", legend=None),
+            size=alt.Size("size:N", legend=show_thickness_legend)
             # shape="top_n",
             # strokeDash="top_n",
             # shape="recommendation",
             # color="recommendation:N",
         )
     )
-
+    plot = lines
     return (
-        alt.layer(lines)
-        .resolve_scale(color="independent", shape="independent")
+        alt.layer(plot)
+        .resolve_scale(opacity="independent", color="independent", shape="independent")
         .configure_legend(
             orient="bottom-right",
-            padding=10,
-            fillColor="#f1f1f1",
-            labelOpacity=0.9,
+            #  padding=10,
+            #  fillColor="#f1f1f1",
             labelOverlap=True,
             title=None,
         )
+        .properties(width=200, height=200)
         #  .properties(title="Comparison of ")
     )
 
@@ -476,11 +508,11 @@ if config.ACTION == "table":
         ],
         ORDER_BY=getattr(ExperimentResult, config.METRIC),
         BUDGET=config.BUDGET,
-        LIMIT=config.TOP,
+        LIMIT=3,
         PARAM_LIST_ID=False,
     )
     save_table_as_latex(table, config.DESTINATION + ".tex")
-    #  IN PLOTS WO WITHOUT WEAK IST SOLLTEN DIESE AUCH NI DARGESTELLT WERDEN, SONDERN WIRKLICH NUR USER ASKED QUERIES
+
     datasets = []
     for i in range(0, config.TOP):
         datasets.append(
@@ -495,26 +527,28 @@ if config.ACTION == "table":
             )
         )
 
-    save(compare_data(datasets), config.DESTINATION + ".svg")
-    subprocess.run(
-        "inkscape -D -z --file "
-        + config.DESTINATION
-        + ".svg --export-pdf "
-        + config.DESTINATION
-        + ".pdf --export-latex",
-        shell=True,
-    )
-    with fileinput.FileInput(
-        config.DESTINATION + ".pdf_tex", inplace=True, backup=".bak"
-    ) as file:
-        for line in file:
-            print(
-                line.replace(
-                    config.DESTINATION.split("/")[-1] + ".pdf",
-                    "results/" + config.DESTINATION.split("/")[-1] + ".pdf",
-                ),
-                end="",
-            )
+    for with_or_without_weak in [True, False]:
+        base_title = config.DESTINATION + "_" + str(with_or_without_weak)
+        save(compare_data(datasets, with_or_without_weak), base_title + ".svg")
+        subprocess.run(
+            "inkscape -D -z --file "
+            + base_title
+            + ".svg --export-pdf "
+            + base_title
+            + ".pdf --export-latex",
+            shell=True,
+        )
+        with fileinput.FileInput(
+            base_title + ".pdf_tex", inplace=True, backup=".bak"
+        ) as file:
+            for line in file:
+                print(
+                    line.replace(
+                        base_title.split("/")[-1] + ".pdf",
+                        "results/" + base_title.split("/")[-1] + ".pdf",
+                    ),
+                    end="",
+                )
 
 elif config.ACTION == "plot":
     loaded_data = pre_fetch_data(
