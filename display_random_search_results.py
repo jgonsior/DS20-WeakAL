@@ -29,7 +29,7 @@ from json_tricks import dumps, loads
 from playhouse.shortcuts import model_to_dict
 from scipy.stats import randint, uniform
 from sklearn.datasets import load_iris
-from tabulate import TableFormat, _latex_row, tabulate
+from tabulate import DataRow, TableFormat, _build_simple_row, tabulate
 
 from active_learning.cluster_strategies import (
     DummyClusterStrategy,
@@ -188,7 +188,11 @@ def save_table_as_latex(table, destination):
 
     # rename sapmling and cluster values
     table.sampling = table.sampling.str.replace("_", " ")
+    table.sampling = table.sampling.str.replace("MostUncertain", "most uncertain")
+    table.sampling = table.sampling.str.replace("lc", "least confident")
     table.cluster = table.cluster.str.replace("_", " ")
+    table.cluster = table.cluster.str.replace("MostUncertain", "most uncertain")
+    table.cluster = table.cluster.str.replace("lc", "least confident")
 
     # renamle column names
     table.columns = table.columns.str.replace("_", " ")
@@ -199,7 +203,9 @@ def save_table_as_latex(table, destination):
         "amount of user asked queries", "# queries"
     )
     table.columns = table.columns.str.replace("acc test", "test accuracy")
-    table.columns = table.columns.str.replace("sampling", "sampling strategy")
+    table.columns = table.columns.str.replace(
+        "sampling", "sampling \\\\newline strategy"
+    )
     table.columns = table.columns.str.replace("cluster", "cluster strategy")
     table.columns = table.columns.str.replace(
         "with uncertainty recommendation", "weak certainty?"
@@ -218,8 +224,16 @@ def save_table_as_latex(table, destination):
     table = table.T
 
     def _latex_line_begin_tabular(colwidths, colaligns, booktabs=False):
-        alignment = {"left": "p{3cm}", "right": "r", "center": "c", "decimal": "r"}
-        tabular_columns_fmt = "".join([alignment.get(a, "l") for a in colaligns])
+        colwidths = [6.5] + [5 for _ in colwidths[1:]]
+        colwidths = [11.5 * cw / sum(colwidths) for cw in colwidths]
+        alignment = {"left": "R{1.5cm}", "right": "L", "center": "c", "decimal": "r"}
+        #  tabular_columns_fmt = "".join([alignment.get(a, "l") for a in colaligns])
+        tabular_columns_fmt = (
+            "L{"
+            + str(colwidths[0])
+            + "cm}"
+            + "".join(["R{" + str(cw) + "cm}" for cw in colwidths[1:]])
+        )
         return "\n".join(
             [
                 "\\begin{table}\\centering\\begin{tabularx}{\linewidth}{"
@@ -228,6 +242,37 @@ def save_table_as_latex(table, destination):
                 "\\toprule" if booktabs else "\\hline",
             ]
         )
+
+    LATEX_ESCAPE_RULES = {
+        r"&": r"\&",
+        r"%": r"\%",
+        r"$": r"\$",
+        r"#": r"\#",
+        r"_": r"\_",
+        r"^": r"\^{}",
+        r"{": r"\{",
+        r"}": r"\}",
+        r"~": r"\textasciitilde{}",
+        #  "\\": r"\textbackslash{}",
+        r"<": r"\ensuremath{<}",
+        r">": r"\ensuremath{>}",
+    }
+
+    def _latex_row(cell_values, colwidths, colaligns, escrules=LATEX_ESCAPE_RULES):
+        def escape_char(c):
+            return escrules.get(c, c)
+
+        escaped_values = ["".join(map(escape_char, cell)) for cell in cell_values]
+        escaped_values = [
+            "\\multicolumn{1}{r}{" + e + "}" if "%" in e else e for e in escaped_values
+        ]
+        escaped_values = [
+            "\\multicolumn{1}{r}{" + e + "}" if e == "Yes" or e == "No" else e
+            for e in escaped_values
+        ]
+
+        rowfmt = DataRow("", "&", "\\\\")
+        return _build_simple_row(escaped_values, rowfmt)
 
     Line = namedtuple("Line", ["begin", "hline", "sep", "end"])
     my_latex_table = TableFormat(
@@ -536,7 +581,7 @@ if config.ACTION == "table":
         ],
         ORDER_BY=getattr(ExperimentResult, config.METRIC),
         BUDGET=config.BUDGET,
-        LIMIT=3,
+        LIMIT=config.TOP,
         PARAM_LIST_ID=False,
     )
     save_table_as_latex(table, config.DESTINATION + ".tex")
@@ -619,7 +664,7 @@ elif config.ACTION == "compare_rec":
         ],
         ORDER_BY=getattr(ExperimentResult, config.METRIC),
         BUDGET=config.BUDGET,
-        LIMIT=3,
+        LIMIT=6,
         PARAM_LIST_ID=False,
     )
     print(table)
