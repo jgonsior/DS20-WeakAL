@@ -1,11 +1,13 @@
 import argparse
 import contextlib
 import datetime
+import fileinput
 import io
 import logging
 import multiprocessing
 import os
 import random
+import subprocess
 import sys
 from collections import namedtuple
 from datetime import datetime, timedelta
@@ -116,6 +118,7 @@ def get_result_table(
     ORDER_BY=ExperimentResult.global_score_no_weak_acc,
     BUDGET=2000,
     LIMIT=20,
+    DATASET="dwtc",
     PARAM_LIST_ID=True,
 ):
     results = (
@@ -132,9 +135,8 @@ def get_result_table(
         )
         .where(
             (ExperimentResult.amount_of_user_asked_queries < BUDGET)
-            & (
-                ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0))
-            )  # no stopping criterias
+            & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0)))
+            & (ExperimentResult.dataset_name == DATASET)
         )
         .group_by(ExperimentResult.param_list_id)
         .order_by(
@@ -158,7 +160,10 @@ def get_result_table(
 
         one_param_list_id_result = (
             ExperimentResult.select(*ADDITIONAL_SELECT)
-            .where(ExperimentResult.param_list_id == data["param_list_id"])
+            .where(
+                (ExperimentResult.param_list_id == data["param_list_id"])
+                & (ExperimentResult.dataset_name == DATASET)
+            )
             .limit(1)
         )[0]
 
@@ -180,6 +185,11 @@ def save_table_as_latex(table, destination):
     table[numeric_column_names] = table[numeric_column_names].applymap(
         "{0:2.2%}".format
     )
+
+    # renamle column names
+    table.columns = table.columns.str.replace("_", " ")
+    # rename sapmling and cluster values
+    table.sampling = table.sampling.str.replace("_", " ")
 
     table = table.T
 
@@ -215,38 +225,6 @@ def display_table(original_table, transpose=True):
         df = df.T
 
     print(tabulate(df, headers="keys", floatfmt=".2f"))
-
-
-table = get_result_table(
-    GROUP_SELECT=[ExperimentResult.param_list_id],
-    GROUP_SELECT_AGG=[
-        ExperimentResult.fit_score,
-        ExperimentResult.global_score_no_weak_acc,
-        ExperimentResult.amount_of_user_asked_queries,
-    ],
-    ADDITIONAL_SELECT=[
-        #  ExperimentResult.classifier,
-        #  ExperimentResult.test_fraction,
-        ExperimentResult.sampling,
-        ExperimentResult.cluster,
-        ExperimentResult.nr_queries_per_iteration,
-        ExperimentResult.with_uncertainty_recommendation,
-        ExperimentResult.with_cluster_recommendation,
-        ExperimentResult.uncertainty_recommendation_certainty_threshold,
-        ExperimentResult.uncertainty_recommendation_ratio,
-        ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
-        ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
-        #  ExperimentResult.allow_recommendations_after_stop,
-        #  ExperimentResult.stopping_criteria_uncertainty,
-        #  ExperimentResult.stopping_criteria_acc,
-        #  ExperimentResult.stopping_criteria_std,
-        #  ExperimentResult.experiment_run_date,
-    ],
-    ORDER_BY=getattr(ExperimentResult, config.METRIC),
-    BUDGET=config.BUDGET,
-    LIMIT=config.TOP,
-    PARAM_LIST_ID=False,
-)
 
 
 def pre_fetch_data(
@@ -472,8 +450,72 @@ def compare_data(datasets):
 
 
 if config.ACTION == "table":
-    save_table_as_latex(table, config.DESTINATION)
-    #  display_table(table)
+    table = get_result_table(
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        ADDITIONAL_SELECT=[
+            ExperimentResult.fit_score,
+            ExperimentResult.global_score_no_weak_acc,
+            ExperimentResult.amount_of_user_asked_queries,
+            #  ExperimentResult.classifier,
+            #  ExperimentResult.test_fraction,
+            ExperimentResult.sampling,
+            ExperimentResult.cluster,
+            #  ExperimentResult.nr_queries_per_iteration,
+            ExperimentResult.with_uncertainty_recommendation,
+            ExperimentResult.with_cluster_recommendation,
+            ExperimentResult.uncertainty_recommendation_certainty_threshold,
+            #  ExperimentResult.uncertainty_recommendation_ratio,
+            #  ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
+            #  ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
+            #  ExperimentResult.allow_recommendations_after_stop,
+            #  ExperimentResult.stopping_criteria_uncertainty,
+            #  ExperimentResult.stopping_criteria_acc,
+            #  ExperimentResult.stopping_criteria_std,
+            #  ExperimentResult.experiment_run_date,
+        ],
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        BUDGET=config.BUDGET,
+        LIMIT=config.TOP,
+        PARAM_LIST_ID=False,
+    )
+    save_table_as_latex(table, config.DESTINATION + ".tex")
+    #  IN PLOTS WO WITHOUT WEAK IST SOLLTEN DIESE AUCH NI DARGESTELLT WERDEN, SONDERN WIRKLICH NUR USER ASKED QUERIES
+    datasets = []
+    for i in range(0, config.TOP):
+        datasets.append(
+            pre_fetch_data(
+                i,
+                GROUP_SELECT=[ExperimentResult.param_list_id],
+                GROUP_SELECT_AGG=[],
+                BUDGET=config.BUDGET,
+                DATASET=config.DATASET,
+                ORDER_BY=getattr(ExperimentResult, config.METRIC),
+                LEGEND="Top " + str(i),
+            )
+        )
+
+    save(compare_data(datasets), config.DESTINATION + ".svg")
+    subprocess.run(
+        "inkscape -D -z --file "
+        + config.DESTINATION
+        + ".svg --export-pdf "
+        + config.DESTINATION
+        + ".pdf --export-latex",
+        shell=True,
+    )
+    with fileinput.FileInput(
+        config.DESTINATION + ".pdf_tex", inplace=True, backup=".bak"
+    ) as file:
+        for line in file:
+            print(
+                line.replace(
+                    config.DESTINATION.split("/")[-1] + ".pdf",
+                    "results/" + config.DESTINATION.split("/")[-1] + ".pdf",
+                ),
+                end="",
+            )
+
 elif config.ACTION == "plot":
     loaded_data = pre_fetch_data(
         config.TOP,
@@ -485,32 +527,3 @@ elif config.ACTION == "plot":
     )
 
     save(visualise_top_n(loaded_data), config.DESTINATION)
-elif config.ACTION == "compare":
-    data1 = pre_fetch_data(
-        config.TOP,
-        GROUP_SELECT=[ExperimentResult.param_list_id],
-        GROUP_SELECT_AGG=[],
-        BUDGET=config.BUDGET,
-        DATASET=config.DATASET,
-        ORDER_BY=getattr(ExperimentResult, config.METRIC),
-        LEGEND="Top 1",
-    )
-    data2 = pre_fetch_data(
-        config.TOP2,
-        GROUP_SELECT=[ExperimentResult.param_list_id],
-        GROUP_SELECT_AGG=[],
-        BUDGET=config.BUDGET,
-        DATASET=config.DATASET,
-        ORDER_BY=getattr(ExperimentResult, config.METRIC),
-        LEGEND="Top 2",
-    )
-    data3 = pre_fetch_data(
-        5,
-        GROUP_SELECT=[ExperimentResult.param_list_id],
-        GROUP_SELECT_AGG=[],
-        BUDGET=config.BUDGET,
-        DATASET=config.DATASET,
-        ORDER_BY=getattr(ExperimentResult, config.METRIC),
-        LEGEND="Tob 3",
-    )
-    save(compare_data([data1, data2, data3]), config.DESTINATION)
