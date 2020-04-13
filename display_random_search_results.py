@@ -56,7 +56,7 @@ from active_learning.sampling_strategies import (
 
 #  alt.renderers.enable("altair_viewer")
 #  alt.renderers.enable('vegascope')
-
+alt.themes.enable("opaque")
 config = standard_config(
     [
         (["--ACTION"], {}),
@@ -281,7 +281,12 @@ def save_table_as_latex(table, destination, top=True):
         lineabove=partial(_latex_line_begin_tabular, booktabs=True),
         linebelowheader=Line("\\midrule", "", "", ""),
         linebetweenrows=None,
-        linebelow=Line("\\bottomrule\n\\end{tabularx}\\end{table}", "", "", ""),
+        linebelow=Line(
+            "\\bottomrule\n\\end{tabularx}\\caption{\\tableCaption}\\end{table}",
+            "",
+            "",
+            "",
+        ),
         headerrow=_latex_row,
         datarow=_latex_row,
         padding=1,
@@ -460,7 +465,7 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
                     "query_strong_accuracy_list": metrics["query_strong_accuracy_list"],
                     "f1": [i["f1-score"] for i in test_data_metrics],
                     "test_acc": test_acc,
-                    "top_n": result.legend,
+                    "top_n": result.legend.replace("_", "\_"),
                     "color": 4,
                     "opacity": 0.7,
                     "size": metrics["recommendation"]
@@ -488,19 +493,12 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
             )
 
             data["size"].replace(
-                {
-                    "A": "Oracle",
-                    "C": "Recommendation",
-                    "U": "Recommendation",
-                    "G": "Oracle",
-                },
-                inplace=True,
+                {"A": "Oracle", "C": "Weak", "U": "Weak", "G": "Oracle",}, inplace=True,
             )
 
             #  if not without_weak:
             #  point_data = data[data.recommendation != "Oracle"]
             #  print(data)
-
             all_data = pd.concat([all_data, data])
             #  if not without_weak:
             #  point_datas = pd.concat([point_datas, point_data])
@@ -515,14 +513,18 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
     #  #  color="recommendation:N",
     #  )
     #  )
-
     if without_weak:
         show_top_legend = alt.Legend()
         show_thickness_legend = None
-        x_scale = alt.Scale()
+        if dataset_name != False:
+            x_scale = alt.Scale()
+        else:
+            x_scale = alt.Scale(type="log")
     else:
-        x_scale = alt.Scale(type="log")
-        #  x_scale = alt.Scale(domain=[0, 3000])
+        if dataset_name != False:
+            x_scale = alt.Scale(domain=[0, 3000])
+        else:
+            x_scale = alt.Scale(type="log")
         show_top_legend = None
         show_thickness_legend = alt.Legend()
 
@@ -530,7 +532,7 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
         alt.Chart(all_data,)
         .mark_trail(interpolate="step-before")
         .encode(
-            x=alt.X("asked_queries:Q", title="#Asked Queries", scale=x_scale),
+            x=alt.X("asked_queries:Q", title="\#Asked Queries", scale=x_scale),
             y=alt.Y(
                 "test_acc:Q",
                 title="Test Accuracy",
@@ -554,11 +556,14 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
             padding=5,
             #  labelSeparation=20,
             fillColor="#ffffff",
+            gradientOpacity=0,
+            #  labelOpacity=0,
             #  labelOverlap=True,
             title=None,
             columns=COLUMNS,
             #  strokeColor= "#878787"
         )
+        .configure_axisBottom(labelSeparation=10)
         .properties(width=200, height=125)
         #  .properties(title="Comparison of ")
     )
@@ -621,6 +626,7 @@ if config.ACTION == "table":
             + base_title
             + ".pdf --export-latex",
             shell=True,
+            stderr=subprocess.DEVNULL,
         )
         with fileinput.FileInput(
             base_title + ".pdf_tex", inplace=True, backup=".bak"
@@ -651,13 +657,14 @@ elif config.ACTION == "compare_rec":
     table = []
     for recommendations, name in zip(
         [(0, 0), (1, 0), (0, 1), (1, 1)],
-        [
-            "No Recommendations",
-            "Certainty Recommendation",
-            "Cluster Recommendation",
-            "Both Recommendations",
-        ],
+        ["No Weak", "Weak Certainty", "Weak Cluster", "Both",],
     ):
+        if name == "No Weak":
+            ORDER_BY = ExperimentResult.acc_test
+            BUDGET = 500000
+        else:
+            BUDGET = config.BUDGET
+            ORDER_BY = getattr(ExperimentResult, config.METRIC)
         table1 = get_result_table(
             GROUP_SELECT=[ExperimentResult.param_list_id],
             GROUP_SELECT_AGG=[],
@@ -670,9 +677,10 @@ elif config.ACTION == "compare_rec":
                 ExperimentResult.cluster,
                 ExperimentResult.with_uncertainty_recommendation,
                 ExperimentResult.with_cluster_recommendation,
+                ExperimentResult.end_time,
             ],
-            ORDER_BY=getattr(ExperimentResult, config.METRIC),
-            BUDGET=config.BUDGET,
+            ORDER_BY=ORDER_BY,
+            BUDGET=BUDGET,
             LIMIT=1,
             PARAM_LIST_ID=False,
             ADDITIONAL_WHERE=(
@@ -684,28 +692,31 @@ elif config.ACTION == "compare_rec":
             ),
         )
         table1[0]["id"] = name
+        if name == "No Weak":
+            table1[0]["fit_score"] = 0
         table += table1
-    print(table)
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
 
     datasets = []
     for recommendations, name in zip(
         [(0, 0), (1, 0), (0, 1), (1, 1)],
-        [
-            "No Recommendations",
-            "Certainty Recommendation",
-            "Cluster Recommendation",
-            "Both Recommendations",
-        ],
+        ["No Weak", "Weak Certainty", "Weak Cluster", "Both",],
     ):
+        if name == "No Weak":
+            ORDER_BY = ExperimentResult.acc_test
+            BUDGET = 500000
+        else:
+            BUDGET = config.BUDGET
+            ORDER_BY = getattr(ExperimentResult, config.METRIC)
+
         datasets.append(
             pre_fetch_data(
                 0,
                 GROUP_SELECT=[ExperimentResult.param_list_id],
                 GROUP_SELECT_AGG=[],
-                BUDGET=config.BUDGET,
+                BUDGET=BUDGET,
                 DATASET=config.DATASET,
-                ORDER_BY=getattr(ExperimentResult, config.METRIC),
+                ORDER_BY=ORDER_BY,
                 ADDITIONAL_WHERE=(
                     (ExperimentResult.with_cluster_recommendation == recommendations[1])
                     & (
@@ -769,12 +780,20 @@ elif config.ACTION == "compare_all":
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
 
     datasets = []
-    for dataset_name in ["dwtc", "ibn_sina", "hiva", "orange", "sylva", "zebra"]:
+    for dataset_name in [
+        "hiva",
+        "dwtc",
+        "ibn_sina",
+        "hiva",
+        "orange",
+        "sylva",
+        "zebra",
+    ]:
         datasets.append(
             pre_fetch_data(
                 0,
                 GROUP_SELECT=[ExperimentResult.param_list_id],
-                GROUP_SELECT_AGG=[],
+                GROUP_SELECT_AGG=[ExperimentResult.acc_test,],
                 BUDGET=config.BUDGET,
                 ORDER_BY=getattr(ExperimentResult, config.METRIC),
                 DATASET=dataset_name,
