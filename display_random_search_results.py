@@ -553,7 +553,8 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
         .resolve_scale(opacity="independent", color="independent", shape="independent")
         .configure_legend(
             orient="bottom-right",
-            padding=5,
+            padding=10,
+            offset=5,
             #  labelSeparation=20,
             fillColor="#ffffff",
             gradientOpacity=0,
@@ -804,7 +805,7 @@ elif config.ACTION == "compare_all":
     for with_or_without_weak in [True, False]:
         base_title = config.DESTINATION + "_" + str(with_or_without_weak)
         save(
-            compare_data(datasets, with_or_without_weak, dataset_name=False, COLUMNS=1),
+            compare_data(datasets, with_or_without_weak, dataset_name=False, COLUMNS=2),
             base_title + ".svg",
         )
         subprocess.run(
