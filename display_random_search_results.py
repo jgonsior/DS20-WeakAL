@@ -195,9 +195,11 @@ def save_table_as_latex(table, destination, top=True):
     table.cluster = table.cluster.str.replace("_", " ")
     table.cluster = table.cluster.str.replace("MostUncertain", "most uncertain")
     table.cluster = table.cluster.str.replace("lc", "least confident")
+    table.cluster = table.cluster.str.replace("dummy", "single")
 
     # renamle column names
     table.columns = table.columns.str.replace("_", " ")
+    table.columns = table.columns.str.replace("fit score", "end score")
     table.columns = table.columns.str.replace(
         "global score no weak acc", "global score"
     )
@@ -827,3 +829,75 @@ elif config.ACTION == "compare_all":
                     ),
                     end="",
                 )
+
+elif config.ACTION == "budgets":
+    results = (
+        ExperimentResult.select(
+            ExperimentResult.amount_of_user_asked_queries,
+            peewee.fn.MAX(ExperimentResult.acc_test).alias("max"),
+            #  ExperimentResult.acc_test.alias("max"),
+        )
+        .where(
+            (ExperimentResult.stopping_criteria_acc == 1)
+            & (ExperimentResult.stopping_criteria_std == 1)
+            & (ExperimentResult.stopping_criteria_uncertainty == 1)
+            & (ExperimentResult.dataset_name == "dwtc")
+            & (ExperimentResult.sampling != "random")
+            #  & (ExperimentResult.cluster != "random")
+            #  & (ExperimentResult.with_cluster_recommendation == True)
+            #  & (ExperimentResult.with_uncertainty_recommendation == True)
+        )
+        .group_by(ExperimentResult.amount_of_user_asked_queries)
+        .order_by(
+            ExperimentResult.amount_of_user_asked_queries.desc(),
+            #  ExperimentResult.acc_test.desc()
+            #  peewee.fn.MAX(ExperimentResult.acc_test)
+            #  peewee.fn.COUNT(ExperimentResult.).desc(),
+            #  peewee.fn.AVG(ORDER_BY).desc(),
+        )
+        #  .limit(10)
+    )
+    data = []
+    for result in results:
+        data.append((result.amount_of_user_asked_queries, result.max))
+        #  print("{}\t{}".format(result.amount_of_user_asked_queries, result.max))
+    df = pd.DataFrame(data)
+    df.columns = ["budget", "end test accuracy"]
+    print(df)
+    #  import numpy as np
+
+    #  x = np.arange(100)
+    #  df = pd.DataFrame({"budget": x, "end test accuracy": np.sin(x / 5)})
+    alt.data_transformers.disable_max_rows()
+    chart = (
+        alt.Chart(df)
+        .mark_circle(opacity=0.3, color="orange")
+        .encode(x="budget", y="end test accuracy")
+    ).properties(width=500, height=200)
+    chart = chart + chart.transform_loess("budget", "end test accuracy").mark_line(
+        #  color="lightblue"
+    )
+    base_title = config.DESTINATION
+    save(chart, base_title + ".svg")
+    save(chart, base_title + ".png")
+
+    subprocess.run(
+        "inkscape -D -z --file "
+        + base_title
+        + ".svg --export-pdf "
+        + base_title
+        + ".pdf --export-latex",
+        shell=True,
+        stderr=subprocess.DEVNULL,
+    )
+    with fileinput.FileInput(
+        base_title + ".pdf_tex", inplace=True, backup=".bak"
+    ) as file:
+        for line in file:
+            print(
+                line.replace(
+                    base_title.split("/")[-1] + ".pdf",
+                    "results/" + base_title.split("/")[-1] + ".pdf",
+                ),
+                end="",
+            )
