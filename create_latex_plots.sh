@@ -19,4 +19,9 @@ python display_random_search_results.py --DB tunnel --ACTION compare_rec --BUDGE
 python display_random_search_results.py --DB tunnel --ACTION compare_all --BUDGET 1000 --TOP 1 --METRIC global_score_no_weak_acc --DESTINATION ../../win_transfer/ds-active_learning/results/compare_all_500_fit_score&
 
 # budegs
-python display_random_search_results.py --DB tunnel --ACTION budgets --METRIC acc_test --DATASET dwtc --DESTINATION ../../win_transfer/ds-active_learning/results/budgets_dwtc_acc
+python display_random_search_results.py --DB tunnel --ACTION budgets --METRIC acc_test --DATASET dwtc --DESTINATION ../../win_transfer/ds-active_learning/results/budgets_dwtc_acc&
+
+python display_random_search_results.py --DB tunnel --DATASET dwtc --ACTION plot --BUDGET 1000  --METRIC fit_score --TOP 3 --DESTINATION ../../win_transfer/ds-active_learning/results/dwtc_1000_top_3&
+python display_random_search_results.py --DB tunnel --DATASET dwtc --ACTION plot --BUDGET 200  --METRIC fit_score --TOP 0 --DESTINATION ../../win_transfer/ds-active_learning/results/dwtc_200_top_0&
+
+python display_random_search_results.py --DB tunnel --DATASET zebra --ACTION plot --BUDGET 1000  --METRIC global_score_no_weak_acc --TOP 0 --DESTINATION ../../win_transfer/ds-active_learning/results/zebra_1000_top_0

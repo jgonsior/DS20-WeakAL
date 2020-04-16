@@ -326,10 +326,9 @@ def pre_fetch_data(
         LIMIT=TOP_N + 1,
         ADDITIONAL_WHERE=ADDITIONAL_WHERE,
         PARAM_LIST_ID=True,
+        DATASET=DATASET,
     )
-
     best_param_list_id = table[TOP_N]["param_list_id"]
-
     results = ExperimentResult.select().where(
         (ExperimentResult.param_list_id == best_param_list_id)
         & (ExperimentResult.dataset_name == DATASET)
@@ -347,7 +346,7 @@ def pre_fetch_data(
 def visualise_top_n(data):
     charts = []
 
-    alt.renderers.enable("html")
+    #  alt.renderers.enable("html")
 
     for result in data:
         metrics = loads(result.metrics_per_al_cycle)
@@ -369,6 +368,7 @@ def visualise_top_n(data):
                 "query_strong_accuracy_list": metrics["query_strong_accuracy_list"],
                 "f1": [i["f1-score"] for i in test_data_metrics],
                 "test_acc": test_acc,
+                "fit_score": result.fit_score,
                 #'asked_queries': [sum(metrics['query_length'][:i]) for i in range(0, len(metrics['query_length']))],
             }
         )
@@ -382,11 +382,12 @@ def visualise_top_n(data):
         data["recommendation"] = data["recommendation"].replace(
             {
                 "A": "Oracle",
-                "C": "Weak Cluster",
-                "U": "Weak Certainty",
-                "G": "Ground Truth",
+                "C": "Cluster WCT",
+                "U": "Certainty WCT",
+                #  "G": "Ground Truth",
             }
         )
+        data = data[data.recommendation != "G"]
 
         # data = data[:100]
 
@@ -400,7 +401,7 @@ def visualise_top_n(data):
                 # interpolate='step-after',
             )
             .encode(
-                x=alt.X("asked_queries_end", title="#asked queries (weak and oracle)"),
+                x=alt.X("asked_queries_end", title="\#Asked Queries (weak and oracle)"),
                 x2="asked_queries",
                 color=alt.Color("recommendation", scale=alt.Scale(scheme="tableau10")),
                 tooltip=[
@@ -412,25 +413,47 @@ def visualise_top_n(data):
                     "query_length",
                     "recommendation",
                 ],
-                # scale=alt.Scale(domain=[0,1])
             )
-            .properties(title=result.dataset_name)
+            #  .properties(title=result.dataset_name)
         )
         charts.append(
             alt.hconcat(
-                chart.encode(
-                    alt.Y(
-                        "all_unlabeled_roc_auc_scores", scale=alt.Scale(domain=[0, 1])
-                    )
-                ).properties(title=result.dataset_name + ": roc_auc"),
+                #  chart.encode(
+                #  alt.Y(
+                #  "all_unlabeled_roc_auc_scores", scale=alt.Scale(domain=[0, 1])
+                #  )
+                #  ).properties(title=result.dataset_name + ": roc_auc"),
                 # chart.encode(alt.Y('f1', scale=alt.Scale(domain=[0,1]))).properties(title=result.dataset_name + ': f1'),
                 chart.encode(
-                    alt.Y("test_acc", scale=alt.Scale(domain=[0, 1]))
-                ).properties(title=result.dataset_name + ": test_acc"),
+                    alt.Y(
+                        "test_acc",
+                        title="Test Accuracy",
+                        scale=alt.Scale(domain=[0, 1]),
+                    )
+                ).properties(width=220, height=130)
+                #  .properties(title=result.dataset_name + ": test_acc"),
             )
         )
-
-    return alt.vconcat(*charts).configure()
+    #  charts.append(
+    save_table_as_barchart(
+        vars(result)["__data__"],
+        config.DESTINATION + "_barchart",
+        grouped="id_field",
+        groupedTitle="Metrics",
+        columns=1,
+        width=160,
+        height=122,
+        title=None,
+    )
+    return (
+        alt.hconcat(*charts)
+        .configure()
+        .resolve_scale(opacity="independent", color="independent", shape="independent",)
+        .configure_axisLeft(titlePadding=10)
+        .configure_legend(
+            orient="bottom", columns=1, columnPadding=130, title=None, symbolSize=200
+        )
+    )
 
 
 def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
@@ -597,8 +620,22 @@ def save_chart_as_latex(chart, base_title):
             )
 
 
-def save_table_as_barchart(table, base_title, grouped="id", groupedTitle="Datasets"):
-    df = pd.DataFrame(table)
+def save_table_as_barchart(
+    table,
+    base_title,
+    grouped="id",
+    groupedTitle="Datasets",
+    columns=4,
+    title=True,
+    width=150,
+    height=150,
+    fontSize=15,
+):
+    if isinstance(table, list):
+        df = pd.DataFrame(table)
+    else:
+        df = pd.DataFrame(table, index=[0])
+
     df.rename(
         columns={
             "fit_score": "end score",
@@ -617,6 +654,10 @@ def save_table_as_barchart(table, base_title, grouped="id", groupedTitle="Datase
         "sylva": 72626,
         "zebra": 30744,
     }
+    alc = defaultdict(lambda: 2888)
+
+    if "asked_queries" in df.columns.to_numpy():
+        df.rename(columns={"asked_queries": "\% remaining budget"}, inplace=True)
 
     df["\% remaining budget"] = df["\% remaining budget"].map(
         lambda q: 1 - q / config.BUDGET
@@ -630,14 +671,16 @@ def save_table_as_barchart(table, base_title, grouped="id", groupedTitle="Datase
             "global score",
             "test accuracy",
             "\% remaining budget",
-            "\% total asked oracle queries",
+            "\% unlabeled data",
         ]:
-            if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
-                continue
+            #  if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
+            #  continue
             if metric == "\% remaining budget" and row[grouped] == "No Weak":
                 row[metric] = 0
-            if metric == "\% total asked oracle queries":
-                value = row["\% remaining budget"] / alc[row[grouped]] * config.BUDGET
+            if metric == "\% unlabeled data":
+                value = (
+                    1 - row["\% remaining budget"] / alc[row[grouped]] * config.BUDGET
+                )
             else:
                 value = row[metric]
             value = value * 100
@@ -645,34 +688,42 @@ def save_table_as_barchart(table, base_title, grouped="id", groupedTitle="Datase
             newDf.loc[i] = [
                 metric,
                 value,
-                row[grouped].replace("_", " "),
+                str(row[grouped]).replace("_", " "),
             ]
             i += 1
-
+    if title:
+        additional = {"column": alt.Column(groupedTitle)}
+    else:
+        additional = {}
     chart = (
-        (
-            alt.Chart(newDf)
-            .mark_bar()
-            .encode(
-                x="metric",
-                y=alt.Y(
-                    "value",
-                    axis=alt.Axis(format=".0r", title="Percentage",),
-                    scale=alt.Scale(domain=[0, 100]),
-                ),
-                #  x=alt.X("metric:Q", title="dataset name"),
-                #  y=alt.Y(), type="quantitative"),
-                color=alt.Color("metric", title=None),
-                column=groupedTitle,
-            )
+        alt.Chart(newDf)
+        .mark_bar()
+        .encode(
+            x="metric",
+            y=alt.Y(
+                "value",
+                axis=alt.Axis(format=".0r", title="Percentage",),
+                scale=alt.Scale(domain=[0, 100]),
+            ),
+            #  x=alt.X("metric:Q", title="dataset name"),
+            #  y=alt.Y(), type="quantitative"),
+            color=alt.Color("metric", title=None),
+            **additional
         )
-        .properties(width=100, height=200)
-        .configure_axisLeft(titlePadding=10)
-        .configure_axisBottom(labelAngle=45, title=None, labels=False, ticks=False)
-        .configure_legend(orient="bottom", columns=3, columnPadding=130)
-    )
+    ).properties(width=width, height=height)
 
     #  save(chart, "test.png")
+    chart = (
+        chart.configure_axisLeft(titlePadding=10)
+        .configure_axisBottom(labelAngle=45, title=None, labels=False, ticks=False)
+        .configure_legend(
+            orient="bottom",
+            columns=columns,
+            labelFontSize=fontSize,
+            columnPadding=60,
+            symbolSize=200,
+        )
+    )
     save_chart_as_latex(chart, base_title)
 
 
@@ -755,9 +806,13 @@ elif config.ACTION == "plot":
         BUDGET=config.BUDGET,
         DATASET=config.DATASET,
         ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        #  ADDITIONAL_WHERE=(
+        #  (ExperimentResult.with_cluster_recommendation == False)
+        #  #  & (ExperimentResult.with_uncertainty_recommendation == recommendations[0])
+        #  ),
+        #  LEGEND=name,
     )
-
-    save(visualise_top_n(loaded_data), config.DESTINATION)
+    save_chart_as_latex(visualise_top_n(loaded_data), config.DESTINATION)
 
 
 elif config.ACTION == "compare_rec":
@@ -808,6 +863,10 @@ elif config.ACTION == "compare_rec":
         config.DESTINATION + "_barchart",
         grouped="id",
         groupedTitle="Used Weak Supervision Techniques",
+        columns=4,
+        title=True,
+        width=150,
+        height=150,
     )
 
     datasets = []
@@ -891,7 +950,14 @@ elif config.ACTION == "compare_all":
         table1[0]["id"] = dataset_name
         table += table1
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
-    save_table_as_barchart(table, config.DESTINATION + "_barchart")
+    save_table_as_barchart(
+        table,
+        config.DESTINATION + "_barchart",
+        columns=3,
+        width=75,
+        height=121,
+        fontSize=11,
+    )
 
     datasets = []
     for dataset_name in [
@@ -983,11 +1049,17 @@ elif config.ACTION == "budgets":
     chart = (
         alt.Chart(df)
         .mark_circle(opacity=0.3, color="orange")
-        .encode(x=alt.X("budget", title="Budget"), y="end test accuracy")
-    ).properties(width=500, height=200)
-    chart = chart + chart.transform_loess("budget", "end test accuracy").mark_line(
-        #  color="lightblue"
-    )
+        .encode(
+            x=alt.X("budget", title="Budget"),
+            y=alt.Y("end test accuracy", scale=alt.Scale(domain=[0, 1]),),
+        )
+    ).properties(width=500, height=125)
+    chart = (
+        chart
+        + chart.transform_loess("budget", "end test accuracy").mark_line(
+            #  color="lightblue"
+        )
+    ).configure_axisLeft(titlePadding=10)
 
     base_title = config.DESTINATION
     save(chart, base_title + ".svg")
@@ -1012,3 +1084,75 @@ elif config.ACTION == "budgets":
                 ),
                 end="",
             )
+
+
+if config.ACTION == "top_n":
+    table = get_result_table(
+        GROUP_SELECT=[ExperimentResult.param_list_id],
+        GROUP_SELECT_AGG=[],
+        ADDITIONAL_SELECT=[
+            ExperimentResult.fit_score,
+            ExperimentResult.global_score_no_weak_acc,
+            ExperimentResult.amount_of_user_asked_queries,
+            ExperimentResult.acc_test,
+            #  ExperimentResult.classifier,
+            #  ExperimentResult.test_fraction,
+            ExperimentResult.sampling,
+            ExperimentResult.cluster,
+            #  ExperimentResult.nr_queries_per_iteration,
+            ExperimentResult.with_uncertainty_recommendation,
+            ExperimentResult.with_cluster_recommendation,
+            #  ExperimentResult.uncertainty_recommendation_certainty_threshold,
+            #  ExperimentResult.uncertainty_recommendation_ratio,
+            #  ExperimentResult.cluster_recommendation_minimum_cluster_unity_size,
+            #  ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
+            #  ExperimentResult.allow_recommendations_after_stop,
+            #  ExperimentResult.stopping_criteria_uncertainty,
+            #  ExperimentResult.stopping_criteria_acc,
+            #  ExperimentResult.stopping_criteria_std,
+            #  ExperimentResult.experiment_run_date,
+        ],
+        ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        BUDGET=config.BUDGET,
+        LIMIT=config.TOP,
+        PARAM_LIST_ID=False,
+    )
+    save_table_as_latex(table, config.DESTINATION + ".tex")
+
+    datasets = []
+    for i in range(0, config.TOP):
+        datasets.append(
+            pre_fetch_data(
+                i,
+                GROUP_SELECT=[ExperimentResult.param_list_id],
+                GROUP_SELECT_AGG=[],
+                BUDGET=config.BUDGET,
+                DATASET=config.DATASET,
+                ORDER_BY=getattr(ExperimentResult, config.METRIC),
+                LEGEND="Top " + str(i + 1),
+            )
+        )
+
+    for with_or_without_weak in [True, False]:
+        base_title = config.DESTINATION + "_" + str(with_or_without_weak)
+        save(compare_data(datasets, with_or_without_weak), base_title + ".svg")
+        subprocess.run(
+            "inkscape -D -z --file "
+            + base_title
+            + ".svg --export-pdf "
+            + base_title
+            + ".pdf --export-latex",
+            shell=True,
+            stderr=subprocess.DEVNULL,
+        )
+        with fileinput.FileInput(
+            base_title + ".pdf_tex", inplace=True, backup=".bak"
+        ) as file:
+            for line in file:
+                print(
+                    line.replace(
+                        base_title.split("/")[-1] + ".pdf",
+                        "results/" + base_title.split("/")[-1] + ".pdf",
+                    ),
+                    end="",
+                )
