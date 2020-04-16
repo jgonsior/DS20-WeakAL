@@ -9,7 +9,7 @@ import os
 import random
 import subprocess
 import sys
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from datetime import datetime, timedelta
 from functools import partial
 from itertools import chain, combinations
@@ -415,7 +415,6 @@ def visualise_top_n(data):
                 # scale=alt.Scale(domain=[0,1])
             )
             .properties(title=result.dataset_name)
-            .interactive()
         )
         charts.append(
             alt.hconcat(
@@ -568,8 +567,113 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
         )
         .configure_axisBottom(labelSeparation=10)
         .properties(width=200, height=125)
+        .configure_axisLeft(titlePadding=10)
         #  .properties(title="Comparison of ")
     )
+
+
+def save_chart_as_latex(chart, base_title):
+    save(
+        chart, base_title + ".svg",
+    )
+    subprocess.run(
+        "inkscape -D -z --file "
+        + base_title
+        + ".svg --export-pdf "
+        + base_title
+        + ".pdf --export-latex",
+        shell=True,
+    )
+    with fileinput.FileInput(
+        base_title + ".pdf_tex", inplace=True, backup=".bak"
+    ) as file:
+        for line in file:
+            print(
+                line.replace(
+                    base_title.split("/")[-1] + ".pdf",
+                    "results/" + base_title.split("/")[-1] + ".pdf",
+                ),
+                end="",
+            )
+
+
+def save_table_as_barchart(table, base_title, grouped="id", groupedTitle="Datasets"):
+    df = pd.DataFrame(table)
+    df.rename(
+        columns={
+            "fit_score": "end score",
+            "global_score_no_weak_acc": "global score",
+            "amount_of_user_asked_queries": "\% remaining budget",
+            "acc_test": "test accuracy",
+        },
+        inplace=True,
+    )
+
+    alc = {
+        "dwtc": 2889,
+        "ibn_sina": 10361,
+        "hiva": 21339,
+        "orange": 25000,
+        "sylva": 72626,
+        "zebra": 30744,
+    }
+
+    df["\% remaining budget"] = df["\% remaining budget"].map(
+        lambda q: 1 - q / config.BUDGET
+    )
+    newDf = pd.DataFrame(columns=["metric", "value", groupedTitle])
+    # change df
+    i = 0
+    for index, row in df.iterrows():
+        for metric in [
+            "end score",
+            "global score",
+            "test accuracy",
+            "\% remaining budget",
+            "\% total asked oracle queries",
+        ]:
+            if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
+                continue
+            if metric == "\% remaining budget" and row[grouped] == "No Weak":
+                row[metric] = 0
+            if metric == "\% total asked oracle queries":
+                value = row["\% remaining budget"] / alc[row[grouped]] * config.BUDGET
+            else:
+                value = row[metric]
+            value = value * 100
+
+            newDf.loc[i] = [
+                metric,
+                value,
+                row[grouped].replace("_", " "),
+            ]
+            i += 1
+
+    chart = (
+        (
+            alt.Chart(newDf)
+            .mark_bar()
+            .encode(
+                x="metric",
+                y=alt.Y(
+                    "value",
+                    axis=alt.Axis(format=".0r", title="Percentage",),
+                    scale=alt.Scale(domain=[0, 100]),
+                ),
+                #  x=alt.X("metric:Q", title="dataset name"),
+                #  y=alt.Y(), type="quantitative"),
+                color=alt.Color("metric", title=None),
+                column=groupedTitle,
+            )
+        )
+        .properties(width=100, height=200)
+        .configure_axisLeft(titlePadding=10)
+        .configure_axisBottom(labelAngle=45, title=None, labels=False, ticks=False)
+        .configure_legend(orient="bottom", columns=3, columnPadding=130)
+    )
+
+    #  save(chart, "test.png")
+    save_chart_as_latex(chart, base_title)
 
 
 if config.ACTION == "table":
@@ -699,6 +803,12 @@ elif config.ACTION == "compare_rec":
             table1[0]["fit_score"] = 0
         table += table1
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
+    save_table_as_barchart(
+        table,
+        config.DESTINATION + "_barchart",
+        grouped="id",
+        groupedTitle="Used Weak Supervision Techniques",
+    )
 
     datasets = []
     for recommendations, name in zip(
@@ -781,6 +891,7 @@ elif config.ACTION == "compare_all":
         table1[0]["id"] = dataset_name
         table += table1
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
+    save_table_as_barchart(table, config.DESTINATION + "_barchart")
 
     datasets = []
     for dataset_name in [
@@ -872,14 +983,14 @@ elif config.ACTION == "budgets":
     chart = (
         alt.Chart(df)
         .mark_circle(opacity=0.3, color="orange")
-        .encode(x="budget", y="end test accuracy")
+        .encode(x=alt.X("budget", title="Budget"), y="end test accuracy")
     ).properties(width=500, height=200)
     chart = chart + chart.transform_loess("budget", "end test accuracy").mark_line(
         #  color="lightblue"
     )
+
     base_title = config.DESTINATION
     save(chart, base_title + ".svg")
-    save(chart, base_title + ".png")
 
     subprocess.run(
         "inkscape -D -z --file "
