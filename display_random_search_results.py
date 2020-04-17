@@ -457,7 +457,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                         title="Test Accuracy",
                         scale=alt.Scale(domain=domain),
                     )
-                ).properties(width=220, height=122)
+                ).properties(width=350, height=90)
                 #  .properties(title=result.dataset_name + ": test_acc"),
             )
         )
@@ -469,7 +469,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
         groupedTitle="Metrics",
         columns=1,
         width=70,
-        height=172,
+        height=120,
         orient="right",
         title=None,
         fontSize=6,
@@ -479,6 +479,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
         .configure()
         .resolve_scale(opacity="independent", color="independent", shape="independent",)
         .configure_axisLeft(titlePadding=5)
+        .configure_axisBottom(tickCount=20)
         #  .configure_legend(
         #  orient="left",
         #  columns=1,
@@ -844,8 +845,8 @@ def save_table_as_barchart_vis(
                 metric,
                 value,
                 str(row[grouped]).replace("_", " "),
-                end + end * 200,
-                end + end * 200 + 200,
+                1 + end + end * 6,
+                1 + end + end * 6 + 6,
             ]
             i += 1
     labels_to_add = ["Certainty WST", "Cluster WST", "Oracle"]
@@ -869,7 +870,7 @@ def save_table_as_barchart_vis(
             #  "global score",
             #  ],
             #  ),
-            x="start",
+            x=alt.X("start", scale=alt.Scale(domain=[0, 29])),
             x2="end",
             y=alt.Y(
                 "value",
@@ -895,7 +896,9 @@ def save_table_as_barchart_vis(
     #  chart.facet(column=alt.Column("metric"))
     chart = (
         chart.configure_axisLeft(titlePadding=0)
-        .configure_axisBottom(labelAngle=45, title=None, labels=False, ticks=False)
+        .configure_axisBottom(
+            labelAngle=45, title=None, labels=False, ticks=False, grid=False
+        )
         .configure_legend(
             orient=orient,
             columns=columns,
@@ -1234,13 +1237,17 @@ elif config.ACTION == "budgets":
             x=alt.X("budget", title="Budget"),
             y=alt.Y("end test accuracy", scale=alt.Scale(domain=[0, 1]),),
         )
-    ).properties(width=500, height=125)
+    ).properties(width=700, height=125)
     chart = (
-        chart
-        + chart.transform_loess("budget", "end test accuracy").mark_line(
-            #  color="lightblue"
+        (
+            chart
+            + chart.transform_loess("budget", "end test accuracy").mark_line(
+                #  color="lightblue"
+            )
         )
-    ).configure_axisLeft(titlePadding=10)
+        .configure_axisLeft(titlePadding=10)
+        .configure_axisBottom(tickCount=10)
+    )
 
     base_title = config.DESTINATION
     save(chart, base_title + ".svg")
