@@ -700,7 +700,7 @@ def save_table_as_barchart(
     for index, row in df.iterrows():
         for end, metric in enumerate(
             [
-                "\% saved human effort",
+                "saved human effort",
                 "final test accuracy",
                 "combined score",
                 "global score",
@@ -708,9 +708,9 @@ def save_table_as_barchart(
         ):
             #  if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
             #  continue
-            #  if metric == "\% saved human effort (budget)" and row[grouped] == "No Weak":
+            #  if metric == "saved human effort (budget)" and row[grouped] == "No Weak":
             #  row[metric] = 0
-            if metric == "\% saved human effort":
+            if metric == "saved human effort":
                 value = 1 - row["amount_of_user_asked_queries"] / alc[row[grouped]]
             else:
                 value = row[metric]
@@ -726,7 +726,13 @@ def save_table_as_barchart(
             i += 1
 
     if title:
-        additional = {"column": alt.Column(groupedTitle, title=None)}
+        additional = {
+            "column": alt.Column(
+                groupedTitle,
+                title=None,
+                sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+            )
+        }
     else:
         additional = {}
     chart = (
@@ -736,7 +742,7 @@ def save_table_as_barchart(
             x=alt.X(
                 "metric",
                 sort=[
-                    "\% saved human effort",
+                    "saved human effort",
                     "final test accuracy",
                     "combined score",
                     "global score",
@@ -753,7 +759,7 @@ def save_table_as_barchart(
                 "metric",
                 title=None,
                 sort=[
-                    "\% saved human effort",
+                    "saved human effort",
                     "final test accuracy",
                     "combined score",
                     "global score",
@@ -825,7 +831,7 @@ def save_table_as_barchart_vis(
     for index, row in df.iterrows():
         for end, metric in enumerate(
             [
-                "\% saved human effort",
+                "saved human effort",
                 "final test accuracy",
                 "combined score",
                 "global score",
@@ -833,9 +839,9 @@ def save_table_as_barchart_vis(
         ):
             #  if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
             #  continue
-            #  if metric == "\% saved human effort (budget)" and row[grouped] == "No Weak":
+            #  if metric == "saved human effort (budget)" and row[grouped] == "No Weak":
             #  row[metric] = 0
-            if metric == "\% saved human effort":
+            if metric == "saved human effort":
                 value = 1 - row["amount_of_user_asked_queries"] / alc[row[grouped]]
             else:
                 value = row[metric]
@@ -864,7 +870,7 @@ def save_table_as_barchart_vis(
             #  x=alt.X(
             #  "metric",
             #  sort=[
-            #  "\% saved human effort",
+            #  "saved human effort",
             #  "final test accuracy",
             #  "combined score",
             #  "global score",
@@ -881,7 +887,7 @@ def save_table_as_barchart_vis(
                 "metric",
                 title=None,
                 sort=[
-                    "\% saved human effort",
+                    "saved human effort",
                     "final test accuracy",
                     "combined score",
                     "global score",
