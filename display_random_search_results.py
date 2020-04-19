@@ -458,7 +458,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                 chart.encode(
                     alt.Y(
                         "test_acc",
-                        title="Test Accuracy",
+                        title="Final Accuracy",
                         scale=alt.Scale(domain=domain),
                     )
                 ).properties(width=414, height=90)
@@ -609,7 +609,7 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
             x=alt.X("asked_queries:Q", title="\#Asked Queries", scale=x_scale),
             y=alt.Y(
                 "test_acc:Q",
-                title="Test Accuracy",
+                title="Final Accuracy",
                 scale=alt.Scale(domain=[0, 1], type="linear"),
             ),
             color=alt.Color("top_n:N", legend=show_top_legend,),
@@ -675,13 +675,13 @@ def save_table_as_barchart(
     base_title,
     grouped="id",
     groupedTitle="Datasets",
-    columns=4,
     title=True,
     width=150,
-    height=150,
+    height=100,
     fontSize=10,
     domain_start=0,
     sort=None,
+    columns=["saved human effort", "final accuracy", "combined score", "global score",],
 ):
     if isinstance(table, list):
         df = pd.DataFrame(table)
@@ -715,24 +715,14 @@ def save_table_as_barchart(
 
     df.loc[df[grouped] == "No Weak", "saved human effort"] = 0
 
-    for col in [
-        "saved human effort",
-        "final accuracy",
-        "combined score",
-        "global score",
-    ]:
+    for col in columns:
         df[col] = df[col].apply(lambda x: x * 100)
 
     df[grouped] = df[grouped].apply(lambda s: s.replace("_", "\_"))
 
     charts = []
 
-    for v in [
-        "saved human effort",
-        "final accuracy",
-        "combined score",
-        "global score",
-    ]:
+    for v in columns:
         if v == "saved human effort":
             labels = True
         else:
@@ -826,7 +816,11 @@ def save_table_as_barchart_vis(
     i = 0
     for index, row in df.iterrows():
         for end, metric in enumerate(
-            ["saved human effort", "final accuracy", "combined score", "global score",]
+            [
+                "saved human effort",
+                "final accuracy",
+                "combined score",
+            ]  # , "global score",]
         ):
             newDf.loc[i] = [
                 metric,
@@ -838,13 +832,32 @@ def save_table_as_barchart_vis(
     #  newDf.loc[i + index] = [legend_entry, 0, legend_entry, 0, 0]
     chart = alt.Chart(newDf).mark_bar().encode(
         x=alt.X("value:Q", scale=alt.Scale(domain=[0, 100]), title="percentage"),
-        y=alt.Y("metric:N", title=None, axis=alt.Axis(ticks=False, grid=False),),
+        y=alt.Y(
+            "metric:N",
+            title=None,
+            axis=alt.Axis(ticks=False, grid=False),
+            sort=[
+                "saved human effort",
+                "final accuracy",
+                "combined score",
+                "global score",
+            ],
+        ),
         color=alt.Color("metric:N", legend=None,),
     ).properties(width=width, height=height) + alt.Chart(newDf).mark_text(
         dx=3, align="left", color="black", baseline="middle",
     ).encode(
         x="value:Q",
-        y=alt.Y("metric:N", title=None,),
+        y=alt.Y(
+            "metric:N",
+            title=None,
+            sort=[
+                "saved human effort",
+                "final accuracy",
+                "combined score",
+                "global score",
+            ],
+        ),
         text=alt.Text("value:Q", format=".2f"),
     ).properties(
         width=width, height=height
@@ -1098,6 +1111,7 @@ elif config.ACTION == "compare_rec":
         grouped="id",
         groupedTitle="Used Weak Supervision Techniques",
         sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+        columns=["saved human effort", "final accuracy", "combined score"],
         #  width=150,
         #  height=150,
     )
@@ -1186,7 +1200,8 @@ elif config.ACTION == "compare_all":
     save_table_as_barchart(
         table,
         config.DESTINATION + "_barchart",
-        columns=4,
+        #  width=120,
+        height=170,
         #  width=75,
         #  height=121,
         #  domain_start=60,
