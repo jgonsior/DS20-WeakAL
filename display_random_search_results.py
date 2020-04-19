@@ -671,6 +671,7 @@ def save_table_as_barchart(
     height=150,
     fontSize=10,
     domain_start=0,
+    sort=None,
 ):
     if isinstance(table, list):
         df = pd.DataFrame(table)
@@ -712,6 +713,8 @@ def save_table_as_barchart(
     ]:
         df[col] = df[col].apply(lambda x: x * 100)
 
+    df[grouped] = df[grouped].apply(lambda s: s.replace("_", "\_"))
+
     charts = []
 
     for v in [
@@ -732,13 +735,13 @@ def save_table_as_barchart(
                 y=alt.Y(
                     grouped,
                     axis=alt.Axis(labels=labels, ticks=False),
-                    sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                    sort=sort,
                     title=None,
                 ),
                 color=alt.Color(
                     grouped + ":N",
                     scale=alt.Scale(
-                        domain=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                        #  domain=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
                         range=colors,
                     ),
                     legend=None,
@@ -1035,6 +1038,7 @@ elif config.ACTION == "compare_rec":
         config.DESTINATION + "_barchart",
         grouped="id",
         groupedTitle="Used Weak Supervision Techniques",
+        sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
         #  width=150,
         #  height=150,
     )
@@ -1124,9 +1128,9 @@ elif config.ACTION == "compare_all":
         table,
         config.DESTINATION + "_barchart",
         columns=4,
-        width=75,
-        height=121,
-        domain_start=60,
+        #  width=75,
+        #  height=121,
+        #  domain_start=60,
     )
 
     datasets = []
