@@ -58,30 +58,30 @@ from active_learning.sampling_strategies import (
 #  alt.renderers.enable("altair_viewer")
 #  alt.renderers.enable('vegascope')
 #  alt.themes.enable("opaque")
-#  alt.themes.enable("urbaninstitute")
+alt.themes.enable("urbaninstitute")
 colors = [
     "#1696d2",
     "#ec008b",
     "#000000",
     "#fdbf11",
+    "#d2d2d2",
+    "#55b748",
+    "#db2b27",
+    "#5293C2",
+    "#A9DDB7",
+    "#5c5859",
+    "#45B4C2",  # cluster color
     # WST
     "#F58518",
     "#2CA02C",
     "#4C78A8",
-    "#d2d2d2",
-    "#db2b27",
-    "#5293C2",
-    "#55b748",
-    "#A9DDB7",
-    "#5c5859",
-    "#45B4C2",  # cluster color
 ]
 
 
-my_theme = alt.themes.get()()  # Get current theme as dict.
-my_theme.setdefault("encoding", {}).setdefault("color", {})["scale"] = {"range": colors}
-alt.themes.register("my_theme", lambda: my_theme)
-alt.themes.enable("my_theme")
+#  my_theme = alt.themes.get()()  # Get current theme as dict.
+#  my_theme.setdefault("encoding", {}).setdefault("color", {})["scale"] = {"range": colors}
+#  alt.themes.register("my_theme", lambda: my_theme)
+#  alt.themes.enable("my_theme")
 
 config = standard_config(
     [
@@ -433,7 +433,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                     "recommendation",
                     scale=alt.Scale(scheme="category10"),
                     sort=["Oracle", "Certainty WST", "Cluster WST"],
-                    legend=None,
+                    #  legend=None,
                 ),
                 tooltip=[
                     "iteration",
@@ -461,7 +461,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                         title="Test Accuracy",
                         scale=alt.Scale(domain=domain),
                     )
-                ).properties(width=350, height=90)
+                ).properties(width=414, height=90)
                 #  .properties(title=result.dataset_name + ": test_acc"),
             )
         )
@@ -474,25 +474,35 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
         groupedTitle="Metrics",
         columns=1,
         width=70,
-        height=120,
+        height=126,
         orient="right",
         title=None,
-        fontSize=6,
+        #  fontSize=6,
     )
+
+    alt.themes.enable("opaque")
     return (
-        alt.hconcat(*charts)
-        .configure()
-        .resolve_scale(opacity="independent", color="independent", shape="independent",)
+        alt.hconcat(*charts).configure()
+        #  .resolve_scale(opacity="independent", color="independent", shape="independent",)
         .configure_axisLeft(titlePadding=5, tickCount=4)
-        .configure_axisBottom(tickCount=20)
-        #  .configure_legend(
+        #  .configure_axisBottom(tickCount=20)
+        #  .configure_axisLeft(
+        #  titleAngle=-90,
+        #  titleBaseline="alphabetic",
         #  orient="left",
-        #  columns=1,
-        #  #  columnPadding=130,
+        #  titleAlign="center",
+        #  titleAnchor="middle",
         #  title=None,
-        #  #  symbolSize=200,
-        #  labelFontSize=5,
         #  )
+        .configure_legend(
+            #  orient="left",
+            orient="bottom",
+            columns=3,
+            columnPadding=30,
+            title=None,
+            #  symbolSize=200,
+            #  labelFontSize=5,
+        )
     )
 
 
@@ -734,7 +744,7 @@ def save_table_as_barchart(
                 x=alt.X(v, scale=alt.Scale(domain=[domain_start, 100]),),
                 y=alt.Y(
                     grouped,
-                    axis=alt.Axis(labels=labels, ticks=False),
+                    axis=alt.Axis(labels=labels, ticks=False, grid=False),
                     sort=sort,
                     title=None,
                 ),
@@ -742,14 +752,14 @@ def save_table_as_barchart(
                     grouped + ":N",
                     scale=alt.Scale(
                         #  domain=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
-                        range=colors,
+                        #  range=colors,
                     ),
                     legend=None,
                 ),
             )
             .properties(width=width, height=height)
             + alt.Chart(df)
-            .mark_text(dx=3, align="left", baseline="middle",)
+            .mark_text(dx=3, align="left", color="black", baseline="middle",)
             .encode(
                 x=v,
                 y=alt.Y(
@@ -781,6 +791,68 @@ def save_table_as_barchart_vis(
     percentage_start=0,
     orient="bottom",
 ):
+    if isinstance(table, list):
+        df = pd.DataFrame(table)
+    else:
+        df = pd.DataFrame(table, index=[0])
+
+    df.rename(
+        columns={
+            "fit_score": "combined score",
+            "global_score_no_weak_acc": "global score",
+            #  "amount_of_user_asked_queries": "\% remaining budget",
+            "acc_test": "final accuracy",
+        },
+        inplace=True,
+    )
+
+    alc = {
+        "dwtc": 2888,
+        "ibn_sina": 10361,
+        "hiva": 21339,
+        "orange": 25000,
+        "sylva": 72626,
+        "zebra": 30744,
+    }
+    if groupedTitle == "Used Weak Supervision Techniques":
+        alc = defaultdict(lambda: 2888)
+
+    df["saved human effort"] = df.apply(
+        lambda x: 1 - x["amount_of_user_asked_queries"] / alc[dataset], axis=1
+    )
+
+    newDf = pd.DataFrame(columns=["metric", "value"])
+    # change df
+    i = 0
+    for index, row in df.iterrows():
+        for end, metric in enumerate(
+            ["saved human effort", "final accuracy", "combined score", "global score",]
+        ):
+            newDf.loc[i] = [
+                metric,
+                row[metric] * 100,
+            ]
+            i += 1
+    #  labels_to_add = ["Certainty WST", "Cluster WST", "Oracle"]
+    #  for index, legend_entry in enumerate(labels_to_add):
+    #  newDf.loc[i + index] = [legend_entry, 0, legend_entry, 0, 0]
+    chart = alt.Chart(newDf).mark_bar().encode(
+        x=alt.X("value:Q", scale=alt.Scale(domain=[0, 100]), title="percentage"),
+        y=alt.Y("metric:N", title=None, axis=alt.Axis(ticks=False, grid=False),),
+        color=alt.Color("metric:N", legend=None,),
+    ).properties(width=width, height=height) + alt.Chart(newDf).mark_text(
+        dx=3, align="left", color="black", baseline="middle",
+    ).encode(
+        x="value:Q",
+        y=alt.Y("metric:N", title=None,),
+        text=alt.Text("value:Q", format=".2f"),
+    ).properties(
+        width=width, height=height
+    )
+
+    save_chart_as_latex(chart, base_title)
+    return
+
     if isinstance(table, list):
         df = pd.DataFrame(table)
     else:
@@ -843,20 +915,11 @@ def save_table_as_barchart_vis(
         additional = {}
     chart = (
         alt.Chart(newDf)
-        .mark_rect()
+        .mark_bar()
         .encode(
-            #  x=alt.X(
-            #  "metric",
-            #  sort=[
-            #  "saved human effort",
-            #  "final accuracy",
-            #  "combined score",
-            #  "global score",
-            #  ],
-            #  ),
-            x=alt.X("start", scale=alt.Scale(domain=[0, 29])),
-            x2="end",
-            y=alt.Y(
+            y=alt.Y(grouped, scale=alt.Scale(domain=[0, 29])),
+            #  y2="end",
+            x=alt.X(
                 "value",
                 axis=alt.Axis(format=".0r", title="Percentage",),
                 scale=alt.Scale(domain=[percentage_start, 100]),
@@ -875,22 +938,18 @@ def save_table_as_barchart_vis(
         )
     ).properties(width=width, height=height)
 
-    #  save(chart, "test.png")
-    #  chart = (chart)
-    #  chart.facet(column=alt.Column("metric"))
     chart = (
         chart.configure_axisLeft(titlePadding=0, tickCount=4)
-        .configure_axisBottom(
-            labelAngle=45, title=None, labels=False, ticks=False, grid=False
-        )
+        #  .configure_axisBottom(
+        #  labelAngle=45, title=None, labels=False, ticks=False, grid=False
+        #  )
         .configure_legend(
             orient=orient,
             columns=columns,
             labelFontSize=fontSize,
             #  columnPadding=60,
             #  symbolSize=200,
-        )
-        .resolve_scale(x="shared")
+        ).resolve_scale(x="shared")
     )
 
     save_chart_as_latex(chart, base_title)
