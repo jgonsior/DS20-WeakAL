@@ -65,13 +65,16 @@ colors = [
     "#000000",
     "#fdbf11",
     # WST
-    "#A9DDB7",
-    "#45B4C2",
+    "#F58518",
+    "#2CA02C",
+    "#4C78A8",
+    "#d2d2d2",
+    "#db2b27",
     "#5293C2",
     "#55b748",
-    "#d2d2d2",
+    "#A9DDB7",
     "#5c5859",
-    "#db2b27",
+    "#45B4C2",  # cluster color
 ]
 
 
@@ -98,7 +101,6 @@ config = standard_config(
 )
 
 db = get_db(db_name_or_type=config.DB)
-
 
 # select count(*), dataset_name from experimentresult group by dataset_name;
 results = ExperimentResult.select(
@@ -427,8 +429,10 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                 x=alt.X("asked_queries_end", title="\#Asked Queries (weak and oracle)"),
                 x2="asked_queries",
                 color=alt.Color(
+                    #  "recommendation", scale=alt.Scale(scheme="tableau10"), legend=None,
                     "recommendation",
-                    scale=alt.Scale(scheme="yellowgreenblue"),
+                    scale=alt.Scale(scheme="category10"),
+                    sort=["Oracle", "Certainty WST", "Cluster WST"],
                     legend=None,
                 ),
                 tooltip=[
@@ -466,6 +470,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
         vars(result)["__data__"],
         config.DESTINATION + "_barchart",
         grouped="id_field",
+        dataset=config.DATASET,
         groupedTitle="Metrics",
         columns=1,
         width=70,
@@ -478,7 +483,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
         alt.hconcat(*charts)
         .configure()
         .resolve_scale(opacity="independent", color="independent", shape="independent",)
-        .configure_axisLeft(titlePadding=5)
+        .configure_axisLeft(titlePadding=5, tickCount=4)
         .configure_axisBottom(tickCount=20)
         #  .configure_legend(
         #  orient="left",
@@ -665,6 +670,7 @@ def save_table_as_barchart(
     width=150,
     height=150,
     fontSize=10,
+    domain_start=0,
 ):
     if isinstance(table, list):
         df = pd.DataFrame(table)
@@ -676,111 +682,85 @@ def save_table_as_barchart(
             "fit_score": "combined score",
             "global_score_no_weak_acc": "global score",
             #  "amount_of_user_asked_queries": "\% remaining budget",
-            "acc_test": "final test accuracy",
+            "acc_test": "final accuracy",
         },
         inplace=True,
     )
     df["\% remaining budget"] = df["amount_of_user_asked_queries"]
 
     alc = {
-        "dwtc": 2889,
+        "dwtc": 2888,
         "ibn_sina": 10361,
         "hiva": 21339,
         "orange": 25000,
         "sylva": 72626,
         "zebra": 30744,
     }
-    alc = defaultdict(lambda: 2888)
-    if "asked_queries" in df.columns.to_numpy():
-        df.rename(columns={"asked_queries": "\% remaining budget"}, inplace=True)
-
-    newDf = pd.DataFrame(columns=["metric", "value", groupedTitle, "start", "end"])
-    # change df
-    i = 0
-    for index, row in df.iterrows():
-        for end, metric in enumerate(
-            [
-                "saved human effort",
-                "final test accuracy",
-                "combined score",
-                "global score",
-            ]
-        ):
-            #  if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
-            #  continue
-            #  if metric == "saved human effort (budget)" and row[grouped] == "No Weak":
-            #  row[metric] = 0
-            if metric == "saved human effort":
-                value = 1 - row["amount_of_user_asked_queries"] / alc[row[grouped]]
-            else:
-                value = row[metric]
-            value = value * 100
-
-            newDf.loc[i] = [
-                metric,
-                value,
-                str(row[grouped]).replace("_", " "),
-                end + end * 200,
-                end + end * 200 + 200,
-            ]
-            i += 1
-
-    if title:
-        additional = {
-            "column": alt.Column(
-                groupedTitle,
-                title=None,
-                sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
-            )
-        }
-    else:
-        additional = {}
-    chart = (
-        alt.Chart(newDf)
-        .mark_bar()
-        .encode(
-            x=alt.X(
-                "metric",
-                sort=[
-                    "saved human effort",
-                    "final test accuracy",
-                    "combined score",
-                    "global score",
-                ],
-            ),
-            y=alt.Y(
-                "value",
-                axis=alt.Axis(format=".0r", title="Percentage",),
-                scale=alt.Scale(domain=[0, 100]),
-            ),
-            #  x=alt.X("metric:Q", title="dataset name"),
-            #  y=alt.Y(), type="quantitative"),
-            color=alt.Color(
-                "metric",
-                title=None,
-                sort=[
-                    "saved human effort",
-                    "final test accuracy",
-                    "combined score",
-                    "global score",
-                ],
-            ),
-            **additional
-        )
-    ).properties(width=width, height=height)
-
-    #  save(chart, "test.png")
-    chart = (
-        chart.configure_axisLeft(titlePadding=10)
-        .configure_axisBottom(labelAngle=45, title=None, labels=False, ticks=False)
-        .configure_legend(
-            orient="bottom",
-            columns=columns,
-            labelFontSize=fontSize,
-            columnPadding=60,
-            #  symbolSize=200,
-        )
+    if groupedTitle == "Used Weak Supervision Techniques":
+        alc = defaultdict(lambda: 2888)
+    df["saved human effort"] = df.apply(
+        lambda x: 1 - x["amount_of_user_asked_queries"] / alc[x[grouped]], axis=1
     )
+
+    df.loc[df[grouped] == "No Weak", "saved human effort"] = 0
+
+    for col in [
+        "saved human effort",
+        "final accuracy",
+        "combined score",
+        "global score",
+    ]:
+        df[col] = df[col].apply(lambda x: x * 100)
+
+    charts = []
+
+    for v in [
+        "saved human effort",
+        "final accuracy",
+        "combined score",
+        "global score",
+    ]:
+        if v == "saved human effort":
+            labels = True
+        else:
+            labels = False
+        charts.append(
+            alt.Chart(df)
+            .mark_bar()
+            .encode(
+                x=alt.X(v, scale=alt.Scale(domain=[domain_start, 100]),),
+                y=alt.Y(
+                    grouped,
+                    axis=alt.Axis(labels=labels, ticks=False),
+                    sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                    title=None,
+                ),
+                color=alt.Color(
+                    grouped + ":N",
+                    scale=alt.Scale(
+                        domain=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                        range=colors,
+                    ),
+                    legend=None,
+                ),
+            )
+            .properties(width=width, height=height)
+            + alt.Chart(df)
+            .mark_text(dx=3, align="left", baseline="middle",)
+            .encode(
+                x=v,
+                y=alt.Y(
+                    grouped,
+                    axis=alt.Axis(labels=labels),
+                    sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                    title=None,
+                ),
+                text=alt.Text(v, format=".2f"),
+            )
+            #  .properties(width=width, height=height)
+        )
+
+    chart = alt.hconcat(*charts)
     save_chart_as_latex(chart, base_title)
 
 
@@ -789,12 +769,13 @@ def save_table_as_barchart_vis(
     base_title,
     grouped="id",
     groupedTitle="Datasets",
+    dataset="dwtc",
     columns=4,
     title=True,
     width=150,
     height=150,
     fontSize=15,
-    percentage_start=40,
+    percentage_start=0,
     orient="bottom",
 ):
     if isinstance(table, list):
@@ -807,21 +788,20 @@ def save_table_as_barchart_vis(
             "fit_score": "combined score",
             "global_score_no_weak_acc": "global score",
             #  "amount_of_user_asked_queries": "\% remaining budget",
-            "acc_test": "final test accuracy",
+            "acc_test": "final accuracy",
         },
         inplace=True,
     )
     df["\% remaining budget"] = df["amount_of_user_asked_queries"]
 
     alc = {
-        "dwtc": 2889,
+        "dwtc": 2888,
         "ibn_sina": 10361,
         "hiva": 21339,
         "orange": 25000,
         "sylva": 72626,
         "zebra": 30744,
     }
-    alc = defaultdict(lambda: 2888)
     if "asked_queries" in df.columns.to_numpy():
         df.rename(columns={"asked_queries": "\% remaining budget"}, inplace=True)
 
@@ -830,19 +810,14 @@ def save_table_as_barchart_vis(
     i = 0
     for index, row in df.iterrows():
         for end, metric in enumerate(
-            [
-                "saved human effort",
-                "final test accuracy",
-                "combined score",
-                "global score",
-            ]
+            ["saved human effort", "final accuracy", "combined score", "global score",]
         ):
             #  if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
             #  continue
             #  if metric == "saved human effort (budget)" and row[grouped] == "No Weak":
             #  row[metric] = 0
             if metric == "saved human effort":
-                value = 1 - row["amount_of_user_asked_queries"] / alc[row[grouped]]
+                value = 1 - row["amount_of_user_asked_queries"] / alc[dataset]
             else:
                 value = row[metric]
             value = value * 100
@@ -857,7 +832,7 @@ def save_table_as_barchart_vis(
             i += 1
     labels_to_add = ["Certainty WST", "Cluster WST", "Oracle"]
     for index, legend_entry in enumerate(labels_to_add):
-        newDf.loc[i + index] = [legend_entry, 40, legend_entry, 0, 0]
+        newDf.loc[i + index] = [legend_entry, 0, legend_entry, 0, 0]
 
     if title:
         additional = {"column": alt.Column(groupedTitle)}
@@ -871,7 +846,7 @@ def save_table_as_barchart_vis(
             #  "metric",
             #  sort=[
             #  "saved human effort",
-            #  "final test accuracy",
+            #  "final accuracy",
             #  "combined score",
             #  "global score",
             #  ],
@@ -888,7 +863,7 @@ def save_table_as_barchart_vis(
                 title=None,
                 sort=[
                     "saved human effort",
-                    "final test accuracy",
+                    "final accuracy",
                     "combined score",
                     "global score",
                 ],
@@ -901,7 +876,7 @@ def save_table_as_barchart_vis(
     #  chart = (chart)
     #  chart.facet(column=alt.Column("metric"))
     chart = (
-        chart.configure_axisLeft(titlePadding=0)
+        chart.configure_axisLeft(titlePadding=0, tickCount=4)
         .configure_axisBottom(
             labelAngle=45, title=None, labels=False, ticks=False, grid=False
         )
@@ -997,6 +972,7 @@ elif config.ACTION == "plot":
         BUDGET=config.BUDGET,
         DATASET=config.DATASET,
         ORDER_BY=getattr(ExperimentResult, config.METRIC),
+        #  ADDITIONAL_WHERE=(ExperimentResult.amount_of_user_asked_queries > 900)
         #  ADDITIONAL_WHERE=(
         #  (ExperimentResult.with_cluster_recommendation == False)
         #  #  & (ExperimentResult.with_uncertainty_recommendation == recommendations[0])
@@ -1004,9 +980,10 @@ elif config.ACTION == "plot":
         #  LEGEND=name,
     )
     if config.DATASET == "dwtc":
-        domain = [0.5, 0.8]
+        domain = [0, 1]
     else:
-        domain = [0.7, 1.0]
+        domain = [0, 1]
+        #  domain = [0.7, 1.0]
     save_chart_as_latex(visualise_top_n(loaded_data, domain=domain), config.DESTINATION)
 
 
@@ -1058,10 +1035,8 @@ elif config.ACTION == "compare_rec":
         config.DESTINATION + "_barchart",
         grouped="id",
         groupedTitle="Used Weak Supervision Techniques",
-        columns=4,
-        title=True,
-        width=150,
-        height=150,
+        #  width=150,
+        #  height=150,
     )
 
     datasets = []
@@ -1146,7 +1121,12 @@ elif config.ACTION == "compare_all":
         table += table1
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
     save_table_as_barchart(
-        table, config.DESTINATION + "_barchart", columns=4, width=75, height=121,
+        table,
+        config.DESTINATION + "_barchart",
+        columns=4,
+        width=75,
+        height=121,
+        domain_start=60,
     )
 
     datasets = []
@@ -1229,25 +1209,25 @@ elif config.ACTION == "budgets":
         data.append((result.amount_of_user_asked_queries, result.max))
         #  print("{}\t{}".format(result.amount_of_user_asked_queries, result.max))
     df = pd.DataFrame(data)
-    df.columns = ["budget", "end test accuracy"]
+    df.columns = ["budget", "final accuracy"]
     print(df)
     #  import numpy as np
 
     #  x = np.arange(100)
-    #  df = pd.DataFrame({"budget": x, "end test accuracy": np.sin(x / 5)})
+    #  df = pd.DataFrame({"budget": x, "final accuracy": np.sin(x / 5)})
     alt.data_transformers.disable_max_rows()
     chart = (
         alt.Chart(df)
         .mark_circle(opacity=0.3, color="orange")
         .encode(
             x=alt.X("budget", title="Budget"),
-            y=alt.Y("end test accuracy", scale=alt.Scale(domain=[0, 1]),),
+            y=alt.Y("final accuracy", scale=alt.Scale(domain=[0, 1]),),
         )
     ).properties(width=700, height=125)
     chart = (
         (
             chart
-            + chart.transform_loess("budget", "end test accuracy").mark_line(
+            + chart.transform_loess("budget", "final accuracy").mark_line(
                 #  color="lightblue"
             )
         )
