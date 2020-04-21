@@ -78,7 +78,7 @@ class Estimator(BaseEstimator):
 
     def fit(self, X_train, Y_train, **kwargs):
         n_samples, n_features = X_train.shape
-        if self.cluster_algo == "algo":
+        if self.cluster_algo == "aglo":
             # then cluster it
             cluster_model = AgglomerativeClustering(
                 n_clusters=int(n_samples / self.n_cluster_dividend)
