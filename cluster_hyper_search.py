@@ -152,5 +152,5 @@ print(grid.best_score_)
 print(
     pd.DataFrame(grid.cv_results_)
     .sort_values("mean_test_score", ascending=False)
-    .head()
+    .to_string()
 )
