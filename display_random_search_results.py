@@ -143,6 +143,7 @@ def get_result_table(
     DATASET="dwtc",
     PARAM_LIST_ID=True,
     ADDITIONAL_WHERE=True,
+    OFFSET=0,
 ):
     results = (
         ExperimentResult.select(
@@ -170,6 +171,7 @@ def get_result_table(
             peewee.fn.AVG(ORDER_BY).desc(),
         )
         .limit(LIMIT)
+        .offset(OFFSET)
     )
 
     table = []
@@ -341,6 +343,7 @@ def pre_fetch_data(
     DATASET,
     ADDITIONAL_WHERE=True,
     LEGEND="",
+    OFFSET=0,
 ):
     table = get_result_table(
         GROUP_SELECT=GROUP_SELECT,
@@ -352,6 +355,7 @@ def pre_fetch_data(
         ADDITIONAL_WHERE=ADDITIONAL_WHERE,
         PARAM_LIST_ID=True,
         DATASET=DATASET,
+        OFFSET=OFFSET,
     )
     best_param_list_id = table[TOP_N]["param_list_id"]
     results = ExperimentResult.select().where(
@@ -406,13 +410,18 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
 
         data["recommendation"] = data["recommendation"].replace(
             {
-                "A": "Oracle",
-                "C": "Cluster WST",
-                "U": "Certainty WST",
+                "A": "Human experts",
+                "C": "\\textproc{WeakClust}",
+                "U": "\\textproc{WeakCert}",
                 #  "G": "Ground Truth",
             }
         )
         data = data[data.recommendation != "G"]
+
+        data["acc_diff"] = data["test_acc"] - data["test_acc"].shift(1)
+        print(data)
+        #  print(data.iloc[15:25])
+        print(data.groupby(["recommendation"]).sum())
 
         # data = data[:100]
 
@@ -426,13 +435,20 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                 # interpolate='step-after',
             )
             .encode(
-                x=alt.X("asked_queries_end", title="\#Asked Queries (weak and oracle)"),
+                x=alt.X(
+                    "asked_queries_end",
+                    title="\#Asked Queries (weak and human experts)",
+                ),
                 x2="asked_queries",
                 color=alt.Color(
                     #  "recommendation", scale=alt.Scale(scheme="tableau10"), legend=None,
                     "recommendation",
                     scale=alt.Scale(scheme="category10"),
-                    sort=["Oracle", "Certainty WST", "Cluster WST"],
+                    sort=[
+                        "Human experts",
+                        "\\textproc{WeakCert}",
+                        "\\textproc{WeakClust}",
+                    ],
                     #  legend=None,
                 ),
                 tooltip=[
@@ -458,7 +474,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
                 chart.encode(
                     alt.Y(
                         "test_acc",
-                        title="Final Accuracy",
+                        title="test accuracy",
                         scale=alt.Scale(domain=domain),
                     )
                 ).properties(width=414, height=90)
@@ -498,7 +514,7 @@ def visualise_top_n(data, domain=[0.8, 1.0]):
             #  orient="left",
             orient="bottom",
             columns=3,
-            columnPadding=30,
+            columnPadding=35,
             title=None,
             #  symbolSize=200,
             #  labelFontSize=5,
@@ -559,8 +575,8 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
             data["recommendation"].replace(
                 {
                     "A": "Oracle",
-                    "C": "Weak Cluster",
-                    "U": "Weak Certainty",
+                    "C": "\\textproc{WeakClust}",
+                    "U": "\\textproc{WeakCert}",
                     "G": "Ground Truth",
                 },
                 inplace=True,
@@ -609,7 +625,7 @@ def compare_data(datasets, without_weak=True, dataset_name="dwtc", COLUMNS=3):
             x=alt.X("asked_queries:Q", title="\#Asked Queries", scale=x_scale),
             y=alt.Y(
                 "test_acc:Q",
-                title="Final Accuracy",
+                title="test accuracy",
                 scale=alt.Scale(domain=[0, 1], type="linear"),
             ),
             color=alt.Color("top_n:N", legend=show_top_legend,),
@@ -681,7 +697,7 @@ def save_table_as_barchart(
     fontSize=10,
     domain_start=0,
     sort=None,
-    columns=["saved human effort", "final accuracy", "combined score", "global score",],
+    columns=["saved human effort", "test accuracy", "combined score", "global score",],
 ):
     if isinstance(table, list):
         df = pd.DataFrame(table)
@@ -693,7 +709,7 @@ def save_table_as_barchart(
             "fit_score": "combined score",
             "global_score_no_weak_acc": "global score",
             #  "amount_of_user_asked_queries": "\% remaining budget",
-            "acc_test": "final accuracy",
+            "acc_test": "test accuracy",
         },
         inplace=True,
     )
@@ -713,7 +729,8 @@ def save_table_as_barchart(
         lambda x: 1 - x["amount_of_user_asked_queries"] / alc[x[grouped]], axis=1
     )
 
-    df.loc[df[grouped] == "No Weak", "saved human effort"] = 0
+    df.loc[df[grouped] == "No Weak (all)", "saved human effort"] = 0
+    df.loc[df[grouped] == "No Weak", "saved human effort"] = 1 - 1510 / alc[grouped]
 
     for col in columns:
         df[col] = df[col].apply(lambda x: x * 100)
@@ -741,7 +758,7 @@ def save_table_as_barchart(
                 color=alt.Color(
                     grouped + ":N",
                     scale=alt.Scale(
-                        #  domain=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                        #  domain=["No Weak", "\\textproc{WeakClust}", "\\textproc{WeakCert}", "Both"],
                         #  range=colors,
                     ),
                     legend=None,
@@ -755,7 +772,13 @@ def save_table_as_barchart(
                 y=alt.Y(
                     grouped,
                     axis=alt.Axis(labels=labels),
-                    sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
+                    sort=[
+                        "No Weak (all)",
+                        "No Weak",
+                        "\\textproc{WeakClust}",
+                        "\\textproc{WeakCert}",
+                        "Both",
+                    ],
                     title=None,
                 ),
                 text=alt.Text(v, format=".2f"),
@@ -791,7 +814,7 @@ def save_table_as_barchart_vis(
             "fit_score": "combined score",
             "global_score_no_weak_acc": "global score",
             #  "amount_of_user_asked_queries": "\% remaining budget",
-            "acc_test": "final accuracy",
+            "acc_test": "test accuracy",
         },
         inplace=True,
     )
@@ -818,7 +841,7 @@ def save_table_as_barchart_vis(
         for end, metric in enumerate(
             [
                 "saved human effort",
-                "final accuracy",
+                "test accuracy",
                 "combined score",
             ]  # , "global score",]
         ):
@@ -838,7 +861,7 @@ def save_table_as_barchart_vis(
             axis=alt.Axis(ticks=False, grid=False),
             sort=[
                 "saved human effort",
-                "final accuracy",
+                "test accuracy",
                 "combined score",
                 "global score",
             ],
@@ -853,7 +876,7 @@ def save_table_as_barchart_vis(
             title=None,
             sort=[
                 "saved human effort",
-                "final accuracy",
+                "test accuracy",
                 "combined score",
                 "global score",
             ],
@@ -876,7 +899,7 @@ def save_table_as_barchart_vis(
             "fit_score": "combined score",
             "global_score_no_weak_acc": "global score",
             #  "amount_of_user_asked_queries": "\% remaining budget",
-            "acc_test": "final accuracy",
+            "acc_test": "test accuracy",
         },
         inplace=True,
     )
@@ -898,7 +921,7 @@ def save_table_as_barchart_vis(
     i = 0
     for index, row in df.iterrows():
         for end, metric in enumerate(
-            ["saved human effort", "final accuracy", "combined score", "global score",]
+            ["saved human effort", "test accuracy", "combined score", "global score",]
         ):
             #  if groupedTitle != "Datasets" and metric == "\% total asked oracle queries":
             #  continue
@@ -942,7 +965,7 @@ def save_table_as_barchart_vis(
                 title=None,
                 sort=[
                     "saved human effort",
-                    "final accuracy",
+                    "test accuracy",
                     "combined score",
                     "global score",
                 ],
@@ -1047,9 +1070,13 @@ elif config.ACTION == "plot":
         BUDGET=config.BUDGET,
         DATASET=config.DATASET,
         ORDER_BY=getattr(ExperimentResult, config.METRIC),
-        #  ADDITIONAL_WHERE=(ExperimentResult.amount_of_user_asked_queries > 900)
-        #  ADDITIONAL_WHERE=(
-        #  (ExperimentResult.with_cluster_recommendation == False)
+        #  ADDITIONAL_WHERE=(ExperimentResult.with_cluster_recommendation == True)
+        ADDITIONAL_WHERE=(
+            (ExperimentResult.with_cluster_recommendation == True)
+            & (ExperimentResult.with_uncertainty_recommendation == True)
+        ),
+        OFFSET=1
+        #  & (ExperimentResult.amount_of_user_asked_queries > 1200)
         #  #  & (ExperimentResult.with_uncertainty_recommendation == recommendations[0])
         #  ),
         #  LEGEND=name,
@@ -1065,15 +1092,25 @@ elif config.ACTION == "plot":
 elif config.ACTION == "compare_rec":
     table = []
     for recommendations, name in zip(
-        [(0, 0), (1, 0), (0, 1), (1, 1)],
-        ["No Weak", "Weak Certainty", "Weak Cluster", "Both",],
+        [(0, 0), (0, 0), (1, 0), (0, 1), (1, 1)],
+        [
+            "No Weak (all)",
+            "No Weak",
+            "\\textproc{WeakCert}",
+            "\\textproc{WeakClust}",
+            "Both",
+        ],
     ):
-        if name == "No Weak":
+        if name == "No Weak (all)":
             ORDER_BY = ExperimentResult.acc_test
             BUDGET = 500000
         else:
             BUDGET = config.BUDGET
             ORDER_BY = getattr(ExperimentResult, config.METRIC)
+        if recommendations == (1, 1):
+            offset = 2
+        else:
+            offset = 1
         table1 = get_result_table(
             GROUP_SELECT=[ExperimentResult.param_list_id],
             GROUP_SELECT_AGG=[],
@@ -1091,6 +1128,7 @@ elif config.ACTION == "compare_rec":
             ORDER_BY=ORDER_BY,
             BUDGET=BUDGET,
             LIMIT=1,
+            OFFSET=offset,
             PARAM_LIST_ID=False,
             ADDITIONAL_WHERE=(
                 (ExperimentResult.with_cluster_recommendation == recommendations[1])
@@ -1101,7 +1139,7 @@ elif config.ACTION == "compare_rec":
             ),
         )
         table1[0]["id"] = name
-        if name == "No Weak":
+        if name == "No Weak (all)":
             table1[0]["fit_score"] = 0
         table += table1
     save_table_as_latex(table, config.DESTINATION + ".tex", top=False)
@@ -1110,18 +1148,30 @@ elif config.ACTION == "compare_rec":
         config.DESTINATION + "_barchart",
         grouped="id",
         groupedTitle="Used Weak Supervision Techniques",
-        sort=["No Weak", "Weak Cluster", "Weak Certainty", "Both"],
-        columns=["saved human effort", "final accuracy", "combined score"],
+        sort=[
+            "No Weak (all)",
+            "No Weak",
+            "\\textproc{WeakClust}",
+            "\\textproc{WeakCert}",
+            "Both",
+        ],
+        columns=["saved human effort", "test accuracy", "combined score"],
         #  width=150,
         #  height=150,
     )
 
     datasets = []
     for recommendations, name in zip(
-        [(0, 0), (1, 0), (0, 1), (1, 1)],
-        ["No Weak", "Weak Certainty", "Weak Cluster", "Both",],
+        [(0, 0), (0, 0), (1, 0), (0, 1), (1, 1)],
+        [
+            "No Weak (all)",
+            "No Weak",
+            "\\textproc{WeakCert}",
+            "\\textproc{WeakClust}",
+            "Both",
+        ],
     ):
-        if name == "No Weak":
+        if name == "No Weak (all)":
             ORDER_BY = ExperimentResult.acc_test
             BUDGET = 500000
         else:
@@ -1287,25 +1337,25 @@ elif config.ACTION == "budgets":
         data.append((result.amount_of_user_asked_queries, result.max))
         #  print("{}\t{}".format(result.amount_of_user_asked_queries, result.max))
     df = pd.DataFrame(data)
-    df.columns = ["budget", "final accuracy"]
+    df.columns = ["budget", "test accuracy"]
     print(df)
     #  import numpy as np
 
     #  x = np.arange(100)
-    #  df = pd.DataFrame({"budget": x, "final accuracy": np.sin(x / 5)})
+    #  df = pd.DataFrame({"budget": x, "test accuracy": np.sin(x / 5)})
     alt.data_transformers.disable_max_rows()
     chart = (
         alt.Chart(df)
         .mark_circle(opacity=0.3, color="orange")
         .encode(
             x=alt.X("budget", title="Budget"),
-            y=alt.Y("final accuracy", scale=alt.Scale(domain=[0, 1]),),
+            y=alt.Y("test accuracy", scale=alt.Scale(domain=[0, 1]),),
         )
     ).properties(width=700, height=125)
     chart = (
         (
             chart
-            + chart.transform_loess("budget", "final accuracy").mark_line(
+            + chart.transform_loess("budget", "test accuracy").mark_line(
                 #  color="lightblue"
             )
         )

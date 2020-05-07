@@ -28,6 +28,7 @@ nb-black = "*"
 jupyterlab = "*"
 altair-saver = "*"
 vega-datasets = "*"
+seaborn = "*"
 
 [requires]
 python_version = "3"
