@@ -1108,9 +1108,9 @@ elif config.ACTION == "compare_rec":
             BUDGET = config.BUDGET
             ORDER_BY = getattr(ExperimentResult, config.METRIC)
         if recommendations == (1, 1):
-            offset = 2
+            offset = 0
         else:
-            offset = 1
+            offset = 0
         table1 = get_result_table(
             GROUP_SELECT=[ExperimentResult.param_list_id],
             GROUP_SELECT_AGG=[],
