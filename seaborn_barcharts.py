@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib
 
-matplotlib.use("Agg")
+#  matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 
-sns.set_palette("Set2")
-sns.set(font_scale=2.2, rc={"text.usetex": False}, style="ticks", font="STIXGeneral")
+sns.set(font_scale=1, rc={"text.usetex": False}, style="ticks", font="STIXGeneral")
+sns.set_palette("tab10")
 
 
 def show_values_on_bars(axs, h_v="v", space_x=5.9, space_y=-0.25):
@@ -63,7 +63,7 @@ df_comparison_all = pd.DataFrame(
             "saved human effort",
             "test accuracy",
             "combined score",
-            "global_score",
+            "global score",
         ],
         "DWTC": [52.8, 85.7, 65.35, 78.3],
         "IBN_SINA": [85.76, 91.32, 88.46, 92.35],
@@ -75,24 +75,53 @@ df_comparison_all = pd.DataFrame(
 )
 
 
-def create_barplot(df, title):
-    fig = plt.figure()
-    b = sns.barplot(x="percentage", y="labels", data=df)
-    b.set(xticks=[0, 50, 100])
-    #  b.set()
-    b.set(ylabel=None)
+def create_barplot(df, title, aggregated=False, value_vars=[], figsize=None):
+    if aggregated:
+        fig = plt.figure(figsize=figsize)
 
-    b.spines["top"].set_visible(False)
-    b.spines["right"].set_visible(False)
-    #  b.spines["bottom"].set_visible(False)
-    #  b.spines["left"].set_visible(False)
+        df = df.set_index("labels")
+        df = df.T
+        df = df.reset_index()
+        print(df)
+        df = pd.melt(df, value_vars=value_vars, id_vars=["index"],)
+        print(df)
+        print(df["labels"].unique().tolist())
+        for index, label in enumerate(df["labels"].unique()):
+            print(100 + 10 * len(df["labels"].unique()) + 1 * (index + 1))
+            ax = fig.add_subplot(
+                100 + 10 * len(df["labels"].unique()) + 1 * (index + 1)
+            )
+            filtered_df = df.loc[df["labels"] == label]
+            print(filtered_df)
+            b = sns.barplot(x="value", y="index", data=filtered_df)
+            b.spines["top"].set_visible(False)
+            b.spines["right"].set_visible(False)
+            b.set(xlabel=label)
+            b.set(ylabel=None)
+            b.set(xticks=[0, 20, 40, 60, 80, 100])
+            if index != 0:
+                b.set(yticks=[])
+            show_values_on_bars(b, "h", space_x=2, space_y=-0.19)
+            #  plt.clf()
+    else:
+        fig = plt.figure(figsize=(2.8, 2.0))
+        b = sns.barplot(x="percentage", y="labels", data=df)
+        b.set(ylabel=None)
+        b.set(xticks=[0, 50, 100])
 
-    #  b.set_yticklabels(b.get_yticklabels(), weight="bold")
+    if not aggregated:
+        b.spines["top"].set_visible(False)
+        b.spines["right"].set_visible(False)
+        #  b.spines["bottom"].set_visible(False)
+        #  b.spines["left"].set_visible(False)
 
-    show_values_on_bars(b, "h")
+        #  b.set_yticklabels(b.get_yticklabels(), weight="bold")
 
+        show_values_on_bars(b, "h")
+    plt.subplots_adjust(hspace=0.05)
     plt.tight_layout()
-    fig.savefig(
+    #  plt.show()
+    plt.savefig(
         "/home/julius/win_transfer/ds-active_learning/fig/" + title + ".pdf",
         verbose=True,
     )
@@ -101,5 +130,17 @@ def create_barplot(df, title):
 
 create_barplot(df_1500, "dwtc_1500")
 create_barplot(df_200, "dwtc_200")
-#  create_barplot(df_comparison_all, "compare_all")
-#  create_barplot(df_comparison_weak, "compare_weak")
+create_barplot(
+    df_comparison_all,
+    "compare_all",
+    True,
+    ["saved human effort", "test accuracy", "combined score", "global score",],
+    (11, 2.4),
+)
+create_barplot(
+    df_comparison_weak,
+    "compare_weak",
+    True,
+    ["saved human effort", "test accuracy", "combined score",],
+    (11, 2),
+)
