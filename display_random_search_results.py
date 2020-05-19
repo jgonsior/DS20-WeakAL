@@ -1351,7 +1351,7 @@ elif config.ACTION == "budgets":
             x=alt.X("budget", title="Budget"),
             y=alt.Y("test accuracy", scale=alt.Scale(domain=[0, 1]),),
         )
-    ).properties(width=700, height=125)
+    ).properties(width=450, height=125)
     chart = (
         (
             chart
@@ -1364,28 +1364,28 @@ elif config.ACTION == "budgets":
     )
 
     base_title = config.DESTINATION
-    save(chart, base_title + ".svg")
-
-    subprocess.run(
-        "inkscape -D -z --file "
-        + base_title
-        + ".svg --export-pdf "
-        + base_title
-        + ".pdf --export-latex",
-        shell=True,
-        stderr=subprocess.DEVNULL,
-    )
-    with fileinput.FileInput(
-        base_title + ".pdf_tex", inplace=True, backup=".bak"
-    ) as file:
-        for line in file:
-            print(
-                line.replace(
-                    base_title.split("/")[-1] + ".pdf",
-                    "results/" + base_title.split("/")[-1] + ".pdf",
-                ),
-                end="",
-            )
+    save(chart, base_title + ".pdf")
+    print(base_title)
+    #  subprocess.run(
+    #  "inkscape -D -z --file "
+    #  + base_title
+    #  + ".svg --export-pdf "
+    #  + base_title
+    #  + ".pdf --export-latex",
+    #  shell=True,
+    #  stderr=subprocess.DEVNULL,
+    #  )
+    #  with fileinput.FileInput(
+    #  base_title + ".pdf_tex", inplace=True, backup=".bak"
+    #  ) as file:
+    #  for line in file:
+    #  print(
+    #  line.replace(
+    #  base_title.split("/")[-1] + ".pdf",
+    #  "results/" + base_title.split("/")[-1] + ".pdf",
+    #  ),
+    #  end="",
+    #  )
 
 
 if config.ACTION == "top_n":

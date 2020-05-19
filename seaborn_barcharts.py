@@ -39,6 +39,13 @@ df_200 = pd.DataFrame(
     }
 )
 
+df_ibn_sina = pd.DataFrame(
+    {
+        "labels": ["saved human effort", "test accuracy", "combined score"],
+        "percentage": [97.83, 96.66, 97.24],
+    }
+)
+
 df_1500 = pd.DataFrame(
     {
         "labels": ["saved human effort", "test accuracy", "combined score"],
@@ -128,19 +135,20 @@ def create_barplot(df, title, aggregated=False, value_vars=[], figsize=None):
     plt.clf()
 
 
-create_barplot(df_1500, "dwtc_1500")
-create_barplot(df_200, "dwtc_200")
-create_barplot(
-    df_comparison_all,
-    "compare_all",
-    True,
-    ["saved human effort", "test accuracy", "combined score", "global score",],
-    (11, 2.4),
-)
+#  create_barplot(df_1500, "dwtc_1500")
+#  create_barplot(df_200, "dwtc_200")
+#  create_barplot(df_ibn_sina, "dwtc_ibn_sina")
+#  create_barplot(
+#  df_comparison_all,
+#  "compare_all",
+#  True,
+#  ["saved human effort", "test accuracy", "combined score", "global score",],
+#  (11, 2.4),
+#  )
 create_barplot(
     df_comparison_weak,
     "compare_weak",
     True,
     ["saved human effort", "test accuracy", "combined score",],
-    (11, 2),
+    (6, 2),
 )
