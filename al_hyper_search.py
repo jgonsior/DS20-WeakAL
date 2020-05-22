@@ -111,6 +111,8 @@ if standard_config.NR_LEARNING_ITERATIONS == 3:
 else:
     X = [
         "dwtc",
+        "dwtc",
+        "dwtc",
         #  "ibn_sina",
         #  "hiva",
         #  "orange",
