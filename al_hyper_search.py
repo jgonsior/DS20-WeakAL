@@ -74,6 +74,7 @@ class Estimator(BaseEstimator):
         super().__init__(**kwargs)
 
     def fit(self, dataset_names, Y_not_used, **kwargs):
+        init_logger(standard_config.LOG_FILE)
         self.scores = []
 
         for dataset_name in dataset_names:
