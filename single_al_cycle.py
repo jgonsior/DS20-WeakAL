@@ -61,7 +61,7 @@ X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
     config.DATASETS_PATH, config.DATASET_NAME
 )
 
-score = train_and_eval_dataset(
+score, Y_train = train_and_eval_dataset(
     config.DATASET_NAME,
     X_train,
     X_test,
@@ -72,3 +72,4 @@ score = train_and_eval_dataset(
     oracle=FakeExperimentOracle(),
 )
 print("Done with ", score)
+print("Labels: ", Y_train)
