@@ -1,3 +1,4 @@
+import hashlib
 import copy
 import inspect
 import multiprocessing
@@ -62,7 +63,7 @@ class Estimator(BaseEstimator):
             X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
                 standard_config.DATASETS_PATH, dataset_name
             )
-            score, Y_train_al, Y_train_active = train_and_eval_dataset(
+            score, Y_train_al = train_and_eval_dataset(
                 dataset_name,
                 X_train,
                 X_test,
@@ -78,9 +79,16 @@ class Estimator(BaseEstimator):
 
             Y_train_al.sort_index(inplace=True)
             #  print(Y_train)
-            print(Y_train_al)
+            #  print(Y_train_al)
             print("Labeled ", len(Y_train_al))
+            if len(Y_train_al) > 250:
+                unique_params = ""
+                for k in param_distribution.keys():
+                    unique_params += str(vars(self)[k])
 
+                param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
+
+                Y_train_al.to_pickle("pickles/" + param_list_id + ".pickle")
             # gc.collect()
 
     def score(self, dataset_names_should_be_none, Y_not_used):
@@ -96,8 +104,8 @@ if standard_config.NR_LEARNING_ITERATIONS == 3:
 else:
     X = [
         "dwtc",
-        "dwtc",
-        "dwtc",
+        #  "dwtc",
+        #  "dwtc",
         #  "ibn_sina",
         #  "hiva",
         #  "orange",
