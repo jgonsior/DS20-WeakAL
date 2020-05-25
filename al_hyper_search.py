@@ -88,7 +88,9 @@ class Estimator(BaseEstimator):
 
                 param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
 
-                Y_train_al.to_pickle("pickles/" + param_list_id + ".pickle")
+                Y_train_al.to_pickle(
+                    "pickles/" + str(len(Y_train_al)) + "_" + param_list_id + ".pickle"
+                )
             # gc.collect()
 
     def score(self, dataset_names_should_be_none, Y_not_used):
