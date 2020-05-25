@@ -81,7 +81,7 @@ class Estimator(BaseEstimator):
             #  print(Y_train)
             #  print(Y_train_al)
             print("Labeled ", len(Y_train_al))
-            if len(Y_train_al) > 250:
+            if len(Y_train_al) > 1000:
                 unique_params = ""
                 for k in param_distribution.keys():
                     unique_params += str(vars(self)[k])
