@@ -58,7 +58,7 @@ config = standard_config(
 )
 
 X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
-    config.DATASETS_PATH, config.DATASET_NAME
+    config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED
 )
 
 score, Y_train = train_and_eval_dataset(

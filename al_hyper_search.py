@@ -19,42 +19,19 @@ from active_learning.experiment_setup_lib import (
 )
 from fake_experiment_oracle import FakeExperimentOracle
 
-standard_config = standard_config([
-    (["--NR_LEARNING_ITERATIONS"], {
-        "type": int,
-        "default": 1000000
-    }),
-    (["--CV"], {
-        "type": int,
-        "default": 3
-    }),
-    (["--NR_RANDOM_RUNS"], {
-        "type": int,
-        "default": 200000
-    }),
-    (["--POPULATION_SIZE"], {
-        "type": int,
-        "default": 100
-    }),
-    (["--TOURNAMENT_SIZE"], {
-        "type": int,
-        "default": 100
-    }),
-    (["--GENERATIONS_NUMBER"], {
-        "type": int,
-        "default": 100
-    }),
-    (["--GENE_MUTATION_PROB"], {
-        "type": float,
-        "default": 0.3
-    }),
-    (["--DB_NAME_OR_TYPE"], {
-        "default": "sqlite"
-    }),
-    (["--HYPER_SEARCH_TYPE"], {
-        "default": "random"
-    }),
-])
+standard_config = standard_config(
+    [
+        (["--NR_LEARNING_ITERATIONS"], {"type": int, "default": 1000000}),
+        (["--CV"], {"type": int, "default": 3}),
+        (["--NR_RANDOM_RUNS"], {"type": int, "default": 200000}),
+        (["--POPULATION_SIZE"], {"type": int, "default": 100}),
+        (["--TOURNAMENT_SIZE"], {"type": int, "default": 100}),
+        (["--GENERATIONS_NUMBER"], {"type": int, "default": 100}),
+        (["--GENE_MUTATION_PROB"], {"type": float, "default": 0.3}),
+        (["--DB_NAME_OR_TYPE"], {"default": "sqlite"}),
+        (["--HYPER_SEARCH_TYPE"], {"default": "random"}),
+    ]
+)
 init_logger(standard_config.LOG_FILE)
 param_distribution = get_param_distribution(**vars(standard_config))
 
@@ -84,7 +61,8 @@ class Estimator(BaseEstimator):
             #  gc.collect()
 
             X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
-                standard_config.DATASETS_PATH, dataset_name)
+                standard_config.DATASETS_PATH, dataset_name, standard_config.RANDOM_SEED
+            )
             score, Y_train_al = train_and_eval_dataset(
                 dataset_name,
                 X_train,
@@ -107,11 +85,11 @@ class Estimator(BaseEstimator):
             for k in param_distribution.keys():
                 unique_params += str(vars(self)[k])
 
-            param_list_id = hashlib.md5(
-                unique_params.encode("utf-8")).hexdigest()
+            param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
 
-            Y_train_al.to_pickle("pickles/" + str(len(Y_train_al)) + "_" +
-                                 param_list_id + ".pickle")
+            Y_train_al.to_pickle(
+                "pickles/" + str(len(Y_train_al)) + "_" + param_list_id + ".pickle"
+            )
             # gc.collect()
 
     def score(self, dataset_names_should_be_none, Y_not_used):
@@ -176,8 +154,7 @@ elif standard_config.HYPER_SEARCH_TYPE == "evo":
         estimator=active_learner,
         params=param_distribution,
         verbose=True,
-        cv=ShuffleSplit(test_size=0.20, n_splits=1,
-                        random_state=0),  # fake CV=1 split
+        cv=ShuffleSplit(test_size=0.20, n_splits=1, random_state=0),  # fake CV=1 split
         population_size=standard_config.POPULATION_SIZE,
         gene_mutation_prob=standard_config.GENE_MUTATION_PROB,
         tournament_size=standard_config.TOURNAMENT_SIZE,
@@ -189,5 +166,7 @@ elif standard_config.HYPER_SEARCH_TYPE == "evo":
 print(grid.best_params_)
 print(grid.best_score_)
 print(
-    pd.DataFrame(grid.cv_results_).sort_values("mean_test_score",
-                                               ascending=False).head())
+    pd.DataFrame(grid.cv_results_)
+    .sort_values("mean_test_score", ascending=False)
+    .head()
+)
