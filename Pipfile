@@ -29,6 +29,8 @@ jupyterlab = "*"
 altair-saver = "*"
 vega-datasets = "*"
 seaborn = "*"
+keras = "*"
+tensorflow = "*"
 
 [requires]
 python_version = "3"
