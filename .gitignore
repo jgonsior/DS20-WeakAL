@@ -174,3 +174,5 @@ plots/
 Pipfile.lock
 log.txt
 node_modules/
+
+pickles/
