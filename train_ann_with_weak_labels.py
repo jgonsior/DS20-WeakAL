@@ -18,10 +18,6 @@ config = standard_config([
     }),
 ])
 
-# read in data the same as before (same random inidce)
-X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
-    config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED)
-
 for filename in ["402_5025949c1fd31aaf3f95f847711091b0.pickle"
                  ]:  # os.listdir(config.PICKLE):
     Y_train_al = pd.read_pickle(config.PICKLE + "/" + filename)
@@ -103,3 +99,10 @@ for filename in ["402_5025949c1fd31aaf3f95f847711091b0.pickle"
             #  ann_acc = accuracy_score(Y_train, model.predict(X_train))
             #  print("Weak ANN {:.2f}".format(ann_acc))
             #  print("\n")
+
+# read in data the same as before (same random inidce)
+X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
+    config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED)
+
+for fileame in os.listdir(config.PICKLE):
+    do_it(filename)
