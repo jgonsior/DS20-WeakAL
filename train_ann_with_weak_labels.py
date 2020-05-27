@@ -22,7 +22,8 @@ config = standard_config([
 X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
     config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED)
 
-for filename in os.listdir(config.PICKLE):
+for filename in ["402_5025949c1fd31aaf3f95f847711091b0.pickle"
+                 ]:  # os.listdir(config.PICKLE):
     Y_train_al = pd.read_pickle(config.PICKLE + "/" + filename)
     # calculate accuracy_score between Y_train_al and Y_train_real
     amount_of_labels = len(Y_train_al)
@@ -32,7 +33,7 @@ for filename in os.listdir(config.PICKLE):
     combined_score = (2 * percentage_user_asked_queries * accuracy /
                       (percentage_user_asked_queries + accuracy))
 
-    if combined_score > 0.4:
+    if combined_score > 0:
         #  if amount_of_labels > 1000 and accuracy > 0.8:
         # calculate acc per source
         #  for source in Y_train_al.source.unique():
@@ -49,16 +50,16 @@ for filename in os.listdir(config.PICKLE):
         weak_rf = RandomForestClassifier(random_state=config.RANDOM_SEED,
                                          n_jobs=20)
         weak_rf.fit(X_train.iloc[Y_train_al.index], Y_train_al[0])
-        weak_acc = accuracy_score(Y_train, weak_rf.predict(X_train))
+        weak_acc = accuracy_score(Y_test, weak_rf.predict(X_test))
 
         # calculate false baseline, result of random forest only on active
         active_rf = RandomForestClassifier(random_state=config.RANDOM_SEED,
                                            n_jobs=20)
         ys_oracle = Y_train_al.loc[Y_train_al.source == "A"]
         active_rf.fit(X_train.iloc[ys_oracle.index], ys_oracle[0])
-        orac_acc = accuracy_score(Y_train, active_rf.predict(X_train))
+        orac_acc = accuracy_score(Y_test, active_rf.predict(X_test))
 
-        if weak_acc > orac_acc or weak_acc > 0.83:
+        if weak_acc > 0:
             print(filename)
             print("Combined score {:.2f}".format(combined_score))
             print("X Len: {:>4} Acc: {:.2f}".format(amount_of_labels,
