@@ -9,28 +9,24 @@ from sklearn.ensemble import RandomForestClassifier
 
 from tensorflow import keras
 
-config = standard_config([
-    (["--DATASET_NAME"], {
-        "required": True,
-    }),
-    (["--PICKLE"], {
-        "required": True,
-    }),
-])
+config = standard_config(
+    [(["--DATASET_NAME"], {"required": True,}), (["--PICKLE"], {"required": True,}),]
+)
 
-# read in data the same as before (same random inidce)
-X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
-    config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED)
 
-for filename in os.listdir(config.PICKLE):
+def do_it(filename):
     Y_train_al = pd.read_pickle(config.PICKLE + "/" + filename)
     # calculate accuracy_score between Y_train_al and Y_train_real
     amount_of_labels = len(Y_train_al)
     accuracy = accuracy_score(Y_train.iloc[Y_train_al.index], Y_train_al[0])
     percentage_user_asked_queries = amount_of_labels / 2888
 
-    combined_score = (2 * percentage_user_asked_queries * accuracy /
-                      (percentage_user_asked_queries + accuracy))
+    combined_score = (
+        2
+        * percentage_user_asked_queries
+        * accuracy
+        / (percentage_user_asked_queries + accuracy)
+    )
 
     if combined_score > 0.4:
         #  if amount_of_labels > 1000 and accuracy > 0.8:
@@ -46,14 +42,12 @@ for filename in os.listdir(config.PICKLE):
         #  ))
 
         # calculate false baseline, result of random forest on all
-        weak_rf = RandomForestClassifier(random_state=config.RANDOM_SEED,
-                                         n_jobs=20)
+        weak_rf = RandomForestClassifier(random_state=config.RANDOM_SEED, n_jobs=20)
         weak_rf.fit(X_train.iloc[Y_train_al.index], Y_train_al[0])
         weak_acc = accuracy_score(Y_train, weak_rf.predict(X_train))
 
         # calculate false baseline, result of random forest only on active
-        active_rf = RandomForestClassifier(random_state=config.RANDOM_SEED,
-                                           n_jobs=20)
+        active_rf = RandomForestClassifier(random_state=config.RANDOM_SEED, n_jobs=20)
         ys_oracle = Y_train_al.loc[Y_train_al.source == "A"]
         active_rf.fit(X_train.iloc[ys_oracle.index], ys_oracle[0])
         orac_acc = accuracy_score(Y_train, active_rf.predict(X_train))
@@ -61,8 +55,7 @@ for filename in os.listdir(config.PICKLE):
         if weak_acc > orac_acc or weak_acc > 0.83:
             print(filename)
             print("Combined score {:.2f}".format(combined_score))
-            print("X Len: {:>4} Acc: {:.2f}".format(amount_of_labels,
-                                                    accuracy))
+            print("X Len: {:>4} Acc: {:.2f}".format(amount_of_labels, accuracy))
             print("Orac RF {:.2f}".format(orac_acc))
             print("Weak RF {:.2f}".format(weak_acc))
             print("\n")
@@ -102,3 +95,12 @@ for filename in os.listdir(config.PICKLE):
             #  ann_acc = accuracy_score(Y_train, model.predict(X_train))
             #  print("Weak ANN {:.2f}".format(ann_acc))
             #  print("\n")
+
+
+# read in data the same as before (same random inidce)
+X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
+    config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED
+)
+
+for filename in os.listdir(config.PICKLE):
+    do_it(filename)

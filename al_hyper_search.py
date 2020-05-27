@@ -84,8 +84,8 @@ class Estimator(BaseEstimator):
             unique_params = ""
             for k in param_distribution.keys():
                 unique_params += str(vars(self)[k])
-
             param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
+            print("unique2:" + param_list_id)
 
             Y_train_al.to_pickle(
                 "pickles/" + str(len(Y_train_al)) + "_" + param_list_id + ".pickle"
