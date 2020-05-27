@@ -1,3 +1,6 @@
+import numpy as np
+import random
+import sys
 import hashlib
 import copy
 import inspect
@@ -53,6 +56,11 @@ class Estimator(BaseEstimator):
 
     def fit(self, dataset_names, Y_not_used, **kwargs):
         init_logger(standard_config.LOG_FILE)
+        if self.RANDOM_SEED == -2:
+            self.RANDOM_SEED = random.randint(0, 2147483647)
+            np.random.seed(self.RANDOM_SEED)
+            random.seed(self.RANDOM_SEED)
+            print(self.RANDOM_SEED)
         self.scores = []
 
         for dataset_name in dataset_names:
@@ -61,7 +69,7 @@ class Estimator(BaseEstimator):
             #  gc.collect()
 
             X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
-                standard_config.DATASETS_PATH, dataset_name, standard_config.RANDOM_SEED
+                standard_config.DATASETS_PATH, dataset_name, self.RANDOM_SEED
             )
             score, Y_train_al = train_and_eval_dataset(
                 dataset_name,
@@ -76,19 +84,6 @@ class Estimator(BaseEstimator):
 
             self.scores.append(score)
             log_it(dataset_name + " done with " + str(self.scores[-1]))
-
-            Y_train_al.sort_index(inplace=True)
-            #  print(Y_train)
-            #  print(Y_train_al)
-            print("Labeled ", len(Y_train_al))
-            unique_params = ""
-            for k in param_distribution.keys():
-                unique_params += str(vars(self)[k])
-            param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
-
-            Y_train_al.to_pickle(
-                "pickles/" + str(len(Y_train_al)) + "_" + param_list_id + ".pickle"
-            )
             # gc.collect()
 
     def score(self, dataset_names_should_be_none, Y_not_used):

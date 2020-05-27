@@ -44,13 +44,13 @@ def do_it(filename):
         # calculate false baseline, result of random forest on all
         weak_rf = RandomForestClassifier(random_state=config.RANDOM_SEED, n_jobs=20)
         weak_rf.fit(X_train.iloc[Y_train_al.index], Y_train_al[0])
-        weak_acc = accuracy_score(Y_train, weak_rf.predict(X_train))
+        weak_acc = accuracy_score(Y_test, weak_rf.predict(X_test))
 
         # calculate false baseline, result of random forest only on active
         active_rf = RandomForestClassifier(random_state=config.RANDOM_SEED, n_jobs=20)
         ys_oracle = Y_train_al.loc[Y_train_al.source == "A"]
         active_rf.fit(X_train.iloc[ys_oracle.index], ys_oracle[0])
-        orac_acc = accuracy_score(Y_train, active_rf.predict(X_train))
+        orac_acc = accuracy_score(Y_test, active_rf.predict(X_test))
 
         if weak_acc > orac_acc or weak_acc > 0.83:
             print(filename)
