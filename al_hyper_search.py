@@ -85,7 +85,6 @@ class Estimator(BaseEstimator):
             for k in param_distribution.keys():
                 unique_params += str(vars(self)[k])
             param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
-            print("unique2:" + param_list_id)
 
             Y_train_al.to_pickle(
                 "pickles/" + str(len(Y_train_al)) + "_" + param_list_id + ".pickle"
@@ -105,8 +104,8 @@ if standard_config.NR_LEARNING_ITERATIONS == 3:
 else:
     X = [
         "dwtc",
-        #  "dwtc",
-        #  "dwtc",
+        "dwtc",
+        "dwtc",
         #  "ibn_sina",
         #  "hiva",
         #  "orange",
