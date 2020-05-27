@@ -1,5 +1,11 @@
+import random
+import numpy as np
 from active_learning.al_cycle_wrapper import train_and_eval_dataset
-from active_learning.experiment_setup_lib import get_dataset, standard_config
+from active_learning.experiment_setup_lib import (
+    get_dataset,
+    standard_config,
+    init_logger,
+)
 from fake_experiment_oracle import FakeExperimentOracle
 
 config = standard_config(
@@ -56,6 +62,13 @@ config = standard_config(
         (["--USER_QUERY_BUDGET_LIMIT"], {"type": float, "default": 200}),
     ]
 )
+
+init_logger("console")
+
+if config.RANDOM_SEED == -2:
+    config.RANDOM_SEED = random.randint(0, 2147483647)
+    np.random.seed(config.RANDOM_SEED)
+    random.seed(config.RANDOM_SEED)
 
 X_train, X_test, Y_train, Y_test, label_encoder_classes = get_dataset(
     config.DATASETS_PATH, config.DATASET_NAME, config.RANDOM_SEED
