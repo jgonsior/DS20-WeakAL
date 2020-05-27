@@ -58,7 +58,7 @@ for filename in os.listdir(config.PICKLE):
         active_rf.fit(X_train.iloc[ys_oracle.index], ys_oracle[0])
         orac_acc = accuracy_score(Y_train, active_rf.predict(X_train))
 
-        if weak_acc > orac_acc or weak_acc > 0.44:
+        if weak_acc > orac_acc or weak_acc > 0.83:
             print(filename)
             print("Combined score {:.2f}".format(combined_score))
             print("X Len: {:>4} Acc: {:.2f}".format(amount_of_labels,
@@ -67,33 +67,38 @@ for filename in os.listdir(config.PICKLE):
             print("Weak RF {:.2f}".format(weak_acc))
             print("\n")
 
-            # train ann, first with active batches, than with weak batches?
-            model = keras.Sequential([
-                keras.layers.Dense(64,
-                                   activation="relu",
-                                   input_shape=(X_train.shape[-1], )),
-                keras.layers.Dense(64, activation="relu"),
-                keras.layers.Dropout(0.3),
-                keras.layers.Dense(64, activation="relu"),
-                keras.layers.Dropout(0.3),
-                keras.layers.Dense(1, activation="sigmoid"),
-            ])
+            #  # train ann, first with active batches, than with weak batches?
+            #  model = keras.Sequential([
+            #  keras.layers.Dense(64,
+            #  activation="relu",
+            #  input_shape=(X_train.shape[-1], )),
+            #  keras.layers.Dense(64, activation="relu"),
+            #  #  keras.layers.Dropout(0.3),
+            #  keras.layers.Dense(64, activation="relu"),
+            #  #  keras.layers.Dropout(0.3),
+            #  keras.layers.Dense(1, activation="softmax"),
+            #  ])
 
-            print(model.summary())
+            #  print(model.summary())
 
-            metrics = [
-                keras.metrics.Accuracy(name="accuracy"),
-                keras.metrics.Precision(name="precision"),
-                keras.metrics.Recall(name="recall"),
-            ]
+            #  metrics = [
+            #  keras.metrics.BinaryAccuracy(name="acc"),
+            #  keras.metrics.Precision(name="pre"),
+            #  keras.metrics.Recall(name="rec"),
+            #  ]
 
-            model.compile(optimizer=keras.optimizers.Adam(1e-2))
+            #  model.compile(optimizer="rmsprop",
+            #  metrics=metrics,
+            #  loss="categorical_crossentropy")
 
-            model.fit(
-                X_train.iloc[Y_train_al.index],
-                Y_train_al[0],
-                batch_size=128,
-                epochs=50,
-                verbose=3,
-                validation_data=(X_test, Y_test),
-            )
+            #  model.fit(
+            #  X_train.iloc[Y_train_al.index],
+            #  Y_train_al[0],
+            #  batch_size=12,
+            #  epochs=50,
+            #  verbose=2,
+            #  validation_data=(X_test, Y_test),
+            #  )
+            #  ann_acc = accuracy_score(Y_train, model.predict(X_train))
+            #  print("Weak ANN {:.2f}".format(ann_acc))
+            #  print("\n")
