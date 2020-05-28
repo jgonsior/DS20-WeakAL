@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 config = {
     "datasets_path": "../datasets",
-    "db": "blablub",
+    "db": "jg",
     "param_list_id": "best_global_score",
 }
 
