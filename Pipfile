@@ -31,6 +31,7 @@ vega-datasets = "*"
 seaborn = "*"
 keras = "*"
 tensorflow = "*"
+statsmodels = "*"
 
 [requires]
 python_version = "3"
