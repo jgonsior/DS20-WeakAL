@@ -5,7 +5,6 @@ import pickle
 #  SELECT param_list_id, avg(fit_score), stddev(fit_score), avg(global_score), stddev(global_score), avg(start_set_size) as sss, count(*) FROM experimentresult WHERE start_set_size = 1 GROUP BY param_list_id ORDER BY 7 DESC, 4 DESC LIMIT 30;
 from datetime import datetime, timedelta
 
-
 config = {
     "datasets_path": "../datasets",
     "db": "jg",
@@ -17,8 +16,8 @@ db = get_db(db_name_or_type=config["db"])
 results = (
     ExperimentResult.select(ExperimentResult.param_list_id,)
     .where(
-        # (ExperimentResult.amount_of_user_asked_queries < 211)
-        (ExperimentResult.dataset_name == "dwtc")
+        (ExperimentResult.amount_of_user_asked_queries > 211)
+        & (ExperimentResult.dataset_name == "dwtc")
         # & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0)))
         # & (ExperimentResult.experiment_run_date > (datetime(2020, 5, 8, 9, 20)))
         # & (ExperimentResult.with_cluster_recommendation == True)
@@ -95,5 +94,5 @@ for result in results:
     table.append(data)
     id += 1
 
-with open("200er_results.pickle", "wb") as f:
+with open("1000er_results.pickle", "wb") as f:
     pickle.dump(table, f, protocol=pickle.HIGHEST_PROTOCOL)
