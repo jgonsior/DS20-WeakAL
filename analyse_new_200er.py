@@ -83,11 +83,11 @@ highest_sel2 = 0
 
 #  zuerst untersuchung auf einzelnen parametern, danach die besten kombinationen kombinieren
 
-param = "uncertainty_recommendation_ratio"
-param = "cluster_recommendation_ratio_labeled_unlabeled"
-param = "cluster_recommendation_minimum_cluster_unity_size"
-param = "with_uncertainty_recommendation"
-param = "with_cluster_recommendation"
+#  param = "uncertainty_recommendation_ratio"
+#  param = "cluster_recommendation_ratio_labeled_unlabeled"
+#  param = "cluster_recommendation_minimum_cluster_unity_size"
+#  param = "with_uncertainty_recommendation"
+#  param = "with_cluster_recommendation"
 param = "uncertainty_recommendation_certainty_threshold"
 
 l = param_dist[param.upper()]
@@ -116,17 +116,17 @@ for index, lower_bound in enumerate(l):
             highest_sel2 = sel2
 
 
-compare_two_distributions(
-    df,
-    highest_sel1,
-    highest_sel2,
-    #  df.loc[df["interesting?"] == True]["acc_test"],
-    #  df.loc[df["interesting?"] == False]["acc_test"],
-    "Weak",
-    "No Weak",
-    axvline=True,
-    #  cumulative=True,
-    #  display=False,
-)
-
+#  compare_two_distributions(
+#  df,
+#  highest_sel1,
+#  highest_sel2,
+#  #  df.loc[df["interesting?"] == True]["acc_test"],
+#  #  df.loc[df["interesting?"] == False]["acc_test"],
+#  "Weak",
+#  "No Weak",
+#  axvline=True,
+#  #  cumulative=True,
+#  #  display=False,
+#  )
+print(df["amount_of_user_asked_queries"])
 # display(HTML(tabulate(table, headers="keys", tablefmt="html")))
