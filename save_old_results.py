@@ -143,15 +143,27 @@ results = (
         # no stopping criterias
     )
     #  .order_by(ExperimentResult.acc_test.desc())
-    .limit(10)
+    #  .limit(10)
 )
 
 table = []
 id = 0
 for result in results:
+
+    # die 214? muss weg
+
     data = {**vars(result)["__data__"]}
-    data["amount_of_all_labels"] = 200
-    data["acc_test_oracle"] = data["acc_test"]
+    data["metrics_per_al_cycle"] = json.loads(data["metrics_per_al_cycle"])
+
+    if (
+        "U" in data["metrics_per_al_cycle"]["recommendation"]
+        or "C" in data["metrics_per_al_cycle"]["recommendation"]
+    ):
+        weak_used = True
+    else:
+        weak_used = False
+    data["amount_of_all_labels"] = data["amount_of_user_asked_queries"]
+    data["acc_test_oracle"] = data["acc_test"] - 111
 
     data["weak?"] = operator.and_(
         operator.and_(
@@ -159,7 +171,7 @@ for result in results:
                 data["with_uncertainty_recommendation"],
                 data["with_cluster_recommendation"],
             ),
-            data["amount_of_all_labels"] > 214,
+            weak_used,
         ),
         data["acc_test"] > data["acc_test_oracle"],
     )
@@ -169,14 +181,14 @@ for result in results:
         operator.or_(
             data["with_uncertainty_recommendation"], data["with_cluster_recommendation"]
         ),
-        data["amount_of_all_labels"] > 214,
+        weak_used,
     )
     data["interesting?"] = operator.and_(
         data["true_weak?"], data["acc_test_all_better?"]
     )
+
     table.append(data)
     id += 1
 
 with open("old_results.pickle", "wb") as f:
     pickle.dump(table, f, protocol=pickle.HIGHEST_PROTOCOL)
-print(table)

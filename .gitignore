@@ -176,3 +176,4 @@ log.txt
 node_modules/
 
 pickles/
+old_results.pickle
