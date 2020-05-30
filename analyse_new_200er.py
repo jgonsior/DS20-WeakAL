@@ -30,7 +30,7 @@ param_dist = {
         "random",
         "MostUncertain_lc",
         "MostUncertain_max_margin",
-        "MostUncertain_entropy" "dummy",
+        "MostUncertain_entropy",
     ],
     #  "NR_LEARNING_ITERATIONS": [NR_LEARNING_ITERATIONS],
     #  "NR_LEARNING_ITERATIONS": [1],
@@ -72,23 +72,34 @@ param_dist = {
 # ---> Untersuchung, dass ich die Parameter für die Trennung der beiden Bereiche so lange ausprobiere, bis ich den perfekten Wertebereich der Parameter gefunden habe
 # -> early Ergebnis an Maik senden
 
+file = "200er_results.pickle"
+file = "1000er_results.pickle"
+file = "2000er_results.pickle"
+#  file = "old_results.pickle"
 
-#  with open("200er_results.pickle", "rb") as f:
-#  with open("1000er_results.pickle", "rb") as f:
-with open("old_results.pickle", "rb") as f:
+if file != "old_results.pickle":
+    param_dist["UNCERTAINTY_RECOMMENDATION_CERTAINTY_THRESHOLD"] = np.linspace(
+        0.85, 1, num=15 + 1
+    )
+
+with open(file, "rb") as f:
+    #  with open("1000er_results.pickle", "rb") as f:
+    #  with open("old_results.pickle", "rb") as f:
     table = pickle.load(f)
 
 df = pd.DataFrame(table)
-df = df.loc[
-    #  df.amount_of_user_asked_queries
-    #  > 2000
-    (df.amount_of_user_asked_queries > 900)
-    & (df.amount_of_user_asked_queries < 1100)
-]
+
+if file == "old_results.pickle":
+    df = df.loc[
+        df.amount_of_user_asked_queries
+        == 204
+        #  (df.amount_of_user_asked_queries > 900)
+        #  & (df.amount_of_user_asked_queries < 1100)
+    ]
 
 
 def compare_two_distributions(
-    df,
+    non_weak,
     selection1,
     selection2,
     label1,
@@ -135,6 +146,13 @@ def compare_two_distributions(
     if axvline:
         ax2.axvline(selection2.mean(), color="blue")
     ax2.set_title(title)
+
+    ax3 = sns.kdeplot(non_weak, label="Non weak", color="grey", **kwargs)
+    ax3.set_xlim(0.5, 0.9)
+
+    if axvline:
+        ax3.axvline(non_weak.mean(), color="grey")
+
     plt.tight_layout()
     if save:
         plt.savefig("plots/" + title.replace("\n", "_").replace(" ", "") + ".pdf")
@@ -150,83 +168,79 @@ def calculate_difference(sel1, sel2):
     return sel1.mean() - sel2.mean()
 
 
-def powerset(iterable):
+def powerset(s):
     "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-    s = list(iterable)
+    #  s = list(iterable)
     return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
 
 
 def find_best_distribution(param, save=False, one_vs_rest_params=False):
-    highest_diff = 0
+    highest_diff = -10000
     highest_sel1 = pd.Series([0])
     highest_sel2 = pd.Series([0])
+    highest_s1 = highest_s2 = ""
     title = ""
 
-    l = param_dist[param.upper()]
+    l = set(param_dist[param.upper()])
 
     subsets = []
     if one_vs_rest_params:
-        subsets = set(powerset(l))
-        subsets.remove(())
+        for s in set(powerset(l)):
+            if s == ():
+                continue
+            s = set(s)
+            subsets.append((s, l.difference(s)))
         #  subsets.remove(set(l))
     elif df[param].dtypes == bool:
-        subsets = [[True]]
+        subsets.append(([True], [False]))
     else:
-        for lower_bound in l[1:]:
-            for upper_bound in l[:-1]:
+        for lower_bound in l:
+            for upper_bound in l:
                 if upper_bound <= lower_bound:
                     continue
-                subset = set()
+                sel1 = set()
+                sel2 = set()
                 for i in l:
                     if lower_bound <= i and i <= upper_bound:
-                        subset.add(i)
-                subsets.append(subset)
+                        sel1.add(i)
+                    else:
+                        sel2.add(i)
+                if len(sel1) == 0 or len(sel2) == 0:
+                    continue
+                subsets.append((sel1, sel2))
 
-    for subset in subsets:
-        sel1 = sel2 = True
-        for element in subset:
-            sel1 &= df[param] == element
-            sel2 &= df[param] != element
-        sel1 = df.loc[sel1]["acc_test"]
-        sel2 = df.loc[sel2]["acc_test"]
-
-        #  sel1 = df.loc[(df[param] >= lower_bound) & (df[param] <= upper_bound)][
-        #  "acc_test"
-        #  ]
-        #  sel2 = df.loc[(df[param] < lower_bound) | (df[param] > upper_bound)]["acc_test"]
-
+    for s1, s2 in subsets:
+        sel1 = df.loc[df[param].isin(s1) & df["true_weak?"] == True]["acc_test"]
+        sel2 = df.loc[~(df[param].isin(s1) & df["true_weak?"] == True)]["acc_test"]
         diff = calculate_difference(sel1, sel2)
         if diff > highest_diff:
-            print(str(subset), "\t\t\t", diff)
-            title = param + " kde density plot\nSelection: {} \n Mean Diff: {}".format(
-                str(subset), diff
+            print(str(s1), "\t\t\t", diff)
+            title = " kde density plot\nSelection: {} \n Mean Diff: {}".format(
+                str(s1), diff
             )
             highest_diff = diff
             highest_sel1 = sel1
             highest_sel2 = sel2
+            if type(next(iter(s1))) == np.float64:
+                s1 = "{}-{}".format(min(s1), max(s1))
+                s2 = "Rest"
+            highest_s1 = str(s1)
+            highest_s2 = str(s2)
 
     if save:
         compare_two_distributions(
-            df,
+            df.loc[df["true_weak?"] == True]["acc_test"],
             highest_sel1,
             highest_sel2,
-            #  df.loc[df["interesting?"] == True]["acc_test"],
-            #  df.loc[df["interesting?"] == False]["acc_test"],
-            "Param Selection: " + str(len(highest_sel1)),
-            "Everything else: " + str(len(highest_sel2)),
+            highest_s1 + ": " + str(len(highest_sel1)),
+            highest_s2 + ": " + str(len(highest_sel2)),
             axvline=True,
-            title=title,
+            title="{}".format(highest_diff) + param,
             save="True",
         )
     return highest_diff, highest_sel1, highest_sel2, title
 
 
-#  param = "uncertainty_recommendation_ratio"
-#  param = "cluster_recommendation_ratio_labeled_unlabeled"
-#  param = "cluster_recommendation_minimum_cluster_unity_size"
-#  param = "with_uncertainty_recommendation"
-#  param = "with_cluster_recommendation"
-#  param = "uncertainty_recommendation_certainty_threshold"
 range_params = [
     "uncertainty_recommendation_ratio",
     "cluster_recommendation_ratio_labeled_unlabeled",
@@ -238,9 +252,6 @@ range_params = [
 
 one_vs_rest_params = [
     "cluster",
-    #  "interesting?",
-    #  "true_weak?",
-    #  "acc_test_all_better?",
     "sampling",
 ]
 for param in one_vs_rest_params:
