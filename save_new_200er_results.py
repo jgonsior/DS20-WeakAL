@@ -14,9 +14,8 @@ config = {
 db = get_db(db_name_or_type=config["db"])
 
 results = (
-    ExperimentResult.select(ExperimentResult.param_list_id,)
-    .where(
-        (ExperimentResult.amount_of_user_asked_queries > 211)
+    ExperimentResult.select(ExperimentResult.param_list_id, ).where(
+        (ExperimentResult.amount_of_user_asked_queries > 1111)
         & (ExperimentResult.dataset_name == "dwtc")
         # & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0)))
         # & (ExperimentResult.experiment_run_date > (datetime(2020, 5, 8, 9, 20)))
@@ -24,10 +23,7 @@ results = (
         # & (ExperimentResult.with_uncertainty_recommendation == True)
         # & (peewee.fn.COUNT(ExperimentResult.id_field) == 3)
         # no stopping criterias
-    )
-    .order_by(ExperimentResult.acc_test.desc())
-    .limit(1000000)
-)
+    ).order_by(ExperimentResult.acc_test.desc()).limit(1000000))
 
 table = []
 id = 0
@@ -61,9 +57,8 @@ for result in results:
             ExperimentResult.cluster_recommendation_ratio_labeled_unlabeled,
             ExperimentResult.allow_recommendations_after_stop,
             ExperimentResult.experiment_run_date,
-        )
-        .where(ExperimentResult.param_list_id == data["param_list_id"])
-        .limit(1)
+        ).where(
+            ExperimentResult.param_list_id == data["param_list_id"]).limit(1)
     )[0]
     data["weak?"] = operator.and_(
         operator.and_(
@@ -73,12 +68,12 @@ for result in results:
             ),
             one_param_list_id_result.amount_of_all_labels > 214,
         ),
-        one_param_list_id_result.acc_test > one_param_list_id_result.acc_test_oracle,
+        one_param_list_id_result.acc_test >
+        one_param_list_id_result.acc_test_oracle,
     )
 
-    data["acc_test_all_better?"] = (
-        one_param_list_id_result.acc_test > one_param_list_id_result.acc_test_oracle
-    )
+    data["acc_test_all_better?"] = (one_param_list_id_result.acc_test >
+                                    one_param_list_id_result.acc_test_oracle)
     data["true_weak?"] = operator.and_(
         operator.or_(
             one_param_list_id_result.with_uncertainty_recommendation,
@@ -86,9 +81,8 @@ for result in results:
         ),
         one_param_list_id_result.amount_of_all_labels > 214,
     )
-    data["interesting?"] = operator.and_(
-        data["true_weak?"], data["acc_test_all_better?"]
-    )
+    data["interesting?"] = operator.and_(data["true_weak?"],
+                                         data["acc_test_all_better?"])
     data = {**data, **vars(one_param_list_id_result)["__data__"]}
 
     table.append(data)
