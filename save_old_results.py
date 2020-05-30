@@ -18,7 +18,7 @@ class BaseModel(peewee.Model):
 
 class ExperimentResult(BaseModel):
     class Meta:
-        table_name = "experimentresult_paper_200_no_ground"
+        table_name = "experimentresult_paper_old"
 
     id_field = peewee.AutoField()
 
@@ -186,8 +186,10 @@ for result in results:
     data["interesting?"] = operator.and_(
         data["true_weak?"], data["acc_test_all_better?"]
     )
-
+    del data["metrics_per_al_cycle"]
     table.append(data)
+    if id % 1000 == 0:
+        print(id)
     id += 1
 
 with open("old_results.pickle", "wb") as f:
