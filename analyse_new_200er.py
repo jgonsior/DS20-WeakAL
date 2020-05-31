@@ -63,6 +63,8 @@ param_dist = {
     "MINIMUM_TEST_ACCURACY_BEFORE_RECOMMENDATIONS": half_to_one,
     #  "DB_NAME_OR_TYPE": [DB_NAME_OR_TYPE],
     "USER_QUERY_BUDGET_LIMIT": [2000],
+    "INTERESTING?": [True, False],
+    "TRUE_WEAK?": [True, False],
 }
 
 # code refactoren und eine funktion drauß machen
@@ -73,8 +75,8 @@ param_dist = {
 # -> early Ergebnis an Maik senden
 
 file = "200er_results.pickle"
-file = "1000er_results.pickle"
-file = "2000er_results.pickle"
+#  file = "1000er_results.pickle"
+#  file = "2000er_results.pickle"
 #  file = "old_results.pickle"
 
 if file != "old_results.pickle":
@@ -147,7 +149,9 @@ def compare_two_distributions(
         ax2.axvline(selection2.mean(), color="blue")
     ax2.set_title(title)
 
-    ax3 = sns.kdeplot(non_weak, label="Non weak", color="grey", **kwargs)
+    ax3 = sns.kdeplot(
+        non_weak, label="Non weak: " + str(len(non_weak)), color="grey", **kwargs
+    )
     ax3.set_xlim(0.5, 0.9)
 
     if axvline:
@@ -178,7 +182,7 @@ def find_best_distribution(param, save=False, one_vs_rest_params=False):
     highest_diff = -10000
     highest_sel1 = pd.Series([0])
     highest_sel2 = pd.Series([0])
-    highest_s1 = highest_s2 = ""
+    highest_s = ""
     title = ""
 
     l = set(param_dist[param.upper()])
@@ -186,56 +190,54 @@ def find_best_distribution(param, save=False, one_vs_rest_params=False):
     subsets = []
     if one_vs_rest_params:
         for s in set(powerset(l)):
-            if s == ():
+            if s == () or s == l:
                 continue
             s = set(s)
-            subsets.append((s, l.difference(s)))
+            subsets.append(s)
         #  subsets.remove(set(l))
-    elif df[param].dtypes == bool:
+    elif df[param].dtypes == bool or param == "interesting?" or param == "true_weak?":
         subsets.append(([True], [False]))
     else:
         for lower_bound in l:
             for upper_bound in l:
                 if upper_bound <= lower_bound:
                     continue
-                sel1 = set()
-                sel2 = set()
+                sel = set()
                 for i in l:
                     if lower_bound <= i and i <= upper_bound:
-                        sel1.add(i)
-                    else:
-                        sel2.add(i)
-                if len(sel1) == 0 or len(sel2) == 0:
+                        sel.add(i)
+                if len(sel) == 0 or sel == l:
                     continue
-                subsets.append((sel1, sel2))
+                subsets.append(sel)
 
-    for s1, s2 in subsets:
-        sel1 = df.loc[df[param].isin(s1) & df["true_weak?"] == True]["acc_test"]
-        sel2 = df.loc[~(df[param].isin(s1) & df["true_weak?"] == True)]["acc_test"]
+    for s in subsets:
+        sel1 = df.loc[df[param].isin(s) & df["true_weak?"] == True]["acc_test"]
+        sel2 = df.loc[~(df[param].isin(s)) & df["true_weak?"] == True]["acc_test"]
+
         diff = calculate_difference(sel1, sel2)
+
         if diff > highest_diff:
-            print(str(s1), "\t\t\t", diff)
+            print(str(s), "\t\t\t", diff)
             title = " kde density plot\nSelection: {} \n Mean Diff: {}".format(
-                str(s1), diff
+                str(s), diff
             )
             highest_diff = diff
             highest_sel1 = sel1
             highest_sel2 = sel2
-            if type(next(iter(s1))) == np.float64:
-                s1 = "{}-{}".format(min(s1), max(s1))
+            if type(next(iter(s))) == np.float64:
+                s = "{}-{}".format(min(s), max(s))
                 s2 = "Rest"
-            highest_s1 = str(s1)
-            highest_s2 = str(s2)
+            highest_s = str(s)
 
     if save:
         compare_two_distributions(
             df.loc[df["true_weak?"] == True]["acc_test"],
             highest_sel1,
             highest_sel2,
-            highest_s1 + ": " + str(len(highest_sel1)),
-            highest_s2 + ": " + str(len(highest_sel2)),
+            highest_s + ": " + str(len(highest_sel1)),
+            "Rest: " + str(len(highest_sel2)),
             axvline=True,
-            title="{}".format(highest_diff) + param,
+            title="{:.4%}".format(highest_diff) + "\n" + param,
             save="True",
         )
     return highest_diff, highest_sel1, highest_sel2, title
@@ -253,6 +255,8 @@ range_params = [
 one_vs_rest_params = [
     "cluster",
     "sampling",
+    "interesting?",
+    "true_weak?",
 ]
 for param in one_vs_rest_params:
     find_best_distribution(param, True, True)
