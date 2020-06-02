@@ -18,9 +18,9 @@ results = (
     .where(
         #  (ExperimentResult.amount_of_user_asked_queries > 511)
         #  & (ExperimentResult.amount_of_user_asked_queries < 1111)
-        (ExperimentResult.amount_of_user_asked_queries > 1111)
+        (ExperimentResult.amount_of_user_asked_queries < 216)
         & (ExperimentResult.dataset_name == "dwtc")
-        # & (ExperimentResult.experiment_run_date > (datetime(2020, 3, 24, 14, 0)))
+        & (ExperimentResult.experiment_run_date > (datetime(2020, 5, 29, 14, 0)))
         # & (ExperimentResult.experiment_run_date > (datetime(2020, 5, 8, 9, 20)))
         # & (ExperimentResult.with_cluster_recommendation == True)
         # & (ExperimentResult.with_uncertainty_recommendation == True)
@@ -97,5 +97,5 @@ for result in results:
     id += 1
 
 #  with open("new_results.pickle", "wb") as f:
-with open("2000er_results.pickle", "wb") as f:
+with open("200er_full_results.pickle", "wb") as f:
     pickle.dump(table, f, protocol=pickle.HIGHEST_PROTOCOL)
