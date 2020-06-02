@@ -6,6 +6,8 @@ import pandas as pd
 import seaborn as sns, numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
+from sklearn.base import BaseEstimator
+from sklearn.model_selection import RandomizedSearchCV, ShuffleSplit
 
 param_size = 50
 #  param_size = 2
@@ -197,68 +199,48 @@ def find_best_distribution(param, save=False, one_vs_rest_params=False):
     return highest_diff, highest_sel1, highest_sel2, title
 
 
-def hyper_test_params(param):
-    l = set(param_dist[param.upper()])
+# ich habe jetzt DIE eine insgesamt beste Parameterkombination -> der nächste Schritt sind ranges, und danach subsets um mehrere Mengen von guten Kombis zu finden
+def recursive_hyper_search(param_list, sel, baseline, df, sel_dict):
+    if len(param_list) == 0 or len(df.loc[sel]) == 0:
+        selection = df.loc[sel]["acc_test"]
+        #  print(selection)
+        #  print(baseline)
+        score = calculate_difference(selection, baseline)
+        #  print(sel_dict, score)
+        return score, sel_dict, len(selection)
+    max_score = np.float("-inf")
+    max_sel = None
+    max_len = None
+    for value in set(param_dist[param_list[0].upper()]):
 
-    subsets = []
-    if one_vs_rest_params:
-        for s in l:
-            subsets.append([s])
-    elif df[param].dtypes == bool or param == "interesting?" or param == "true_weak?":
-        subsets.append(([True], [False]))
-    else:
-        for lower_bound in l:
-            for upper_bound in l:
-                if upper_bound <= lower_bound:
-                    continue
-                sel = set()
-                for i in l:
-                    if lower_bound <= i and i <= upper_bound:
-                        sel.add(i)
-                if len(sel) == 0 or sel == l:
-                    continue
-                subsets.append(sel)
-    highest_diff = -10000
-    highest_sel1 = pd.Series([0])
-    highest_sel2 = pd.Series([0])
-    highest_s = ""
-    title = ""
-    selections = []
-
-    sel2 = df.loc[df["true_weak?"] == False]["acc_test"]
-    selections.append((sel2, "No Weak: " + str(len(sel2))))
-    for s in subsets:
-        sel1 = df.loc[df[param].isin(s) & df["true_weak?"] == True]["acc_test"]
-
-        diff = calculate_difference(sel1, sel2)
-
-        if one_vs_rest_params:
-            selections.append((sel1, str(s) + ": " + str(len(sel1))))
-
-        if diff > highest_diff:
-            print(str(s), "\t\t\t", diff)
-            title = " kde density plot\nSelection: {} \n Mean Diff: {}".format(
-                str(s), diff
-            )
-            highest_diff = diff
-            highest_sel1 = sel1
-            highest_sel2 = sel2
-            if type(next(iter(s))) == np.float64:
-                s = "{}-{}".format(min(s), max(s))
-                s2 = "Rest"
-            highest_s = str(s)
-
-    if not one_vs_rest_params:
-        selections.append((highest_sel1, highest_s + ": " + str(len(highest_sel1))))
-
-    if save:
-        compare_two_distributions(
-            selections,
-            axvline=True,
-            title="{:.2%}".format(highest_diff) + "\n" + param + "\n" + highest_s,
-            save="True",
+        #  print("{}: {}".format(param_list[0], value))
+        sel_new = sel & (df[param_list[0]] == value)
+        #  print(sel)
+        sel_dict[param_list[0]] = value
+        score, best_sel, length = recursive_hyper_search(
+            param_list[1:], sel_new, baseline, df, sel_dict
         )
-    return highest_diff, highest_sel1, highest_sel2, title
+        if score > max_score:
+            #  print(score)
+            #  print(sel_dict)
+            max_score = score
+            max_sel = sel_dict.copy()
+            max_len = length
+    return max_score, max_sel, max_len
+
+
+#  -> für alle cluster der Reihe nach die besten Kombis der Parameter durchsuchen (tiefensuche), aber early pruning wenn die selection weniger als 10 Elemente enthält?
+#  -> ist es ein Unterschied ob ich zuerst nach sampling, und dann nach uncertainty_recommendation_certainty_threshold prune, oder anders herum? Wenn ja -> beides probieren…
+#  ---> Gleichzeitig nach ganzer parameterkombinationen einschränken, also nicht verschachtelte Forschleifen und early pruning? gucken ob das Sinn macht, oder ob die ranges dann doch mit early pruning sortiert werden sollten (also zuerst mit maximalst größer range anfangen, dann immer kleiner werden und gucken ob es noch elemente gibt, wenn ni frühzeitig abbrechen)
+#  ---> kann ich davon ausgehen, dass wenn Einschränkung auf kleineren Suchraum KEINE Verbesserung bringt, ich alle subranges davon bleiben lassen kann???? wenn ja, damit early pruning betreiben!
+# ja, kann ich :)
+def find_multiple_hyper_param_combinations(params):
+    baseline = df.loc[df["true_weak?"] == False]["acc_test"]
+
+    sel = df["true_weak?"] == True
+    print(recursive_hyper_search(params, sel, baseline, df, {}))
+    # generate search grid
+    #  print("{}-{}: {:.2%}".format(current_param, value, diff))
 
 
 range_params = [
@@ -278,32 +260,30 @@ one_vs_rest_params = [
 ]
 
 
-hyper_test_params = {
-    "cluster": [
-        "cluster_recommendation_ratio_labeled_unlabeled",
-        "cluster_recommendation_minimum_cluster_unity_size",
-        #  "uncertainty_recommendation_ratio",
-        "uncertainty_recommendation_certainty_threshold",
-        "sampling",
-        #  -> für alle cluster der Reihe nach die besten Kombis der Parameter durchsuchen (tiefensuche), aber early pruning wenn die selection weniger als 10 Elemente enthält?
-        #  -> ist es ein Unterschied ob ich zuerst nach sampling, und dann nach uncertainty_recommendation_certainty_threshold prune, oder anders herum? Wenn ja -> beides probieren…
-        #  ---> Gleichzeitig nach ganzer parameterkombinationen einschränken, also nicht verschachtelte Forschleifen und early pruning? gucken ob das Sinn macht, oder ob die ranges dann doch mit early pruning sortiert werden sollten (also zuerst mit maximalst größer range anfangen, dann immer kleiner werden und gucken ob es noch elemente gibt, wenn ni frühzeitig abbrechen)
-        #  ---> kann ich davon ausgehen, dass wenn Einschränkung auf kleineren Suchraum KEINE Verbesserung bringt, ich alle subranges davon bleiben lassen kann???? wenn ja, damit early pruning betreiben!
-    ],
-    "sampling": [
+hyper_test_params = [
+    [
         "cluster",
-        #  "uncertainty_recommendation_ratio",
-        "cluster_recommendation_ratio_labeled_unlabeled",
-        "cluster_recommendation_minimum_cluster_unity_size",
+        "sampling",
         "uncertainty_recommendation_certainty_threshold",
+        "cluster_recommendation_ratio_labeled_unlabeled",
+        #  "cluster_recommendation_minimum_cluster_unity_size",
+        #  "uncertainty_recommendation_ratio",
     ],
-}
+    #  [
+    #      "sampling",
+    #      "cluster",
+    #      "uncertainty_recommendation_ratio",
+    #      "cluster_recommendation_ratio_labeled_unlabeled",
+    #      "cluster_recommendation_minimum_cluster_unity_size",
+    #      "uncertainty_recommendation_certainty_threshold",
+    #  ],
+]
 
-#  for param in hyper_test_params:
-#  hyper_test_params(param)
+for params in hyper_test_params:
+    find_multiple_hyper_param_combinations(params)
 
-for param in one_vs_rest_params:
-    find_best_distribution(param, True, True)
-
-for param in range_params:
-    find_best_distribution(param, True)
+#  for param in one_vs_rest_params:
+#      find_best_distribution(param, True, True)
+#
+#  for param in range_params:
+#      find_best_distribution(param, True)
