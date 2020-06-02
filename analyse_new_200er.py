@@ -77,7 +77,8 @@ param_dist = {
 #  file = "200er_results.pickle"
 #  file = "1000er_results.pickle"
 #  file = "2000er_results.pickle"
-file = "old_results.pickle"
+#  file = "old_results.pickle"
+file = "200er_full_results.pickle"
 
 if file != "old_results.pickle":
     param_dist["UNCERTAINTY_RECOMMENDATION_CERTAINTY_THRESHOLD"] = np.linspace(
@@ -106,8 +107,8 @@ def compare_two_distributions(
     for selection, label in selection_list:
         ax = sns.kdeplot(selection, label=label, **kwargs)
 
-        #  ax.set_xlim(0.7, 0.875)
-        ax.set_xlim(0.8, 0.875)
+        ax.set_xlim(0.5, 0.875)
+        #  ax.set_xlim(0.8, 0.875)
         if axvline:
             ax.axvline(selection.mean(), color=plt.gca().lines[-1].get_color())
     ax.set_title(title)
@@ -298,11 +299,11 @@ hyper_test_params = {
     ],
 }
 
-for param in hyper_test_params:
-    hyper_test_params(param)
+#  for param in hyper_test_params:
+#  hyper_test_params(param)
 
-#  for param in one_vs_rest_params:
-#  find_best_distribution(param, True, True)
+for param in one_vs_rest_params:
+    find_best_distribution(param, True, True)
 
-#  for param in range_params:
-#  find_best_distribution(param, True)
+for param in range_params:
+    find_best_distribution(param, True)
