@@ -74,10 +74,10 @@ param_dist = {
 # ---> Untersuchung, dass ich die Parameter für die Trennung der beiden Bereiche so lange ausprobiere, bis ich den perfekten Wertebereich der Parameter gefunden habe
 # -> early Ergebnis an Maik senden
 
-file = "200er_results.pickle"
+#  file = "200er_results.pickle"
 #  file = "1000er_results.pickle"
 #  file = "2000er_results.pickle"
-#  file = "old_results.pickle"
+file = "old_results.pickle"
 
 if file != "old_results.pickle":
     param_dist["UNCERTAINTY_RECOMMENDATION_CERTAINTY_THRESHOLD"] = np.linspace(
@@ -93,70 +93,24 @@ df = pd.DataFrame(table)
 
 if file == "old_results.pickle":
     df = df.loc[
-        df.amount_of_user_asked_queries
-        == 204
-        #  (df.amount_of_user_asked_queries > 900)
+        #  df.amount_of_user_asked_queries
+        #  == 204
+        (df.amount_of_user_asked_queries > 1999)
         #  & (df.amount_of_user_asked_queries < 1100)
     ]
 
 
 def compare_two_distributions(
-    non_weak,
-    selection1,
-    selection2,
-    label1,
-    label2,
-    axvline=False,
-    save=False,
-    title="",
-    **kwargs,
+    selection_list, axvline=False, save=False, title="", **kwargs,
 ):
-    print("\t #Label  Mean \t\t\t Median")
-    print(
-        label1 + ": \t",
-        len(selection1),
-        "\t",
-        selection1.mean(),
-        "\t",
-        selection1.median(),
-    )
-    print(
-        label2 + ":",
-        len(selection2),
-        "\t",
-        selection2.mean(),
-        "\t",
-        selection2.median(),
-    )
-    print(
-        "Differenz\t",
-        selection1.mean() - selection2.mean(),
-        "\t",
-        selection1.median() - selection2.median(),
-    )
-    ax1 = sns.kdeplot(selection1, label=label1, color="orange", **kwargs)
+    for selection, label in selection_list:
+        ax = sns.kdeplot(selection, label=label, **kwargs)
 
-    ax1.set_xlim(0.5, 0.9)
-    if axvline:
-        ax1.axvline(selection1.mean(), color="orange")
-    # plt.show()
-    # plt.clf()
-
-    ax2 = sns.kdeplot(selection2, label=label2, color="blue", **kwargs)
-    ax2.set_xlim(0.5, 0.9)
-
-    if axvline:
-        ax2.axvline(selection2.mean(), color="blue")
-    ax2.set_title(title)
-
-    ax3 = sns.kdeplot(
-        non_weak, label="Non weak: " + str(len(non_weak)), color="grey", **kwargs
-    )
-    ax3.set_xlim(0.5, 0.9)
-
-    if axvline:
-        ax3.axvline(non_weak.mean(), color="grey")
-
+        #  ax.set_xlim(0.7, 0.875)
+        ax.set_xlim(0.8, 0.875)
+        if axvline:
+            ax.axvline(selection.mean(), color=plt.gca().lines[-1].get_color())
+    ax.set_title(title)
     plt.tight_layout()
     if save:
         plt.savefig("plots/" + title.replace("\n", "_").replace(" ", "") + ".pdf")
@@ -179,22 +133,12 @@ def powerset(s):
 
 
 def find_best_distribution(param, save=False, one_vs_rest_params=False):
-    highest_diff = -10000
-    highest_sel1 = pd.Series([0])
-    highest_sel2 = pd.Series([0])
-    highest_s = ""
-    title = ""
-
     l = set(param_dist[param.upper()])
 
     subsets = []
     if one_vs_rest_params:
-        for s in set(powerset(l)):
-            if s == () or s == l:
-                continue
-            s = set(s)
-            subsets.append(s)
-        #  subsets.remove(set(l))
+        for s in l:
+            subsets.append([s])
     elif df[param].dtypes == bool or param == "interesting?" or param == "true_weak?":
         subsets.append(([True], [False]))
     else:
@@ -209,12 +153,22 @@ def find_best_distribution(param, save=False, one_vs_rest_params=False):
                 if len(sel) == 0 or sel == l:
                     continue
                 subsets.append(sel)
+    highest_diff = -10000
+    highest_sel1 = pd.Series([0])
+    highest_sel2 = pd.Series([0])
+    highest_s = ""
+    title = ""
+    selections = []
 
+    sel2 = df.loc[df["true_weak?"] == False]["acc_test"]
+    selections.append((sel2, "No Weak: " + str(len(sel2))))
     for s in subsets:
         sel1 = df.loc[df[param].isin(s) & df["true_weak?"] == True]["acc_test"]
-        sel2 = df.loc[~(df[param].isin(s)) & df["true_weak?"] == True]["acc_test"]
 
         diff = calculate_difference(sel1, sel2)
+
+        if one_vs_rest_params:
+            selections.append((sel1, str(s) + ": " + str(len(sel1))))
 
         if diff > highest_diff:
             print(str(s), "\t\t\t", diff)
@@ -229,15 +183,78 @@ def find_best_distribution(param, save=False, one_vs_rest_params=False):
                 s2 = "Rest"
             highest_s = str(s)
 
+    if not one_vs_rest_params:
+        selections.append((highest_sel1, highest_s + ": " + str(len(highest_sel1))))
+
     if save:
         compare_two_distributions(
-            df.loc[df["true_weak?"] == True]["acc_test"],
-            highest_sel1,
-            highest_sel2,
-            highest_s + ": " + str(len(highest_sel1)),
-            "Rest: " + str(len(highest_sel2)),
+            selections,
             axvline=True,
-            title="{:.4%}".format(highest_diff) + "\n" + param,
+            title="{:.2%}".format(highest_diff) + "\n" + param + "\n" + highest_s,
+            save="True",
+        )
+    return highest_diff, highest_sel1, highest_sel2, title
+
+
+def hyper_test_params(param):
+    l = set(param_dist[param.upper()])
+
+    subsets = []
+    if one_vs_rest_params:
+        for s in l:
+            subsets.append([s])
+    elif df[param].dtypes == bool or param == "interesting?" or param == "true_weak?":
+        subsets.append(([True], [False]))
+    else:
+        for lower_bound in l:
+            for upper_bound in l:
+                if upper_bound <= lower_bound:
+                    continue
+                sel = set()
+                for i in l:
+                    if lower_bound <= i and i <= upper_bound:
+                        sel.add(i)
+                if len(sel) == 0 or sel == l:
+                    continue
+                subsets.append(sel)
+    highest_diff = -10000
+    highest_sel1 = pd.Series([0])
+    highest_sel2 = pd.Series([0])
+    highest_s = ""
+    title = ""
+    selections = []
+
+    sel2 = df.loc[df["true_weak?"] == False]["acc_test"]
+    selections.append((sel2, "No Weak: " + str(len(sel2))))
+    for s in subsets:
+        sel1 = df.loc[df[param].isin(s) & df["true_weak?"] == True]["acc_test"]
+
+        diff = calculate_difference(sel1, sel2)
+
+        if one_vs_rest_params:
+            selections.append((sel1, str(s) + ": " + str(len(sel1))))
+
+        if diff > highest_diff:
+            print(str(s), "\t\t\t", diff)
+            title = " kde density plot\nSelection: {} \n Mean Diff: {}".format(
+                str(s), diff
+            )
+            highest_diff = diff
+            highest_sel1 = sel1
+            highest_sel2 = sel2
+            if type(next(iter(s))) == np.float64:
+                s = "{}-{}".format(min(s), max(s))
+                s2 = "Rest"
+            highest_s = str(s)
+
+    if not one_vs_rest_params:
+        selections.append((highest_sel1, highest_s + ": " + str(len(highest_sel1))))
+
+    if save:
+        compare_two_distributions(
+            selections,
+            axvline=True,
+            title="{:.2%}".format(highest_diff) + "\n" + param + "\n" + highest_s,
             save="True",
         )
     return highest_diff, highest_sel1, highest_sel2, title
@@ -247,8 +264,6 @@ range_params = [
     "uncertainty_recommendation_ratio",
     "cluster_recommendation_ratio_labeled_unlabeled",
     "cluster_recommendation_minimum_cluster_unity_size",
-    "with_uncertainty_recommendation",
-    "with_cluster_recommendation",
     "uncertainty_recommendation_certainty_threshold",
 ]
 
@@ -257,9 +272,37 @@ one_vs_rest_params = [
     "sampling",
     "interesting?",
     "true_weak?",
+    "with_uncertainty_recommendation",
+    "with_cluster_recommendation",
 ]
-for param in one_vs_rest_params:
-    find_best_distribution(param, True, True)
 
-for param in range_params:
-    find_best_distribution(param, True)
+
+hyper_test_params = {
+    "cluster": [
+        "cluster_recommendation_ratio_labeled_unlabeled",
+        "cluster_recommendation_minimum_cluster_unity_size",
+        #  "uncertainty_recommendation_ratio",
+        "uncertainty_recommendation_certainty_threshold",
+        "sampling",
+        #  -> für alle cluster der Reihe nach die besten Kombis der Parameter durchsuchen (tiefensuche), aber early pruning wenn die selection weniger als 10 Elemente enthält?
+        #  -> ist es ein Unterschied ob ich zuerst nach sampling, und dann nach uncertainty_recommendation_certainty_threshold prune, oder anders herum? Wenn ja -> beides probieren…
+        #  ---> Gleichzeitig nach ganzer parameterkombinationen einschränken, also nicht verschachtelte Forschleifen und early pruning? gucken ob das Sinn macht, oder ob die ranges dann doch mit early pruning sortiert werden sollten (also zuerst mit maximalst größer range anfangen, dann immer kleiner werden und gucken ob es noch elemente gibt, wenn ni frühzeitig abbrechen)
+        #  ---> kann ich davon ausgehen, dass wenn Einschränkung auf kleineren Suchraum KEINE Verbesserung bringt, ich alle subranges davon bleiben lassen kann???? wenn ja, damit early pruning betreiben!
+    ],
+    "sampling": [
+        "cluster",
+        #  "uncertainty_recommendation_ratio",
+        "cluster_recommendation_ratio_labeled_unlabeled",
+        "cluster_recommendation_minimum_cluster_unity_size",
+        "uncertainty_recommendation_certainty_threshold",
+    ],
+}
+
+for param in hyper_test_params:
+    hyper_test_params(param)
+
+#  for param in one_vs_rest_params:
+#  find_best_distribution(param, True, True)
+
+#  for param in range_params:
+#  find_best_distribution(param, True)
