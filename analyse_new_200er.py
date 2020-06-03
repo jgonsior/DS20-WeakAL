@@ -108,6 +108,7 @@ if file == "old_results.pickle":
 def compare_two_distributions(
     selection_list, axvline=False, save=False, title="", **kwargs,
 ):
+    sns.set(rc={"figure.figsize": (11.7, 8.27)})
     for selection, label in selection_list:
         ax = sns.kdeplot(selection, label=label, **kwargs)
 
@@ -270,6 +271,46 @@ def find_multiple_hyper_param_combinations(params):
 
 def get_distributions_for_interesting(params):
     print(params)
+    baseline = df.loc[df["true_weak?"] == False]["acc_test"]
+    true_interesting = df.loc[df["interesting?"] == True]["acc_test"]
+    false_interesting = df.loc[df["interesting?"] == False]["acc_test"]
+    highest_diff = calculate_difference(true_interesting, baseline)
+    compare_two_distributions(
+        [
+            (baseline, "No Weak: {:>4} {:.2%}".format(len(baseline), baseline.mean())),
+            (
+                true_interesting,
+                "Weak and improvement:{:>4} {:.2%}".format(
+                    len(true_interesting), true_interesting.mean()
+                ),
+            ),
+            (
+                false_interesting,
+                "Weak and no improvement:{:>4} {:.2%}".format(
+                    len(false_interesting), false_interesting.mean()
+                ),
+            ),
+        ],
+        axvline=True,
+        title='Difference mean "Weak and improvement" to "No Weak ":{:.2%}'.format(
+            highest_diff
+        ),
+        save=True,
+    )
+
+    true_interesting = df.loc[df["interesting?"] == True]
+    for param in params[0]:
+        selections = []
+
+        # für die balken mehrerer zusammen nehmen
+        for value in param_dist[param.upper()]:
+            sel = true_interesting.loc[true_interesting[param] == value]["acc_test"]
+            selections.append(
+                (sel, "{:>5} : {:>6} - {:.2%}".format(value, len(sel), sel.mean()))
+            )
+        compare_two_distributions(
+            selections, axvline=True, title=param, save=True,
+        )
 
 
 range_params = [
@@ -293,9 +334,9 @@ hyper_test_params = [
     [
         "sampling",
         "cluster",
-        #  "cluster_recommendation_ratio_labeled_unlabeled",
+        "cluster_recommendation_ratio_labeled_unlabeled",
         "uncertainty_recommendation_certainty_threshold",
-        #  "cluster_recommendation_minimum_cluster_unity_size",
+        "cluster_recommendation_minimum_cluster_unity_size",
         #  "uncertainty_recommendation_ratio",
     ],
     #  [
