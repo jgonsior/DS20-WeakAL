@@ -1,5 +1,5 @@
 from queue import Queue
-from itertools import chain, combinations
+from itertools import chain, combinations, permutations
 import pickle
 from tabulate import tabulate
 from IPython.core.display import display, HTML
@@ -270,7 +270,6 @@ def find_multiple_hyper_param_combinations(params):
 
 
 def get_distributions_for_interesting(params):
-    print(params)
     baseline = df.loc[df["true_weak?"] == False]["acc_test"]
     true_interesting = df.loc[df["interesting?"] == True]["acc_test"]
     false_interesting = df.loc[df["interesting?"] == False]["acc_test"]
@@ -299,6 +298,26 @@ def get_distributions_for_interesting(params):
     )
 
     true_interesting = df.loc[df["interesting?"] == True]
+
+    #  für alpha, beta, gamma jointplots über ganzen Wertebereich, mit acc_test als highlight farbe?
+    cmap = sns.cubehelix_palette(start=0.0, rot=-0.75, as_cmap=True)
+    #  cmap = sns.color_palette("cubehelix")
+    true_interesting["acc_test"] = true_interesting["acc_test"].multiply(100)
+    for a, b in permutations(params[0], 2):
+        sns.scatterplot(
+            x=a,
+            y=b,
+            data=true_interesting,
+            palette=cmap,
+            #  sizes=[45, 60, 75, 90],
+            hue="acc_test",
+            size="acc_test",
+        )
+        plt.tight_layout()
+        plt.savefig("plots/{}_{}".format(a, b))
+        #  plt.show()
+        plt.clf()
+
     for param in params[0]:
         selections = []
 
