@@ -299,25 +299,6 @@ def get_distributions_for_interesting(params):
 
     true_interesting = df.loc[df["interesting?"] == True]
 
-    #  für alpha, beta, gamma jointplots über ganzen Wertebereich, mit acc_test als highlight farbe?
-    cmap = sns.cubehelix_palette(start=0.0, rot=-0.75, as_cmap=True)
-    #  cmap = sns.color_palette("cubehelix")
-    true_interesting["acc_test"] = true_interesting["acc_test"].multiply(100)
-    for a, b in permutations(params[0], 2):
-        sns.scatterplot(
-            x=a,
-            y=b,
-            data=true_interesting,
-            palette=cmap,
-            #  sizes=[45, 60, 75, 90],
-            hue="acc_test",
-            size="acc_test",
-        )
-        plt.tight_layout()
-        plt.savefig("plots/{}_{}".format(a, b))
-        #  plt.show()
-        plt.clf()
-
     for param in params[0]:
         selections = []
 
@@ -330,6 +311,43 @@ def get_distributions_for_interesting(params):
         compare_two_distributions(
             selections, axvline=True, title=param, save=True,
         )
+
+    #  für alpha, beta, gamma jointplots über ganzen Wertebereich, mit acc_test als highlight farbe?
+    cmap = sns.cubehelix_palette(start=0.0, rot=-0.75, as_cmap=True)
+    #  cmap = sns.color_palette("cubehelix")
+    true_interesting["acc_test"] = true_interesting["acc_test"].multiply(100)
+    for x, y in combinations(params[0], 2):
+        if x in ["sampling", "cluster"] or y in ["sampling", "cluster"]:
+            sns.scatterplot(
+                x=x,
+                y=y,
+                data=true_interesting,
+                palette=cmap,
+                #  sizes=[45, 60, 75, 90],
+                hue="acc_test",
+                size="acc_test",
+            )
+        else:
+            fig = plt.figure()
+            ax = fig.gca(projection="3d")
+
+            surf = ax.plot_trisurf(
+                true_interesting[x],
+                true_interesting[y],
+                true_interesting["acc_test"],
+                #  cmap=plt.cm.viridis,
+                cmap=plt.cm.jet,
+                linewidth=0.2,
+            )
+            ax.set_xlabel(x)
+            ax.set_ylabel(y)
+            ax.set_zlabel("Test Accuracy")
+
+            fig.colorbar(surf, shrink=0.5, aspect=5)
+        plt.tight_layout()
+        plt.savefig("plots/{}_{}".format(x, y))
+        #  plt.show()
+        plt.clf()
 
 
 range_params = [
