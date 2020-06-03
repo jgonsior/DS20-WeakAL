@@ -1,9 +1,11 @@
+from queue import Queue
 from itertools import chain, combinations
 import pickle
 from tabulate import tabulate
 from IPython.core.display import display, HTML
 import pandas as pd
-import seaborn as sns, numpy as np
+import seaborn as sns
+import numpy as np
 from scipy.stats import norm
 import matplotlib.pyplot as plt
 from sklearn.base import BaseEstimator
@@ -208,39 +210,66 @@ def recursive_hyper_search(param_list, sel, baseline, df, sel_dict):
         score = calculate_difference(selection, baseline)
         #  print(sel_dict, score)
         return score, sel_dict, len(selection)
-    max_score = np.float("-inf")
+    max_score = last_score = np.float("-inf")
     max_sel = None
     max_len = None
-    for value in set(param_dist[param_list[0].upper()]):
+    lower_bound_reached = upper_bound_reached = False
 
+    original_params = param_dist[param_list[0].upper()]
+    q = Queue()
+
+    if isinstance(original_params[0], np.float64):
+        q.put((min(original_params), max(original_params)))
+    else:
+        for subset in powerset(original_params):
+            q.put(set(subset))
+    while not q.empty():
+        value = q.get(block=False)
         #  print("{}: {}".format(param_list[0], value))
-        sel_new = sel & (df[param_list[0]] == value)
-        #  print(sel)
+        if type(value) == set:
+            sel_new = sel & (df[param_list[0]].isin(value))
+        else:
+            lower_bound, upper_bound = value
+            sel_new = (
+                sel
+                & (df[param_list[0]] >= lower_bound)
+                & (df[param_list[0]] <= upper_bound)
+            )
+
         sel_dict[param_list[0]] = value
         score, best_sel, length = recursive_hyper_search(
             param_list[1:], sel_new, baseline, df, sel_dict
         )
+        #  print("{} {}".format(last_score, score))
         if score > max_score:
-            #  print(score)
-            #  print(sel_dict)
             max_score = score
             max_sel = sel_dict.copy()
             max_len = length
+        if not upper_bound_reached:
+            if score + 0.01 >= last_score and type(value) != set:
+                q.put((lower_bound + 0.01, upper_bound))
+            else:
+                upper_bound_reached = True
+        if not lower_bound_reached:
+            if score + 0.01 >= last_score and type(value) != set:
+                q.put((lower_bound, upper_bound - 0.01))
+            else:
+                lower_bound_reached = True
+
+        last_score = score
+
     return max_score, max_sel, max_len
 
 
-#  -> für alle cluster der Reihe nach die besten Kombis der Parameter durchsuchen (tiefensuche), aber early pruning wenn die selection weniger als 10 Elemente enthält?
-#  -> ist es ein Unterschied ob ich zuerst nach sampling, und dann nach uncertainty_recommendation_certainty_threshold prune, oder anders herum? Wenn ja -> beides probieren…
-#  ---> Gleichzeitig nach ganzer parameterkombinationen einschränken, also nicht verschachtelte Forschleifen und early pruning? gucken ob das Sinn macht, oder ob die ranges dann doch mit early pruning sortiert werden sollten (also zuerst mit maximalst größer range anfangen, dann immer kleiner werden und gucken ob es noch elemente gibt, wenn ni frühzeitig abbrechen)
-#  ---> kann ich davon ausgehen, dass wenn Einschränkung auf kleineren Suchraum KEINE Verbesserung bringt, ich alle subranges davon bleiben lassen kann???? wenn ja, damit early pruning betreiben!
-# ja, kann ich :)
 def find_multiple_hyper_param_combinations(params):
     baseline = df.loc[df["true_weak?"] == False]["acc_test"]
 
     sel = df["true_weak?"] == True
     print(recursive_hyper_search(params, sel, baseline, df, {}))
-    # generate search grid
-    #  print("{}-{}: {:.2%}".format(current_param, value, diff))
+
+
+def get_distributions_for_interesting(params):
+    print(params)
 
 
 range_params = [
@@ -262,10 +291,10 @@ one_vs_rest_params = [
 
 hyper_test_params = [
     [
-        "cluster",
         "sampling",
+        "cluster",
+        #  "cluster_recommendation_ratio_labeled_unlabeled",
         "uncertainty_recommendation_certainty_threshold",
-        "cluster_recommendation_ratio_labeled_unlabeled",
         #  "cluster_recommendation_minimum_cluster_unity_size",
         #  "uncertainty_recommendation_ratio",
     ],
@@ -279,8 +308,11 @@ hyper_test_params = [
     #  ],
 ]
 
-for params in hyper_test_params:
-    find_multiple_hyper_param_combinations(params)
+get_distributions_for_interesting(hyper_test_params)
+
+
+#  for params in hyper_test_params:
+#      find_multiple_hyper_param_combinations(params)
 
 #  for param in one_vs_rest_params:
 #      find_best_distribution(param, True, True)
