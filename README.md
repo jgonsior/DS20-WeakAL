@@ -14,7 +14,8 @@ You can pass along all possible hyper parameters as CLI arguments.
 This file was used for the extensive hyper parameter combination search.
 It can be configured using CLI arguments, and can run as a fully random search or as an evolutionary algorithm.
 For the random search code from SKlearn is abused with a list of dataset names as X instead of a dataframe containing the already loaded data.
-The results are written out to a postgresql database.
+The results are written out to a csv file.
+
 ## Code for the experiments of the paper
 ### display_random_search_results.py
 File `create_latex_plots.sh` shows some example CLI arguments for `display_random_search_results.py` which were used to create almost all plots in the paper.
