@@ -1,0 +1,30 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pylint = "*"
+pydocstyle = "*"
+rope = "*"
+black = "==19.10b0"
+
+[packages]
+pandas = "*"
+matplotlib = "*"
+sklearn = "*"
+numpy = "*"
+mlens = "*"
+openpyxl = "*"
+sklearn-deap = "*"
+peewee = "*"
+json-tricks = "*"
+psycopg2 = ">2.5"
+altair = "*"
+altair-viewer = "*"
+tabulate = "*"
+jupyter = "*"
+nb-black = "*"
+
+[requires]
+python_version = "3"
