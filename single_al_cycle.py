@@ -57,7 +57,7 @@ config = standard_config(
             ["--ALLOW_RECOMMENDATIONS_AFTER_STOP"],
             {"action": "store_true", "default": False},
         ),
-        (["--DB_NAME_OR_TYPE"], {"default": "sqlite"}),
+        (["--OUTPUT_DIRECTORY"], {"default": "tmp/"}),
         (["--HYPER_SEARCH_TYPE"], {"default": "random"}),
         (["--USER_QUERY_BUDGET_LIMIT"], {"type": float, "default": 200}),
     ]

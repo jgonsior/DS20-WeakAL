@@ -1,9 +1,15 @@
+import csv
+from pathlib import Path
+import pandas as pd
+from collections import defaultdict
 import datetime
 import hashlib
 import math
 import operator
 import threading
 from timeit import default_timer as timer
+from sklearn.metrics import accuracy_score
+from sklearn.ensemble import RandomForestClassifier
 
 #  import np.random.distributions as dists
 from json_tricks import dumps
@@ -17,14 +23,14 @@ from .cluster_strategies import (
 )
 from .dataStorage import DataStorage
 from .experiment_setup_lib import (
-    ExperimentResult,
     calculate_global_score,
-    classification_report_and_confusion_matrix,
-    get_db,
+    conf_matrix_and_acc,
     get_param_distribution,
     init_logger,
 )
 from .sampling_strategies import BoundaryPairSampler, RandomSampler, UncertaintySampler
+
+from .weak_supervision import WeakCert, WeakClust
 
 
 def train_al(
@@ -71,6 +77,37 @@ def train_al(
 
     cluster_strategy.set_data_storage(dataset_storage, hyper_parameters["N_JOBS"])
 
+    classifier = RandomForestClassifier(
+        n_jobs=hyper_parameters["N_JOBS"], random_state=hyper_parameters["RANDOM_SEED"]
+    )
+
+    weak_supervision_label_sources = []
+
+    if hyper_parameters["WITH_CLUSTER_RECOMMENDATION"]:
+        weak_supervision_label_sources.append(
+            WeakClust(
+                dataset_storage,
+                MINIMUM_CLUSTER_UNITY_SIZE=hyper_parameters[
+                    "CLUSTER_RECOMMENDATION_MINIMUM_CLUSTER_UNITY_SIZE"
+                ],
+                MINIMUM_RATIO_LABELED_UNLABELED=hyper_parameters[
+                    "CLUSTER_RECOMMENDATION_RATIO_LABELED_UNLABELED"
+                ],
+            )
+        )
+
+    if hyper_parameters["WITH_UNCERTAINTY_RECOMMENDATION"]:
+        weak_supervision_label_sources.append(
+            WeakCert(
+                dataset_storage,
+                CERTAINTY_THRESHOLD=hyper_parameters[
+                    "UNCERTAINTY_RECOMMENDATION_CERTAINTY_THRESHOLD"
+                ],
+                CERTAINTY_RATIO=hyper_parameters["UNCERTAINTY_RECOMMENDATION_RATIO"],
+                clf=classifier,
+            )
+        )
+
     active_learner_params = {
         "dataset_storage": dataset_storage,
         "cluster_strategy": cluster_strategy,
@@ -79,6 +116,8 @@ def train_al(
         "NR_LEARNING_ITERATIONS": hyper_parameters["NR_LEARNING_ITERATIONS"],
         "NR_QUERIES_PER_ITERATION": hyper_parameters["NR_QUERIES_PER_ITERATION"],
         "oracle": oracle,
+        "clf": classifier,
+        "weak_supervision_label_sources": weak_supervision_label_sources,
     }
 
     if hyper_parameters["SAMPLING"] == "random":
@@ -126,20 +165,13 @@ def eval_al(
     active_learner,
     hyper_parameters,
     dataset_name,
+    Y_train_al,
+    X_train,
+    Y_train,
 ):
     hyper_parameters[
         "amount_of_user_asked_queries"
     ] = active_learner.amount_of_user_asked_queries
-
-    classification_report_and_confusion_matrix_test = classification_report_and_confusion_matrix(
-        trained_active_clf_list[0], X_test, Y_test, dataset_storage.label_encoder
-    )
-    classification_report_and_confusion_matrix_train = classification_report_and_confusion_matrix(
-        trained_active_clf_list[0],
-        dataset_storage.X_train_labeled,
-        dataset_storage.Y_train_labeled,
-        dataset_storage.label_encoder,
-    )
 
     # normalize by start_set_size
     percentage_user_asked_queries = (
@@ -147,7 +179,7 @@ def eval_al(
         - hyper_parameters["amount_of_user_asked_queries"]
         / hyper_parameters["LEN_TRAIN_DATA"]
     )
-    test_acc = classification_report_and_confusion_matrix_test[0]["accuracy"]
+    test_acc = metrics_per_al_cycle["test_acc"][-1]
 
     # score is harmonic mean
     score = (
@@ -157,77 +189,30 @@ def eval_al(
         / (percentage_user_asked_queries + test_acc)
     )
 
-    amount_of_labels = len(label_encoder.classes_)
+    amount_of_all_labels = len(Y_train_al)
 
-    acc_with_weak_values = [
-        metrics_per_al_cycle["test_data_metrics"][0][i][0]["accuracy"]
-        for i in range(0, len(metrics_per_al_cycle["query_length"]))
-    ]
-    roc_auc_with_weak_values = metrics_per_al_cycle["all_unlabeled_roc_auc_scores"]
-    acc_with_weak_amount_of_labels = (
-        roc_auc_with_weak_amount_of_labels
-    ) = metrics_per_al_cycle["query_length"]
-    acc_with_weak_amount_of_labels_norm = roc_auc_with_weak_amount_of_labels_norm = [
-        math.log2(m) for m in acc_with_weak_amount_of_labels
-    ]
+    # calculate accuracy for Random Forest only on oracle human expert queries
 
-    # no recommendation indices
-    no_weak_indices = [
-        i
-        for i, j in enumerate(metrics_per_al_cycle["recommendation"])
-        if j == "A" or j == "G"
-    ]
+    active_rf = RandomForestClassifier(random_state=hyper_parameters["RANDOM_SEED"])
+    ys_oracle_a = Y_train_al.loc[Y_train_al.source == "A"]
+    ys_oracle_g = Y_train_al.loc[Y_train_al.source == "G"]
+    ys_oracle = pd.concat([ys_oracle_g, ys_oracle_a])
 
-    if no_weak_indices == [0]:
-        no_weak_indices.append(0)
+    active_rf.fit(X_train.iloc[ys_oracle.index], ys_oracle[0])
+    acc_test_oracle = accuracy_score(Y_test, active_rf.predict(X_test))
 
-    acc_no_weak_values = operator.itemgetter(*no_weak_indices)(acc_with_weak_values)
-    roc_auc_no_weak_values = operator.itemgetter(*no_weak_indices)(
-        roc_auc_with_weak_values
-    )
-    acc_no_weak_amount_of_labels = (
-        roc_auc_no_weak_amount_of_labels
-    ) = operator.itemgetter(*no_weak_indices)(acc_with_weak_amount_of_labels)
-    acc_no_weak_amount_of_labels_norm = (
-        roc_auc_no_weak_amount_of_labels_norm
-    ) = operator.itemgetter(*no_weak_indices)(acc_with_weak_amount_of_labels_norm)
-
-    global_score_no_weak_roc_auc = calculate_global_score(
-        roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels, amount_of_labels
-    )
-    global_score_no_weak_roc_auc_norm = calculate_global_score(
-        roc_auc_no_weak_values, roc_auc_no_weak_amount_of_labels_norm, amount_of_labels
-    )
-    global_score_no_weak_acc = calculate_global_score(
-        acc_no_weak_values, acc_no_weak_amount_of_labels, amount_of_labels
-    )
-    global_score_no_weak_acc_norm = calculate_global_score(
-        acc_no_weak_values, acc_no_weak_amount_of_labels_norm, amount_of_labels
-    )
-
-    global_score_with_weak_roc_auc = calculate_global_score(
-        roc_auc_with_weak_values, roc_auc_with_weak_amount_of_labels, amount_of_labels
-    )
-    global_score_with_weak_roc_auc_norm = calculate_global_score(
-        roc_auc_with_weak_values,
-        roc_auc_with_weak_amount_of_labels_norm,
-        amount_of_labels,
-    )
-    global_score_with_weak_acc = calculate_global_score(
-        acc_with_weak_values, acc_with_weak_amount_of_labels, amount_of_labels
-    )
-    global_score_with_weak_acc_norm = calculate_global_score(
-        acc_with_weak_values, acc_with_weak_amount_of_labels_norm, amount_of_labels
-    )
+    # save labels
+    #  Y_train_al.to_pickle(
+    #  "pickles/" + str(len(Y_train_al)) + "_" + param_list_id + ".pickle"
+    #  )
 
     # calculate based on params a unique id which should be the same across all similar cross validation splits
     param_distribution = get_param_distribution(**hyper_parameters)
     unique_params = ""
     for k in param_distribution.keys():
         unique_params += str(hyper_parameters[k])
-
     param_list_id = hashlib.md5(unique_params.encode("utf-8")).hexdigest()
-    db = get_db(db_name_or_type=hyper_parameters["DB_NAME_OR_TYPE"])
+    #  db = get_db(db_name_or_type=hyper_parameters["DB_NAME_OR_TYPE"])
 
     hyper_parameters["DATASET_NAME"] = dataset_name
     print(hyper_parameters.keys())
@@ -236,43 +221,48 @@ def eval_al(
 
     # lower case all parameters for nice values in database
     hyper_parameters = {k.lower(): v for k, v in hyper_parameters.items()}
-
-    experiment_result = ExperimentResult(
-        **hyper_parameters,
-        metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),
-        fit_time=str(fit_time),
-        confusion_matrix_test=dumps(
-            classification_report_and_confusion_matrix_test[1], allow_nan=True
-        ),
-        confusion_matrix_train=dumps(
-            classification_report_and_confusion_matrix_train[1], allow_nan=True
-        ),
-        classification_report_test=dumps(
-            classification_report_and_confusion_matrix_test[0], allow_nan=True
-        ),
-        classification_report_train=dumps(
-            classification_report_and_confusion_matrix_train[0], allow_nan=True
-        ),
-        acc_train=classification_report_and_confusion_matrix_train[0]["accuracy"],
-        acc_test=classification_report_and_confusion_matrix_test[0]["accuracy"],
-        fit_score=score,
-        roc_auc=metrics_per_al_cycle["all_unlabeled_roc_auc_scores"][-1],
-        param_list_id=param_list_id,
-        thread_id=threading.get_ident(),
-        end_time=datetime.datetime.now(),
-        global_score_no_weak_roc_auc=global_score_no_weak_roc_auc,
-        global_score_no_weak_roc_auc_norm=global_score_no_weak_roc_auc_norm,
-        global_score_no_weak_acc=global_score_no_weak_acc,
-        global_score_no_weak_acc_norm=global_score_no_weak_acc_norm,
-        global_score_with_weak_roc_auc=global_score_with_weak_roc_auc,
-        global_score_with_weak_roc_auc_norm=global_score_with_weak_roc_auc_norm,
-        global_score_with_weak_acc=global_score_with_weak_acc,
-        global_score_with_weak_acc_norm=global_score_with_weak_acc_norm,
-        global_score_with_weak_roc_auc_old=0,
-        global_score_with_weak_roc_auc_norm_old=0,
+    hyper_parameters["fit_time"] = fit_time
+    hyper_parameters["metrics_per_al_cycle"] = dumps(
+        metrics_per_al_cycle, allow_nan=True
     )
-    experiment_result.save()
-    db.close()
+    hyper_parameters["acc_train"] = metrics_per_al_cycle["train_acc"][-1]
+    hyper_parameters["acc_test"] = metrics_per_al_cycle["test_acc"][-1]
+    hyper_parameters["acc_test_oracle"] = acc_test_oracle
+    hyper_parameters["fit_score"] = score
+    hyper_parameters["param_list_id"] = param_list_id
+    hyper_parameters["thread_id"] = threading.get_ident()
+    hyper_parameters["end_time"] = datetime.datetime.now()
+    hyper_parameters["amount_of_all_labels"] = amount_of_all_labels
+
+    # save hyper parameter results in csv file
+    output_hyper_parameter_file = Path(
+        hyper_parameters["output_directory"] + "/hyper_parameters.csv"
+    )
+    if not output_hyper_parameter_file.is_file():
+        output_hyper_parameter_file.touch()
+        with output_hyper_parameter_file.open("a") as f:
+            csv_writer = csv.DictWriter(f, fieldnames=hyper_parameters.keys())
+            csv_writer.writeheader()
+
+    with output_hyper_parameter_file.open("a") as f:
+        csv_writer = csv.DictWriter(f, fieldnames=hyper_parameters.keys())
+        csv_writer.writerow(hyper_parameters)
+
+    # save metrics_per_al_cycle in pickle file
+    #      metrics_per_al_cycle=dumps(metrics_per_al_cycle, allow_nan=True),
+    #      fit_time=str(fit_time),
+    #      acc_train=metrics_per_al_cycle["train_acc"][-1],
+    #      acc_test=metrics_per_al_cycle["test_acc"][-1],
+    #      acc_test_oracle=acc_test_oracle,
+    #      fit_score=score,
+    #      param_list_id=param_list_id,
+    #      thread_id=threading.get_ident(),
+    #      end_time=datetime.datetime.now(),
+    #      amount_of_all_labels=amount_of_all_labels,
+    #  )
+    #  experiment_result.save()
+    #  db.close()
+
     return score
 
 
@@ -295,13 +285,12 @@ def train_and_eval_dataset(
     hyper_parameters,
     oracle,
 ):
-    init_logger("log.txt")
     label_encoder = LabelEncoder()
     label_encoder.fit(label_encoder_classes)
 
     (
         trained_active_clf_list,
-        Y_train,
+        Y_train_al,
         fit_time,
         metrics_per_al_cycle,
         dataStorage,
@@ -330,5 +319,8 @@ def train_and_eval_dataset(
         active_learner,
         hyper_parameters,
         dataset_name,
+        Y_train_al,
+        X_train,
+        Y_train,
     )
-    return fit_score
+    return fit_score, Y_train_al

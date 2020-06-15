@@ -20,7 +20,7 @@ class UncertaintySampler(ActiveLearner):
         )
         # recieve predictions and probabilitys
         # for all possible classifications of CLASSIFIER
-        Y_temp_proba = self.clf_list[0].predict_proba(
+        Y_temp_proba = self.clf.predict_proba(
             self.data_storage.X_train_unlabeled.loc[X_train_unlabeled_indices]
         )
 

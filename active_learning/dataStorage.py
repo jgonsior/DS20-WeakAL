@@ -202,9 +202,3 @@ class DataStorage:
             for k, v in self.X_train_unlabeled_cluster_indices.items()
             if len(v) != 0
         }
-        #  print out the amount of stored data in X_train_unlabeled_cluster_indices
-        #  log_it(
-        #  len(
-        #  list(
-        #  chain(*list(
-        #  self.X_train_unlabeled_cluster_indices.values())))))
