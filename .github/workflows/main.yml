@@ -1,17 +1,14 @@
-- name: Dependabot Auto Merge
-  # You may pin to the exact commit or the version.
-  # uses: ahmadnassri/action-dependabot-auto-merge@45fc124d949b19b6b8bf6645b6c9d55f4f9ac61a
-  uses: ahmadnassri/action-dependabot-auto-merge@v2.6.6
-  with:
-    # The GitHub token used to merge the pull-request
-    github-token: 
-    # Path to configuration file (relative to root)
-    config: # optional, default is .github/auto-merge.yml
-    # The command to pass to Dependabot as a comment
-    command: # optional, default is merge
-    # The bot to tag in approve/comment message. You can use this to create your own merge bot.
-    botName: # optional, default is dependabot
-    # Auto-approve pull-requests
-    approve: # optional, default is true
-    # The version comparison target (major, minor, patch). This is ignored if .github/auto-merge.yml exists
-    target: # optional, default is patch
+name: auto-merge
+
+on:
+  pull_request:
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ahmadnassri/action-dependabot-auto-merge@v2
+        with:
+          target: minor
+          github-token: ${{ secrets.mytoken }}
